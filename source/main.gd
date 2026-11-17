@@ -2509,10 +2509,11 @@ func load_chars() -> void:
 
 # 젤다처럼 빛과 그림자가 또렷하게 나뉘는 셀 셰이딩 + 가장자리 빛
 var toon_cache := {}
+const CHAR_TOON := false   # true 로 바꾸면 셀 셰이딩
 
 func toon_of(m: Material) -> Material:
-	if m == null:
-		return null
+	if m == null or not CHAR_TOON:
+		return m
 	if toon_cache.has(m):
 		return toon_cache[m]
 	var t: StandardMaterial3D
@@ -2608,7 +2609,7 @@ func pose_person(body: Node3D, swing: float, arm_up: float) -> void:
 		var nodes: Dictionary = body.get_meta("model_parts")
 		for side in ["L", "R"]:
 			var sx := -1.0 if side == "L" else 1.0
-			var leg := swing * 0.5 * sx
+			var leg := swing * 0.65 * sx
 			if nodes.has("Leg" + side):
 				(nodes["Leg" + side] as Node3D).rotation.x = lerpf(leg, -0.55, arm_up)
 			if nodes.has("Shin" + side):
