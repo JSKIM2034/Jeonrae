@@ -1028,6 +1028,7 @@ func make_village_materials() -> void:
 	lattice_mat.roughness = 1.0
 	basket_mat = make_tex_material(Color(1, 1, 1), make_weave_tex(), 2.2)
 	plaster_tex = make_noise_tex(Color(0.88, 0.86, 0.82), Color(1, 1, 1), 0.035, 23)
+	load_rocks()
 
 func plaster_mat(c: Color) -> StandardMaterial3D:
 	return make_tex_material(c, plaster_tex, 0.5)
@@ -1211,25 +1212,32 @@ func thatch_roof_mat(roof: Color) -> StandardMaterial3D:
 	tm.roughness = 1.0
 	return tm
 
-func make_choga_from_model(house: Node3D, size: Vector3, wall: Color, roof: Color) -> bool:
-	if not choga_tried:
-		choga_tried = true
-		if ResourceLoader.exists("res://models/choga.glb"):
-			choga_scene = load("res://models/choga.glb")
-	if choga_scene == null:
+var house_scenes := {}
+
+func make_choga_from_model(house: Node3D, size: Vector3, wall: Color, roof: Color, file: String = "choga", base: Vector3 = Vector3(4.5, 2.8, 3.5)) -> bool:
+	if not house_scenes.has(file):
+		house_scenes[file] = null
+		if ResourceLoader.exists("res://models/%s.glb" % file):
+			house_scenes[file] = load("res://models/%s.glb" % file)
+	if house_scenes[file] == null:
 		return false
-	var inst := choga_scene.instantiate() as Node3D
-	inst.scale = Vector3(size.x / 4.5, size.y / 2.8, size.z / 3.5)
+	var inst := (house_scenes[file] as PackedScene).instantiate() as Node3D
+	inst.scale = Vector3(size.x / base.x, size.y / base.y, size.z / base.z)
 	house.add_child(inst)
 	var paper := make_color(Color(0.98, 0.95, 0.86))
 	paper.emission_enabled = true
 	paper.emission = Color(1.0, 0.95, 0.8)
 	paper.emission_energy_multiplier = 0.12
+	var tile_base := make_color(roof.darkened(0.25))
+	tile_base.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var map := {
 		"Thatch": thatch_roof_mat(roof), "ThatchDark": thatch_dark_mat, "Plaster": plaster_mat(wall),
 		"Wood": wood_mat, "DarkWood": dark_wood_mat, "Plank": plank_mat, "Stone": stone_mat, "Paper": paper,
 		"Rope": make_color(Color(0.5, 0.37, 0.2)), "Clay": make_tex_material(Color(0.66, 0.52, 0.38), plaster_tex, 0.6),
 		"Straw": make_tex_material(Color(0.95, 0.82, 0.52), thatch_tex, 1.4),
+		"Tile": glossy_mat(Color(minf(roof.r * 1.35, 1.0), minf(roof.g * 1.35, 1.0), minf(roof.b * 1.35, 1.0))),
+		"TileBase": tile_base, "Lime": make_color(Color(0.95, 0.94, 0.9)),
+		"Paint": make_color(Color(0.32, 0.58, 0.48)), "PaintRed": make_color(Color(0.72, 0.28, 0.22)),
 	}
 	for node in inst.find_children("*", "MeshInstance3D", true, false):
 		var mi := node as MeshInstance3D
@@ -1245,7 +1253,12 @@ func make_house(pos: Vector3, size: Vector3, wall: Color, roof: Color, style: St
 	house.position = pos
 	add_child(house)
 	house_rects.append(Rect2(pos.x - size.x / 2.0 - 0.7, pos.z - size.z / 2.0 - 0.7, size.x + 1.4, size.z + 2.6))
-	if style == "thatch" and make_choga_from_model(house, size, wall, roof):
+	var modeled := false
+	if style == "thatch":
+		modeled = make_choga_from_model(house, size, wall, roof)
+	else:
+		modeled = make_choga_from_model(house, size, wall, roof, "giwa", Vector3(9, 4, 6))
+	if modeled:
 		var mcol := CollisionShape3D.new()
 		var mshape := BoxShape3D.new()
 		mshape.size = size
@@ -2030,19 +2043,28 @@ func make_surface_materials() -> void:
 func make_tuft_mesh() -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var blades := [[Vector2(-0.05, 0.0), 0.5, 12.0], [Vector2(0.06, 0.03), 0.38, -16.0], [Vector2(0.0, -0.05), 0.3, 6.0]]
-	for b in blades:
-		var o: Vector2 = b[0]
-		var h: float = b[1]
-		var lean := deg_to_rad(b[2])
-		var base_c := Color(0.55, 0.68, 0.5)
-		var tip := Vector3(o.x + sin(lean) * h * 0.5, h, o.y)
-		var corners := [Vector3(o.x - 0.045, 0, o.y), Vector3(o.x + 0.045, 0, o.y), Vector3(o.x, 0, o.y + 0.045)]
-		for i in 3:
-			var a: Vector3 = corners[i]
-			var c: Vector3 = corners[(i + 1) % 3]
-			for v in [[a, base_c], [c, base_c], [tip, Color(1, 1, 1)]]:
-				st.set_normal(Vector3.UP)
+	var r := RandomNumberGenerator.new()
+	r.seed = 4
+	for blade in 6:
+		var ang := blade * TAU / 6.0 + r.randf_range(-0.35, 0.35)
+		var dir := Vector3(cos(ang), 0, sin(ang))
+		var side := Vector3(-dir.z, 0, dir.x)
+		var h := r.randf_range(0.26, 0.52)
+		var lean := r.randf_range(0.25, 0.6)
+		var base := dir * r.randf_range(0.0, 0.05)
+		var w := r.randf_range(0.03, 0.045)
+		var pts := []
+		for k in 3:
+			var t := k / 2.0
+			var center := base + dir * lean * h * t * t + Vector3(0, h * t, 0)
+			var hw := w * (1.0 - t * 0.92)
+			var c := Color(0.5, 0.6, 0.45).lerp(Color(1.0, 1.0, 0.9), t)
+			pts.append([center - side * hw, center + side * hw, c])
+		for k in 2:
+			var p0: Array = pts[k]
+			var p1: Array = pts[k + 1]
+			for v in [[p0[0], p0[2]], [p0[1], p0[2]], [p1[1], p1[2]], [p0[0], p0[2]], [p1[1], p1[2]], [p1[0], p1[2]]]:
+				st.set_normal(Vector3(dir.x * 0.3, 1.0, dir.z * 0.3).normalized())
 				st.set_color(v[1])
 				st.add_vertex(v[0])
 	return st.commit()
@@ -2058,10 +2080,14 @@ func make_grass(r: RandomNumberGenerator) -> void:
 		Rect2(30.0, -39.0, 7.0, 7.0), Rect2(9.0, -1.5, 10.0, 7.0), Rect2(-15.5, -4.2, 5.5, 4.8)] + house_rects
 	var spots := []
 	var tries := 0
+	var clump := Vector2.ZERO
 	var grass_n := GRASS_COUNT / 2 if light_mode else GRASS_COUNT
 	while spots.size() < grass_n and tries < grass_n * 4:
 		tries += 1
-		var p := Vector2(r.randf_range(-38, 38), r.randf_range(-38, 38))
+		# 풀은 포기끼리 무리 지어 자라요
+		if tries % 5 == 1 or spots.is_empty():
+			clump = Vector2(r.randf_range(-38, 38), r.randf_range(-38, 38))
+		var p := clump + Vector2(r.randf_range(-0.9, 0.9), r.randf_range(-0.9, 0.9))
 		var ok := true
 		# 경계가 반듯하지 않게 조금씩 들쭉날쭉
 		var jag := r.randf_range(-0.7, 0.5)
@@ -2078,7 +2104,7 @@ func make_grass(r: RandomNumberGenerator) -> void:
 	mm.instance_count = spots.size()
 	for i in spots.size():
 		var p: Vector2 = spots[i]
-		var sc := r.randf_range(0.55, 1.0)
+		var sc := r.randf_range(0.6, 1.25)
 		var basis := Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(sc, sc * r.randf_range(0.8, 1.3), sc))
 		mm.set_instance_transform(i, Transform3D(basis, Vector3(p.x, 0.0, p.y)))
 		mm.set_instance_color(i, Color(0.42, 0.66, 0.32).lerp(Color(0.62, 0.82, 0.42), r.randf()))
@@ -2113,10 +2139,74 @@ void fragment() {
 	var wmi := add_blobs(self, wild)
 	wmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
+# 블렌더로 만든 나무 (models/trees.glb: 활엽수 2, 소나무 2). 없으면 코드로 그린 나무
+var tree_meshes := {}
+var tree_tried := false
+var leaf_mat: ShaderMaterial
+var bark_mat: StandardMaterial3D
+var bark_red_mat: StandardMaterial3D
+
+func load_trees() -> void:
+	tree_tried = true
+	if not ResourceLoader.exists("res://models/trees.glb"):
+		return
+	var root: Node = (load("res://models/trees.glb") as PackedScene).instantiate()
+	for node in root.find_children("*", "MeshInstance3D", true, false):
+		tree_meshes[node.name] = (node as MeshInstance3D).mesh
+	root.free()
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+render_mode cull_disabled;
+void vertex() {
+	float h = max(VERTEX.y - 1.6, 0.0);
+	vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	float ph = wp.x * 0.35 + wp.z * 0.27;
+	VERTEX.x += sin(TIME * 1.3 + ph) * 0.05 * h;
+	VERTEX.z += cos(TIME * 1.05 + ph * 1.3) * 0.035 * h;
+}
+void fragment() {
+	ALBEDO = COLOR.rgb * vec3(0.72, 0.8, 0.82);
+	ROUGHNESS = 0.85;
+	SPECULAR = 0.25;
+}
+"""
+	leaf_mat = ShaderMaterial.new()
+	leaf_mat.shader = sh
+	bark_mat = make_tex_material(Color(0.5, 0.35, 0.22), wood_mat.albedo_texture, 1.6)
+	bark_red_mat = make_tex_material(Color(0.66, 0.38, 0.24), wood_mat.albedo_texture, 1.6)
+
 func make_tree(pos: Vector3) -> void:
+	if not tree_tried:
+		load_trees()
 	var tree := StaticBody3D.new()
 	tree.position = pos
 	add_child(tree)
+	var col := CollisionShape3D.new()
+	var shape := CylinderShape3D.new()
+	shape.radius = 0.45
+	shape.height = 2.0
+	col.shape = shape
+	col.position.y = 1.0
+	tree.add_child(col)
+	if tree_meshes.size() >= 4:
+		var pine := rng.randf() < 0.4
+		var key := ("Pine" if pine else "Broad") + str(rng.randi() % 2)
+		var mi := MeshInstance3D.new()
+		mi.mesh = tree_meshes[key]
+		for i in mi.mesh.get_surface_count():
+			var m := mi.mesh.surface_get_material(i)
+			var nm := m.resource_name if m != null else ""
+			if nm == "Leaf" or nm == "Needle":
+				mi.set_surface_override_material(i, leaf_mat)
+			elif nm == "BarkRed":
+				mi.set_surface_override_material(i, bark_red_mat)
+			else:
+				mi.set_surface_override_material(i, bark_mat)
+		mi.rotation.y = rng.randf() * TAU
+		var sc := rng.randf_range(0.9, 1.25)
+		mi.scale = Vector3(sc, sc * rng.randf_range(0.92, 1.1), sc)
+		tree.add_child(mi)
+		return
 	var pine := rng.randf() < 0.4  # 소나무
 	var trunk_h := 3.4 if pine else 2.3
 	var trunk := MeshInstance3D.new()
@@ -2152,13 +2242,6 @@ func make_tree(pos: Vector3) -> void:
 		blobs.append([Vector3(rng.randf_range(-0.3, 0.3), base_y + 1.9, rng.randf_range(-0.3, 0.3)), Vector3(1.7, 1.2, 1.7), Color(0.4 + hue, 0.7, 0.3)])
 	var canopy := add_blobs(tree, blobs)
 	sway_items.append([canopy, canopy.position, 0, pos.x * 0.7 + pos.z * 0.5, 0.6])
-	var col := CollisionShape3D.new()
-	var shape := CylinderShape3D.new()
-	shape.radius = 0.45
-	shape.height = 2.0
-	col.shape = shape
-	col.position.y = 1.0
-	tree.add_child(col)
 
 # ---------- 사람 만들기 (둥글둥글한 덩어리를 한 번에 그려요) ----------
 
@@ -2566,9 +2649,55 @@ func make_village() -> void:
 # ---------- 마을 꾸미기 (돌담, 감나무, 장독대, 텃밭, 꽃, 징검돌, 시냇가) ----------
 
 # 둥근 덩어리 여러 개를 한 번에 그려요. items 한 칸: [위치, 크기(가로,높이,세로), 색]
+var rock_meshes: Array = []
+
+func load_rocks() -> void:
+	if not ResourceLoader.exists("res://models/rocks.glb"):
+		return
+	var root: Node = (load("res://models/rocks.glb") as PackedScene).instantiate()
+	var found := root.find_children("Rock*", "MeshInstance3D", true, false)
+	found.sort_custom(func(x, y): return String(x.name) < String(y.name))
+	for node in found:
+		rock_meshes.append((node as MeshInstance3D).mesh)
+	root.free()
+
+# 돌은 블렌더로 만든 울퉁불퉁한 돌 모양 네 가지를 번갈아 써요
+func add_rocks(parent: Node3D, items: Array, mat_in: Material) -> MultiMeshInstance3D:
+	var first: MultiMeshInstance3D = null
+	for k in rock_meshes.size():
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = rock_meshes[k]
+		var mine := []
+		for i in items.size():
+			if i % rock_meshes.size() == k:
+				mine.append(items[i])
+		if mine.is_empty():
+			continue
+		mm.instance_count = mine.size()
+		for i in mine.size():
+			var sc: Vector3 = mine[i][1]
+			var yaw := (PI if i % 2 == 1 else 0.0) + sin(i * 2.7 + k) * 0.25
+			var basis := Basis(Vector3.UP, yaw) * Basis.from_scale(sc * 1.08)
+			if mine[i].size() > 3:
+				var rd: Vector3 = mine[i][3]
+				basis = Basis.from_euler(Vector3(deg_to_rad(rd.x), deg_to_rad(rd.y), deg_to_rad(rd.z))) * basis
+			mm.set_instance_transform(i, Transform3D(basis, mine[i][0]))
+			mm.set_instance_color(i, mine[i][2])
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
+		mi.material_override = mat_in
+		parent.add_child(mi)
+		if first == null:
+			first = mi
+	return first
+
 func add_blobs(parent: Node3D, items: Array, mat_in: Material = null, flat: bool = false) -> MultiMeshInstance3D:
 	if items.is_empty():
 		return null
+	if mat_in != null and mat_in == stone_blob_mat and not flat and rock_meshes.size() > 0:
+		return add_rocks(parent, items, mat_in)
 	var sph := SphereMesh.new()
 	sph.radius = 0.5
 	sph.height = 0.25 if flat else 1.0
@@ -2676,10 +2805,31 @@ func make_persimmon(pos: Vector3, r: RandomNumberGenerator) -> void:
 	root.add_child(tcol)
 	var canopy := [[0.0, 3.7, 0.0, 1.9], [1.3, 3.3, 0.4, 1.45], [-1.3, 3.4, -0.3, 1.45], [0.1, 4.6, 0.1, 1.3], [0.4, 3.2, -1.3, 1.3], [-0.3, 3.1, 1.3, 1.3]]
 	var items := []
+	if not tree_tried:
+		load_trees()
+	var use_model := tree_meshes.has("Broad1")
+	if use_model:
+		# 블렌더 나무에 감을 주렁주렁
+		trunk.visible = false
+		var mi := MeshInstance3D.new()
+		mi.mesh = tree_meshes["Broad1"]
+		for i in mi.mesh.get_surface_count():
+			var m := mi.mesh.surface_get_material(i)
+			mi.set_surface_override_material(i, leaf_mat if (m != null and m.resource_name == "Leaf") else bark_mat)
+		mi.scale = Vector3(1.15, 1.1, 1.15)
+		root.add_child(mi)
+		var aabb := mi.mesh.get_aabb()
+		var ctr := (aabb.position + aabb.size * Vector3(0.5, 0.68, 0.5)) * mi.scale
+		var rad := aabb.size.x * 0.5 * mi.scale.x * 0.82
+		for i in 22:
+			var dir := Vector3(r.randf_range(-1, 1), r.randf_range(-0.55, 0.7), r.randf_range(-1, 1)).normalized()
+			items.append([ctr + dir * rad * Vector3(1, 0.62, 1), Vector3(0.4, 0.36, 0.4), Color(0.95, 0.34 + 0.1 * r.randf(), 0.04)])
 	for c in canopy:
+		if use_model:
+			break
 		var k: float = r.randf()
 		items.append([Vector3(c[0], c[1], c[2]), Vector3(c[3] * 2.0, c[3] * 1.7, c[3] * 2.0), Color(0.3 + 0.08 * k, 0.6 + 0.1 * k, 0.25)])
-	for i in 18:
+	for i in (0 if use_model else 18):
 		var c: Array = canopy[r.randi() % canopy.size()]
 		var dir := Vector3(r.randf_range(-1, 1), r.randf_range(-0.3, 1), r.randf_range(-1, 1)).normalized()
 		var at := Vector3(c[0], c[1], c[2]) + dir * float(c[3]) * 0.95
