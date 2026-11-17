@@ -54,6 +54,9 @@ var saw_thing: Dictionary = {}
 var rng := RandomNumberGenerator.new()
 # 살아있는 느낌(흔들림, 물결, 나비, 구름)용
 var anim_t := 0.0
+var people := []         # 눈 깜빡임 등을 위한 모든 사람 몸
+var limb_amt := 0.0       # 팔다리 흔들림 세기 (걷는 중이면 1)
+var arm_up_amt := 0.0     # 점프할 때 팔 번쩍
 var sway_items := []      # [노드, 처음 위치, 종류(0 둥실, 1 살랑), 위상, 세기]
 var lantern_mats := []    # [재질, 위상]
 var npc_bodies := []      # [몸, 처음 높이, 위상]
@@ -532,12 +535,18 @@ func person_parts(kind: String, c: Color) -> Dictionary:
 			shoe = skin
 			hair = "short"
 			hair_c = Color(0.1, 0.1, 0.16)
-	# 다리와 신발
+	var limbs := []
+	var eyes := []
+	# 다리와 신발 (걸을 때 번갈아 움직여요)
+	var leg_idx := {-1.0: [], 1.0: []}
 	if not (long_coat or skirt):
 		for sx in [-1.0, 1.0]:
 			items.append([Vector3(sx * 0.17, -0.78, 0), Vector3(0.3, 0.46, 0.34), bottom])
+			leg_idx[sx].append(items.size() - 1)
 	for sx in [-1.0, 1.0]:
 		items.append([Vector3(sx * 0.17, -0.93, 0.07), Vector3(0.32, 0.2, 0.46), shoe])
+		leg_idx[sx].append(items.size() - 1)
+		limbs.append({"idx": leg_idx[sx], "pivot": Vector3(sx * 0.17, -0.55, 0), "sx": sx, "arm": false})
 	# 몸통
 	if skirt:
 		items.append([Vector3(0, -0.52, 0), Vector3(1.1, 0.9, 0.95), bottom])
@@ -554,13 +563,20 @@ func person_parts(kind: String, c: Color) -> Dictionary:
 	for sx in [-1.0, 1.0]:
 		items.append([Vector3(sx * 0.5, -0.22, 0), Vector3(0.26, 0.58, 0.28), top, Vector3(0, 0, sx * 12.0)])
 		outfit.append(items.size() - 1)
+		var arm_i := items.size() - 1
 		items.append([Vector3(sx * 0.57, -0.5, 0.03), Vector3(0.2, 0.2, 0.2), skin])
+		limbs.append({"idx": [arm_i, items.size() - 1], "pivot": Vector3(sx * 0.5, 0.04, 0), "sx": sx, "arm": true})
 	# 머리와 얼굴
 	items.append([Vector3(0, 0.52, 0), Vector3(0.92, 0.88, 0.88), skin])
 	for sx in [-1.0, 1.0]:
-		items.append([Vector3(sx * 0.17, 0.52, 0.405), Vector3(0.1, 0.14, 0.07), Color(0.1, 0.08, 0.08)])
-		items.append([Vector3(sx * 0.29, 0.4, 0.33), Vector3(0.14, 0.08, 0.06), Color(0.98, 0.62, 0.58)])
-	items.append([Vector3(0, 0.34, 0.41), Vector3(0.09, 0.04, 0.04), Color(0.75, 0.3, 0.3)])
+		# 크고 또랑또랑한 눈 + 반짝이는 하이라이트 + 눈썹 + 볼터치
+		items.append([Vector3(sx * 0.2, 0.5, 0.395), Vector3(0.14, 0.2, 0.08), Color(0.1, 0.07, 0.07)])
+		eyes.append(items.size() - 1)
+		items.append([Vector3(sx * 0.2 + 0.03, 0.56, 0.43), Vector3(0.06, 0.07, 0.04), Color(1, 1, 1)])
+		eyes.append(items.size() - 1)
+		items.append([Vector3(sx * 0.2, 0.69, 0.365), Vector3(0.15, 0.04, 0.05), hair_c, Vector3(0, 0, -sx * 8.0)])
+		items.append([Vector3(sx * 0.31, 0.37, 0.33), Vector3(0.17, 0.1, 0.06), Color(1.0, 0.6, 0.58)])
+	items.append([Vector3(0, 0.3, 0.405), Vector3(0.13, 0.06, 0.05), Color(0.82, 0.3, 0.32)])
 	# 머리카락
 	items.append([Vector3(0, 0.62, -0.07), Vector3(0.98, 0.78, 0.92), hair_c])
 	if hair == "short":
@@ -595,7 +611,7 @@ func person_parts(kind: String, c: Color) -> Dictionary:
 			items.append([Vector3(sx * 0.2, 1.0, 0.0), Vector3(0.14, 0.36, 0.14), Color(1.0, 0.9, 0.3), Vector3(0, 0, -sx * 20.0)])
 			items.append([Vector3(sx * 0.08, 0.31, 0.4), Vector3(0.05, 0.1, 0.04), Color(1, 1, 1)])
 		items.append([Vector3(0.72, -0.2, 0.15), Vector3(0.22, 0.9, 0.22), Color(0.5, 0.33, 0.2), Vector3(0, 0, -8.0)])
-	return {"items": items, "outfit": outfit}
+	return {"items": items, "outfit": outfit, "limbs": limbs, "eyes": eyes}
 
 func make_person(parent: Node3D, kind: String, c: Color, solid: bool) -> Node3D:
 	var data := person_parts(kind, c)
@@ -605,12 +621,49 @@ func make_person(parent: Node3D, kind: String, c: Color, solid: bool) -> Node3D:
 	var mmi := add_blobs(body, data["items"])
 	body.set_meta("mmi", mmi)
 	body.set_meta("outfit", data["outfit"])
+	var base := []
+	for i in data["items"].size():
+		base.append(mmi.multimesh.get_instance_transform(i))
+	body.set_meta("base", base)
+	body.set_meta("limbs", data["limbs"])
+	body.set_meta("eyes", data["eyes"])
+	body.set_meta("blink_at", rng.randf_range(1.0, 4.0))
+	body.set_meta("blink_on", false)
+	people.append(body)
 	if solid:
 		var col := CollisionShape3D.new()
 		col.shape = CapsuleShape3D.new()
 		col.position.y = 1.0
 		parent.add_child(col)
 	return body
+
+# 팔다리 흔들기. swing: -1~1 (걷는 박자), arm_up: 0~1 (팔 번쩍)
+func pose_person(body: Node3D, swing: float, arm_up: float) -> void:
+	var mmi: MultiMeshInstance3D = body.get_meta("mmi")
+	var base: Array = body.get_meta("base")
+	for l in body.get_meta("limbs"):
+		var sx: float = l["sx"]
+		var ang := swing * 0.75 * sx
+		if l["arm"]:
+			ang = -swing * 0.6 * sx
+			ang = lerpf(ang, -2.5, arm_up)
+		var pv: Vector3 = l["pivot"]
+		var rot := Transform3D(Basis(Vector3.RIGHT, ang), pv) * Transform3D(Basis.IDENTITY, -pv)
+		for i in l["idx"]:
+			mmi.multimesh.set_instance_transform(i, rot * base[i])
+
+# 눈 깜빡이기
+func blink_person(body: Node3D, closed: bool) -> void:
+	if body.get_meta("blink_on") == closed:
+		return
+	body.set_meta("blink_on", closed)
+	var mmi: MultiMeshInstance3D = body.get_meta("mmi")
+	var base: Array = body.get_meta("base")
+	for i in body.get_meta("eyes"):
+		var t: Transform3D = base[i]
+		if closed:
+			t = Transform3D(Basis.from_scale(Vector3(1, 0.12, 1)) * t.basis, t.origin)
+		mmi.multimesh.set_instance_transform(i, t)
 
 # 옷 색 바꾸기 (한복을 사 입을 때)
 func recolor_outfit(body: Node3D, c: Color) -> void:
@@ -1079,6 +1132,21 @@ func _process(delta: float) -> void:
 		var body: Node3D = nb[0]
 		if is_instance_valid(body):
 			body.position.y = nb[1] + sin(t * 2.2 + nb[2]) * 0.03
+	# 눈 깜빡임과 손 살랑살랑
+	for pb in people:
+		if not is_instance_valid(pb):
+			continue
+		var next_blink: float = pb.get_meta("blink_at")
+		if t >= next_blink:
+			if t < next_blink + 0.13:
+				blink_person(pb, true)
+			else:
+				blink_person(pb, false)
+				pb.set_meta("blink_at", t + rng.randf_range(2.0, 5.0))
+	for nb in npc_bodies:
+		var nbody: Node3D = nb[0]
+		if is_instance_valid(nbody):
+			pose_person(nbody, sin(t * 1.6 + nb[2]) * 0.1, 0.0)
 	# 시냇물 흐름
 	if creek_mat != null:
 		creek_mat.albedo_color = Color(0.35, 0.6, 0.85).lerp(Color(0.44, 0.7, 0.92), 0.5 + 0.5 * sin(t * 0.8))
@@ -2759,17 +2827,25 @@ func _physics_process(delta: float) -> void:
 		# 걸을 때 통통 튀고 발소리 내기
 		walk_phase += delta * 11.0 * dir.length()
 		player_body.position.y = 1.0 + absf(sin(walk_phase)) * 0.12
+		limb_amt = lerpf(limb_amt, 1.0, 0.3)
 		var steps := int(walk_phase / PI)
 		if steps != step_count:
 			step_count = steps
 			sfx("step", rng.randf_range(0.85, 1.15))
 	else:
 		player_body.position.y = lerpf(player_body.position.y, 1.0, 0.3)
+		limb_amt = lerpf(limb_amt, 0.0, 0.25)
+	arm_up_amt = lerpf(arm_up_amt, 0.0 if on_floor else 1.0, 0.3)
+	pose_person(player_body, sin(walk_phase) * limb_amt, arm_up_amt)
+	if dir.length() > 0.1 and on_floor:
+		player_body.rotation.x = lerpf(player_body.rotation.x, 0.12, 0.2)
+	else:
+		player_body.rotation.x = lerpf(player_body.rotation.x, 0.0, 0.2)
 	if player.position.y < -10.0:
 		player.position = Vector3(-2, 0, 16)
 		player.velocity = Vector3.ZERO
 	if dir.length() > 0.1:
-		player.rotation.y = atan2(dir.x, dir.z)
+		player.rotation.y = lerp_angle(player.rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * 14.0))
 	cam.position = player.position + Vector3(0, 9, 9).rotated(Vector3.UP, cam_yaw)
 	cam.look_at(player.position + Vector3.UP)
 
