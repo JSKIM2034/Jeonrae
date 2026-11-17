@@ -1777,6 +1777,157 @@ func make_rock(pos: Vector3, size: Vector3, r: RandomNumberGenerator) -> void:
 	items.append([pos + Vector3(0, size.y * 0.42, 0), Vector3(size.x * 0.7, 0.12, size.z * 0.7), Color(0.45, 0.62, 0.32)])
 	add_blobs(self, items, stone_blob_mat)
 
+# ---------- 자연스러운 흙길과 개울 ----------
+
+var path_lines: Array = []   # [[점들(Vector2)], 폭]
+
+# 개울 한가운데 z (x 에 따라 살짝 굽이쳐요)
+func creek_z(x: float) -> float:
+	return -15.5 + sin(x * 0.21) * 0.16 + sin(x * 0.53 + 1.3) * 0.08
+
+func creek_half(x: float) -> float:
+	return 1.32 + sin(x * 0.37 + 0.7) * 0.12 + sin(x * 0.91) * 0.06
+
+# 점들을 부드러운 곡선으로 이어요 (캣멀-롬)
+func smooth_line(pts: Array, step: float) -> Array:
+	var out := []
+	for i in pts.size() - 1:
+		var p0: Vector2 = pts[maxi(i - 1, 0)]
+		var p1: Vector2 = pts[i]
+		var p2: Vector2 = pts[i + 1]
+		var p3: Vector2 = pts[mini(i + 2, pts.size() - 1)]
+		var n := maxi(2, int(p1.distance_to(p2) / step))
+		for k in n:
+			var t := float(k) / n
+			var t2 := t * t
+			var t3 := t2 * t
+			out.append(0.5 * ((2.0 * p1) + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3))
+	out.append(pts[pts.size() - 1])
+	return out
+
+# 굽은 띠 모양 땅 (가장자리가 울퉁불퉁, 양 끝은 둥글게)
+func build_ribbon(line: Array, width: float, y: float, seed_v: float, round_ends: bool) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var lefts := []
+	var rights := []
+	var dist := 0.0
+	for i in line.size():
+		var p: Vector2 = line[i]
+		var a: Vector2 = line[maxi(i - 1, 0)]
+		var b: Vector2 = line[mini(i + 1, line.size() - 1)]
+		var dir := (b - a).normalized()
+		var nrm := Vector2(-dir.y, dir.x)
+		if i > 0:
+			dist += p.distance_to(line[i - 1])
+		var wl := width * 0.5 * (1.0 + 0.16 * sin(dist * 0.9 + seed_v) + 0.08 * sin(dist * 2.3 + seed_v * 2.0))
+		var wr := width * 0.5 * (1.0 + 0.16 * sin(dist * 0.8 + seed_v + 2.0) + 0.08 * sin(dist * 2.7 + seed_v))
+		lefts.append(p + nrm * wl)
+		rights.append(p - nrm * wr)
+	for i in line.size() - 1:
+		var l0: Vector2 = lefts[i]
+		var l1: Vector2 = lefts[i + 1]
+		var r0: Vector2 = rights[i]
+		var r1: Vector2 = rights[i + 1]
+		for v in [l0, r0, l1, r0, r1, l1]:
+			st.set_normal(Vector3.UP)
+			st.add_vertex(Vector3(v.x, y, v.y))
+	if round_ends:
+		for e in [0, line.size() - 1]:
+			var c: Vector2 = line[e]
+			var other: Vector2 = line[1] if e == 0 else line[line.size() - 2]
+			var back := (c - other).normalized()
+			var rad := width * 0.5
+			var prev := c + Vector2(-back.y, back.x) * rad
+			for k in range(1, 9):
+				var ang := PI * k / 8.0
+				var nxt := c + (Vector2(-back.y, back.x) * cos(ang) + back * sin(ang)) * rad
+				for v in [c, nxt, prev]:
+					st.set_normal(Vector3.UP)
+					st.add_vertex(Vector3(v.x, y, v.y))
+				prev = nxt
+	return st.commit()
+
+func add_ribbon(line: Array, width: float, y: float, mat: Material, seed_v: float, round_ends: bool = true) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = build_ribbon(line, width, y, seed_v, round_ends)
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	return mi
+
+func make_dirt_path(pts: Array, width: float, seed_v: float) -> void:
+	var line := smooth_line(pts, 0.5)
+	path_lines.append([line, width])
+	var worn := make_tex_material(Color(0.66, 0.72, 0.44), sand_mat.albedo_texture, 0.07)
+	worn.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var dirt := sand_mat.duplicate() as StandardMaterial3D
+	dirt.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# 바깥: 풀이 닳은 자리, 안: 흙, 가운데: 발길에 다져진 자국
+	add_ribbon(line, width * 1.5, 0.012, worn, seed_v + 3.0)
+	add_ribbon(line, width, 0.022, dirt, seed_v)
+	var core := make_tex_material(Color(0.72, 0.6, 0.4), sand_mat.albedo_texture, 0.09)
+	core.cull_mode = BaseMaterial3D.CULL_DISABLED
+	add_ribbon(line, width * 0.38, 0.03, core, seed_v + 7.0)
+	# 길 위 자갈과 길가 돌멩이
+	var r := RandomNumberGenerator.new()
+	r.seed = int(seed_v * 100.0)
+	var stones := []
+	for i in range(0, line.size(), 2):
+		var p: Vector2 = line[i]
+		if r.randf() < 0.55:
+			var off := Vector2(r.randf_range(-1, 1), r.randf_range(-1, 1)) * width * 0.42
+			stones.append([Vector3(p.x + off.x, 0.04, p.y + off.y), Vector3(r.randf_range(0.08, 0.2), 0.06, r.randf_range(0.08, 0.16)), stone_color(r)])
+		if r.randf() < 0.12:
+			var a: Vector2 = line[mini(i + 1, line.size() - 1)] - p
+			var side := Vector2(-a.y, a.x).normalized() * (width * 0.62) * (1.0 if r.randf() < 0.5 else -1.0)
+			stones.append([Vector3(p.x + side.x, 0.08, p.y + side.y), Vector3(r.randf_range(0.3, 0.5), 0.2, r.randf_range(0.25, 0.4)), stone_color(r)])
+	add_blobs(self, stones, stone_blob_mat, true)
+
+func near_path(p: Vector2, extra: float) -> bool:
+	for pl in path_lines:
+		var line: Array = pl[0]
+		var lim: float = pl[1] * 0.5 + extra
+		for i in range(0, line.size(), 2):
+			if p.distance_squared_to(line[i]) < lim * lim:
+				return true
+	return false
+
+func make_paths() -> void:
+	make_dirt_path([Vector2(-2.0, -13.6), Vector2(-2.3, -8.0), Vector2(-1.6, -2.5), Vector2(-2.3, 3.5), Vector2(-1.8, 8.0), Vector2(-2.4, 12.5), Vector2(-2.0, 16.5)], 2.5, 1.0)
+	make_dirt_path([Vector2(-12.2, 6.4), Vector2(-7.5, 8.4), Vector2(-2.0, 8.0), Vector2(4.0, 7.5), Vector2(9.5, 8.4), Vector2(14.5, 8.0), Vector2(19.6, 8.6), Vector2(20.4, 13.5), Vector2(19.8, 17.6)], 2.3, 4.0)
+
+func make_creek() -> void:
+	var line := []
+	var x := -45.0
+	while x <= 45.0:
+		line.append(Vector2(x, creek_z(x)))
+		x += 0.8
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in line.size() - 1:
+		var a: Vector2 = line[i]
+		var b: Vector2 = line[i + 1]
+		var ha := creek_half(a.x)
+		var hb := creek_half(b.x)
+		var quad := [[Vector3(a.x, 0.03, a.y - ha), Vector2((a.x + 45.0) / 90.0, 0)], [Vector3(a.x, 0.03, a.y + ha), Vector2((a.x + 45.0) / 90.0, 1)], [Vector3(b.x, 0.03, b.y - hb), Vector2((b.x + 45.0) / 90.0, 0)], [Vector3(b.x, 0.03, b.y + hb), Vector2((b.x + 45.0) / 90.0, 1)]]
+		for k in [0, 2, 1, 1, 2, 3]:
+			st.set_normal(Vector3.UP)
+			st.set_uv(quad[k][1])
+			st.add_vertex(quad[k][0])
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	var wm := water_mat
+	wm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = wm
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	creek_mat = water_mat
+	# 물가의 진흙 띠
+	var bank := make_tex_material(Color(0.6, 0.58, 0.42), sand_mat.albedo_texture, 0.07)
+	bank.cull_mode = BaseMaterial3D.CULL_DISABLED
+	add_ribbon(line, 3.4, 0.015, bank, 9.0, false)
+
 # ---------- 땅, 풀, 물 질감 ----------
 
 func make_noise_tex(c1: Color, c2: Color, freq: float, seed_v: int) -> NoiseTexture2D:
@@ -1853,8 +2004,7 @@ func make_grass(r: RandomNumberGenerator) -> void:
 	mm.mesh = make_tuft_mesh()
 	# 풀이 나면 안 되는 곳: 길, 개울, 다리, 텃밭, 연못
 	var keep_out := [
-		Rect2(-3.6, -18.0, 3.4, 36.0), Rect2(-12.6, 6.5, 27.0, 3.0), Rect2(18.4, 6.5, 3.2, 15.0),
-		Rect2(-40.0, -17.4, 80.0, 3.8), Rect2(-19.6, -5.8, 4.4, 3.0), Rect2(-10.2, 12.0, 3.4, 2.4),
+		Rect2(-19.6, -5.8, 4.4, 3.0), Rect2(-10.2, 12.0, 3.4, 2.4),
 		Rect2(30.0, -39.0, 7.0, 7.0), Rect2(9.0, -1.5, 10.0, 7.0), Rect2(-15.5, -4.2, 5.5, 4.8)] + house_rects
 	var spots := []
 	var tries := 0
@@ -1863,10 +2013,16 @@ func make_grass(r: RandomNumberGenerator) -> void:
 		tries += 1
 		var p := Vector2(r.randf_range(-38, 38), r.randf_range(-38, 38))
 		var ok := true
+		# 경계가 반듯하지 않게 조금씩 들쭉날쭉
+		var jag := r.randf_range(-0.7, 0.5)
 		for k in keep_out:
-			if k.has_point(p):
+			if k.grow(jag).has_point(p):
 				ok = false
 				break
+		if ok and absf(p.y - creek_z(p.x)) < creek_half(p.x) + 0.35 + jag * 0.3:
+			ok = false
+		if ok and near_path(p, -0.1 + jag * 0.5):
+			ok = false
 		if ok:
 			spots.append(p)
 	mm.instance_count = spots.size()
@@ -2251,18 +2407,14 @@ func make_world() -> void:
 
 	# 숲 바닥, 개울, 다리, 길
 	add_box(self, Color(0.33, 0.58, 0.3), Vector3(full, 0.04, 23), Vector3(0, 0.02, -28.5)).material_override = forest_mat
-	var creek := add_box(self, Color(0.35, 0.6, 0.85), Vector3(full, 0.06, 3), Vector3(0, 0.03, -15.5))
-	creek.material_override = water_mat
-	creek_mat = water_mat
+	make_creek()
 	add_box(self, Color(0.55, 0.4, 0.25), Vector3(3, 0.2, 4), Vector3(-2, 0.1, -15.5)).material_override = plank_mat
 	# 개울은 다리로만 건널 수 있어요 (점프로도 못 넘는 보이지 않는 벽, 다리 자리만 비워 둠)
 	var creek_left_len := (-3.5) - (-MAP_HALF)
 	var creek_right_len := MAP_HALF - (-0.5)
 	add_solid(Vector3(-MAP_HALF + creek_left_len / 2.0, 2, -15.5), Vector3(creek_left_len, 5, 3), none)
 	add_solid(Vector3(-0.5 + creek_right_len / 2.0, 2, -15.5), Vector3(creek_right_len, 5, 3), none)
-	add_box(self, Color(0.8, 0.72, 0.5), Vector3(2.5, 0.04, 30), Vector3(-2, 0.02, 1)).material_override = sand_mat
-	add_box(self, Color(0.8, 0.72, 0.5), Vector3(26, 0.04, 2.5), Vector3(1, 0.02, 8)).material_override = sand_mat
-	add_box(self, Color(0.8, 0.72, 0.5), Vector3(2.5, 0.04, 14), Vector3(20, 0.02, 14)).material_override = sand_mat
+	make_paths()
 
 func make_village() -> void:
 	# 놀부네
@@ -2584,18 +2736,19 @@ func make_decor() -> void:
 		steps.append([Vector3(x, 0.05, 3.2 + r.randf_range(-0.2, 0.2)), Vector3(0.8, 0.12, 0.6), stone_color(r)])
 	add_blobs(self, steps, stone_blob_mat, true)
 	# 시냇가 돌과 물빛, 다리 난간
-	for zb in [-14.1, -16.9]:
+	for side in [1.0, -1.0]:
 		var bank := []
 		var x := -38.0
 		while x < 38.0:
 			x += r.randf_range(1.0, 1.7)
 			if absf(x + 2.0) < 2.3:
 				continue
-			bank.append([Vector3(x, 0.08, zb + r.randf_range(-0.25, 0.25)), Vector3(r.randf_range(0.6, 1.1), r.randf_range(0.35, 0.6), r.randf_range(0.5, 0.8)), stone_color(r)])
+			var zb: float = creek_z(x) + side * (creek_half(x) + 0.12)
+			bank.append([Vector3(x, 0.08, zb + r.randf_range(-0.2, 0.2)), Vector3(r.randf_range(0.6, 1.1), r.randf_range(0.35, 0.6), r.randf_range(0.5, 0.8)), stone_color(r)])
 		add_blobs(self, bank, stone_blob_mat)
 	var foam := []
 	for i in 22:
-		foam.append([Vector3(r.randf_range(-38, 38), 0.07, r.randf_range(-16.4, -14.6)), Vector3(r.randf_range(0.6, 1.4), 0.04, 0.12), Color(0.85, 0.95, 1.0)])
+		foam.append([Vector3(r.randf_range(-38, 38), 0.07, r.randf_range(-0.9, 0.9)), Vector3(r.randf_range(0.6, 1.4), 0.04, 0.12), Color(0.85, 0.95, 1.0)])
 	var foam_mi := add_blobs(self, foam)
 	foam_mm = foam_mi.multimesh
 	for f in foam:
@@ -2727,7 +2880,7 @@ func _process(delta: float) -> void:
 		for i in foam_data.size():
 			var fd: Array = foam_data[i]
 			var x := fposmod(fd[0] + t * 0.7 + 38.0, 76.0) - 38.0
-			foam_mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(fd[2], 0.04, 0.12)), Vector3(x, 0.07, fd[1])))
+			foam_mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(fd[2], 0.04, 0.12)), Vector3(x, 0.07, creek_z(x) + fd[1])))
 	# 나비
 	for b in butterflies:
 		var root: Node3D = b[0]
