@@ -1221,7 +1221,7 @@ func add_hud_button(text: String, l: float, r: float, pressed: Callable) -> Butt
 	var b := Button.new()
 	b.text = text
 	skin_button(b, make_paper(font_size * 0.4), INK, 0.8)
-	b.pressed.connect(pressed)
+	b.mouse_filter = Control.MOUSE_FILTER_IGNORE  # 터치는 _input에서 직접 처리
 	ui_layer.add_child(b)
 	place(b, l, 0.83, r, 0.92)
 	return b
@@ -2664,12 +2664,59 @@ func on_turn() -> void:
 func on_jump() -> void:
 	jump_wanted = true
 
+# 화면 버튼(돌리기/점프/행동)은 터치를 직접 처리해요.
+# 한 손가락으로 걷는 중에도 다른 손가락으로 점프를 누를 수 있게 하기 위해서예요.
+var btn_touches: Array = []
+var stick_index := -1
+
+func hud_button_hit(pos: Vector2) -> Button:
+	for b in [jump_button, turn_button, action_button]:
+		if b != null and b.is_visible_in_tree() and b.get_global_rect().has_point(pos):
+			return b
+	return null
+
+func hud_press(b: Button) -> void:
+	if b == jump_button:
+		on_jump()
+	elif b == turn_button:
+		on_turn()
+	elif b == action_button:
+		on_action()
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			var b := hud_button_hit(event.position)
+			if b != null:
+				btn_touches.append(event.index)
+				hud_press(b)
+				get_viewport().set_input_as_handled()
+		elif event.index in btn_touches:
+			btn_touches.erase(event.index)
+			get_viewport().set_input_as_handled()
+	elif event is InputEventScreenDrag:
+		if event.index in btn_touches:
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton and event.pressed and event.device != -1:
+		# 컴퓨터 마우스 (터치에서 만들어진 가짜 마우스 이벤트는 제외)
+		var b2 := hud_button_hit(event.position)
+		if b2 != null:
+			hud_press(b2)
+			get_viewport().set_input_as_handled()
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
-		touching = event.pressed
-		touch_start = event.position
-		move_input = Vector2.ZERO
-	elif event is InputEventScreenDrag and touching:
+		if event.pressed:
+			if stick_index == -1:
+				stick_index = event.index
+				touching = true
+				touch_start = event.position
+				move_input = Vector2.ZERO
+		elif event.index == stick_index:
+			stick_index = -1
+			touching = false
+			move_input = Vector2.ZERO
+	elif event is InputEventScreenDrag and touching and event.index == stick_index:
 		move_input = ((event.position - touch_start) / drag_range).limit_length(1.0)
 
 func _physics_process(delta: float) -> void:
@@ -2679,6 +2726,9 @@ func _physics_process(delta: float) -> void:
 	if busy:
 		move_input = Vector2.ZERO
 		jump_wanted = false
+		stick_index = -1
+		touching = false
+		btn_touches.clear()
 	cam_yaw = lerp_angle(cam_yaw, cam_yaw_target, minf(1.0, delta * 8.0))
 	var speed := SPEED
 	if has_shoes:
