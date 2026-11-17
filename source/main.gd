@@ -62,6 +62,13 @@ var grass_mat: StandardMaterial3D
 var sand_mat: StandardMaterial3D
 var forest_mat: StandardMaterial3D
 var water_mat: StandardMaterial3D
+var cam_zoom := 1.0        # 1 보다 작으면 가까이, 크면 멀리
+var cam_zoom_target := 1.0
+var pinch_points := {}
+var pinch_start_dist := 0.0
+var pinch_start_zoom := 1.0
+const ZOOM_MIN := 0.5
+const ZOOM_MAX := 1.8
 var anim_t := 0.0
 var people := []         # 눈 깜빡임 등을 위한 모든 사람 몸
 var limb_amt := 0.0       # 팔다리 흔들림 세기 (걷는 중이면 1)
@@ -1086,10 +1093,10 @@ func build_thatch_roof(rx: float, rz: float, h: float) -> ArrayMesh:
 				p = Vector3(bx * t, h * pow(cos(t * PI * 0.5), 0.62), bz * t)
 				v = t * vrep
 			elif it == nt + 1:
-				p = Vector3(bx * 1.02, -0.2, bz * 1.02)
+				p = Vector3(bx * 1.02, -0.14, bz * 1.02)
 				v = vrep + 0.06
 			else:
-				p = Vector3(bx * 0.96, -0.42, bz * 0.96)
+				p = Vector3(bx * 0.96, -0.28, bz * 0.96)
 				v = vrep + 0.12
 			row.append([p, Vector2(float(ia) / na * urep, v)])
 		rows.append(row)
@@ -1257,6 +1264,8 @@ func make_house(pos: Vector3, size: Vector3, wall: Color, roof: Color, style: St
 	add_blobs(house, [[Vector3(0, 0.08, mz + maru_d / 2.0 + 0.42), Vector3(1.3, 0.16, 0.62), Color(0.84, 0.82, 0.78)]], stone_blob_mat, true)
 	# 등롱
 	for sx in [-1.0, 1.0]:
+		if sx < 0.0 and pos.is_equal_approx(Vector3(-13, 0, -2)) and style == "thatch":
+			continue
 		var lp := Vector3(sx * (hx - 0.45), size.y - 0.8, hz + 0.42)
 		add_box(house, Color(0.3, 0.22, 0.15), Vector3(0.025, 0.5, 0.025), lp + Vector3(0, 0.5, 0))
 		add_lantern(house, lp)
@@ -1421,13 +1430,10 @@ func make_gourd_visual(g: Node3D, c: Color, radius: float) -> void:
 # 처마 밑 제비 둥지: 진흙 사발 + 입 벌린 아기 제비 셋
 func make_nest_visual(n: Node3D) -> void:
 	var root := Node3D.new()
-	root.position = Vector3(0, 1.75, 0)
-	root.rotation.y = 0.35
+	# 흥부네 처마 밑, 앞쪽 왼편 기둥에 붙어 있어요
+	root.position = Vector3(0.12, 1.98, -0.5)
+	root.scale = Vector3(1.45, 1.45, 1.45)
 	n.add_child(root)
-	# 제비집 기둥: 나무 기둥 + 작은 짚 지붕
-	add_mbox(n, dark_wood_mat, Vector3(0.16, 1.95, 0.16), Vector3(0, 0.97, -0.28))
-	var cap := add_mcyl(n, thatch_dark_mat, 0.05, 0.62, 0.42, Vector3(0, 2.32, -0.05))
-	cap.scale = Vector3(1.0, 1.0, 0.8)
 	add_mbox(root, dark_wood_mat, Vector3(0.7, 0.06, 0.45), Vector3(0, -0.2, 0))
 	var mud := []
 	var r := RandomNumberGenerator.new()
@@ -2267,11 +2273,12 @@ func make_village() -> void:
 	make_npc("dokkaebi", "도깨비", Color(0.2, 0.55, 0.6), Vector3(19, 0, 8.5), 1.3, false).visible = false
 
 	# 흥부네
-	hut = make_house(Vector3(-13, 0, -2), Vector3(4.5, 2.4, 3.5), Color(0.93, 0.89, 0.8), Color(0.8, 0.66, 0.3), "thatch")
+	hut = make_house(Vector3(-13, 0, -2), Vector3(4.5, 2.8, 3.5), Color(0.93, 0.89, 0.8), Color(0.8, 0.66, 0.3), "thatch")
 	make_npc("heungbu", "흥부", Color(0.85, 0.6, 0.35), Vector3(-12, 0, 2.5), 1.0, true)
 	make_npc("kid1", "첫째", Color(0.95, 0.75, 0.5), Vector3(-16.5, 0, 4), 0.7, true)
 	make_npc("kid2", "막내", Color(0.98, 0.82, 0.6), Vector3(-9, 0, 5), 0.55, true)
-	var nest := make_spot(Vector3(-16.2, 0, 1.5), "nest", "", "제비 둥지", true)
+	var nest := make_spot(Vector3(-15.2, 0, 0.7), "nest", "", "", true)
+	add_tag(nest, "제비 둥지", 3.4)
 	make_nest_visual(nest)
 	for pos in [Vector3(-6.5, 0, -3), Vector3(-5, 0, 0), Vector3(-6.5, 0, 3)]:
 		add_thing(make_gourd_at(pos, Color(0.82, 0.9, 0.62), 1.2), "gourd", "")
@@ -2500,11 +2507,20 @@ func make_garden(pos: Vector3, w: float, d: float, r: RandomNumberGenerator) -> 
 			var x := -w / 2.0 + (ix + 0.5) * (w / nx)
 			var z := -d / 2.0 + (iz + 0.5) * (d / nz)
 			if (ix + iz) % 3 == 0:
-				items.append([Vector3(x, 0.3, z), Vector3(0.28, 0.5, 0.28), Color(0.97, 0.96, 0.9)])
-				items.append([Vector3(x, 0.55, z), Vector3(0.5, 0.3, 0.5), Color(0.3, 0.62, 0.28)])
+				# 무: 흙 위로 솟은 하얀 뿌리 + 연두 어깨 + 길쭉한 잎
+				items.append([Vector3(x, 0.26, z), Vector3(0.24, 0.4, 0.24), Color(0.98, 0.97, 0.92)])
+				items.append([Vector3(x, 0.44, z), Vector3(0.22, 0.12, 0.22), Color(0.72, 0.85, 0.5)])
+				for k in 4:
+					var a := k * TAU / 4.0 + r.randf() * 0.5
+					items.append([Vector3(x + cos(a) * 0.1, 0.7, z + sin(a) * 0.1), Vector3(0.1, 0.5, 0.05), Color(0.28, 0.58, 0.24), Vector3(sin(a) * 25.0, -rad_to_deg(a), cos(a) * 25.0)])
 			else:
+				# 배추: 바깥 잎이 벌어지고 속은 노르스름하게 차 있어요
 				var k: float = r.randf()
-				items.append([Vector3(x, 0.33, z), Vector3(0.62, 0.5, 0.62), Color(0.45 + 0.12 * k, 0.75, 0.38)])
+				for j in 6:
+					var a := j * TAU / 6.0 + k
+					items.append([Vector3(x + cos(a) * 0.17, 0.3, z + sin(a) * 0.17), Vector3(0.34, 0.42, 0.14), Color(0.3 + 0.06 * k, 0.6, 0.26), Vector3(sin(a) * 30.0, -rad_to_deg(a) + 90.0, cos(a) * 30.0)])
+				items.append([Vector3(x, 0.36, z), Vector3(0.34, 0.46, 0.34), Color(0.82, 0.9, 0.55)])
+				items.append([Vector3(x, 0.55, z), Vector3(0.22, 0.14, 0.22), Color(0.9, 0.94, 0.68)])
 	add_blobs(root, items)
 
 func make_flowers(pos: Vector3, r: RandomNumberGenerator) -> void:
@@ -4361,10 +4377,40 @@ func _input(event: InputEvent) -> void:
 			hud_press(b2)
 			get_viewport().set_input_as_handled()
 
+func pinch_dist() -> float:
+	var ps := pinch_points.values()
+	return (ps[0] as Vector2).distance_to(ps[1])
+
 func _unhandled_input(event: InputEvent) -> void:
+	# 두 손가락으로 벌리고 오므려 확대/축소, 컴퓨터는 마우스 휠
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			cam_zoom_target = clampf(cam_zoom_target * 0.9, ZOOM_MIN, ZOOM_MAX)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			cam_zoom_target = clampf(cam_zoom_target * 1.1, ZOOM_MIN, ZOOM_MAX)
 	if event is InputEventScreenTouch:
 		if event.pressed:
-			if stick_index == -1:
+			pinch_points[event.index] = event.position
+		else:
+			pinch_points.erase(event.index)
+		if pinch_points.size() == 2:
+			pinch_start_dist = maxf(pinch_dist(), 1.0)
+			pinch_start_zoom = cam_zoom_target
+			# 확대 중에는 걷지 않아요
+			stick_index = -1
+			touching = false
+			move_input = Vector2.ZERO
+			return
+		if pinch_points.size() > 2:
+			return
+	elif event is InputEventScreenDrag and pinch_points.has(event.index):
+		pinch_points[event.index] = event.position
+		if pinch_points.size() == 2:
+			cam_zoom_target = clampf(pinch_start_zoom * pinch_start_dist / maxf(pinch_dist(), 1.0), ZOOM_MIN, ZOOM_MAX)
+			return
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			if stick_index == -1 and pinch_points.size() == 1:
 				stick_index = event.index
 				touching = true
 				touch_start = event.position
@@ -4386,6 +4432,7 @@ func _physics_process(delta: float) -> void:
 		stick_index = -1
 		touching = false
 		btn_touches.clear()
+		pinch_points.clear()
 	cam_yaw = lerp_angle(cam_yaw, cam_yaw_target, minf(1.0, delta * 8.0))
 	var speed := SPEED
 	if has_shoes:
@@ -4435,7 +4482,8 @@ func _physics_process(delta: float) -> void:
 		player.velocity = Vector3.ZERO
 	if dir.length() > 0.1:
 		player.rotation.y = lerp_angle(player.rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * 14.0))
-	cam.position = player.position + CAM_OFFSET.rotated(Vector3.UP, cam_yaw)
+	cam_zoom = lerpf(cam_zoom, cam_zoom_target, minf(1.0, delta * 10.0))
+	cam.position = player.position + (CAM_OFFSET * cam_zoom).rotated(Vector3.UP, cam_yaw)
 	cam.look_at(player.position + Vector3(0, 1.3, 0))
 
 	# 화면 흔들림
