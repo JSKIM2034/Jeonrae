@@ -56,6 +56,7 @@ var rng := RandomNumberGenerator.new()
 # 폰이 버벅이면 아래 두 값을 줄여 보세요 (그림자 끄기: false, 풀 개수: 800)
 const SHADOWS_ON := true
 const GRASS_COUNT := 2600
+var light_mode := OS.has_feature("web") or OS.has_feature("mobile")  # 폰/웹은 가볍게
 const CAM_OFFSET := Vector3(0, 7.0, 7.2)   # 카메라가 캐릭터 뒤 위에서 따라와요 (작을수록 가까워요)
 var grass_mat: StandardMaterial3D
 var sand_mat: StandardMaterial3D
@@ -230,6 +231,10 @@ func _ready() -> void:
 	make_village()
 	make_forest()
 	make_decor()
+	apply_distance_culling(self)
+	if light_mode:
+		# 3D 화면은 조금 낮은 해상도로 그리고, 글자와 버튼은 그대로 또렷하게
+		get_viewport().scaling_3d_scale = 0.7
 	make_player()
 	make_ui()
 	make_game_ui()
@@ -880,6 +885,19 @@ func make_house(pos: Vector3, size: Vector3, wall: Color, roof: Color, style: St
 	house.add_child(col)
 	return house
 
+# 멀리 있는 작은 물건은 그리지 않아요 (안개에 가려 어차피 잘 안 보여요)
+func apply_distance_culling(n: Node) -> void:
+	for c in n.get_children():
+		if c is GeometryInstance3D:
+			var g := c as GeometryInstance3D
+			var size := g.get_aabb().size
+			var big := maxf(size.x, maxf(size.y, size.z))
+			if big < 1.5:
+				g.visibility_range_end = 30.0 if light_mode else 45.0
+			elif big < 6.0:
+				g.visibility_range_end = 55.0 if light_mode else 80.0
+		apply_distance_culling(c)
+
 # ---------- 마을 소품 ----------
 
 func make_jangdok(pos: Vector3, r: RandomNumberGenerator) -> void:
@@ -1145,7 +1163,8 @@ func make_grass(r: RandomNumberGenerator) -> void:
 		Rect2(30.0, -39.0, 7.0, 7.0), Rect2(9.0, -1.5, 10.0, 7.0), Rect2(-15.5, -4.2, 5.5, 4.8)] + house_rects
 	var spots := []
 	var tries := 0
-	while spots.size() < GRASS_COUNT and tries < GRASS_COUNT * 4:
+	var grass_n := GRASS_COUNT / 2 if light_mode else GRASS_COUNT
+	while spots.size() < grass_n and tries < grass_n * 4:
 		tries += 1
 		var p := Vector2(r.randf_range(-38, 38), r.randf_range(-38, 38))
 		var ok := true
@@ -1487,9 +1506,15 @@ func make_world() -> void:
 	sun.shadow_blur = 1.6
 	sun.shadow_bias = 0.04
 	sun.shadow_normal_bias = 1.0
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	sun.directional_shadow_max_distance = 42.0
-	RenderingServer.directional_shadow_atlas_set_size(2048, true)
+	if light_mode:
+		# 가까운 곳만 한 장으로 그림자 그리기
+		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+		sun.directional_shadow_max_distance = 22.0
+		RenderingServer.directional_shadow_atlas_set_size(1024, true)
+	else:
+		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+		sun.directional_shadow_max_distance = 42.0
+		RenderingServer.directional_shadow_atlas_set_size(2048, true)
 	add_child(sun)
 	var env := WorldEnvironment.new()
 	var e := Environment.new()
