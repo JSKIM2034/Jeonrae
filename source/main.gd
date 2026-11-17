@@ -898,6 +898,221 @@ func apply_distance_culling(n: Node) -> void:
 				g.visibility_range_end = 55.0 if light_mode else 80.0
 		apply_distance_culling(c)
 
+# ---------- 이야기 속 물건들 (박, 둥지, 약초, 조각, 빨래, 보물) ----------
+
+var soft_gloss_mat: StandardMaterial3D
+
+func blob_gloss() -> StandardMaterial3D:
+	if soft_gloss_mat == null:
+		soft_gloss_mat = StandardMaterial3D.new()
+		soft_gloss_mat.vertex_color_use_as_albedo = true
+		soft_gloss_mat.roughness = 0.42
+		soft_gloss_mat.metallic_specular = 0.6
+	return soft_gloss_mat
+
+# 넓적한 잎사귀 몇 장 (땅에 깔림)
+func leaf_items(center: Vector3, count: int, size: float, r: RandomNumberGenerator, c: Color) -> Array:
+	var items := []
+	for i in count:
+		var a := i * TAU / count + r.randf_range(-0.3, 0.3)
+		var d := size * r.randf_range(0.7, 1.0)
+		items.append([center + Vector3(cos(a) * d, 0.06 + r.randf() * 0.06, sin(a) * d), Vector3(size * 1.1, 0.06, size * 0.8), c.lightened(r.randf() * 0.12), Vector3(r.randf_range(-12, 12), -rad_to_deg(a), 0)])
+	return items
+
+# 박: 뽀얀 둥근 몸통에 은은한 골, 꼭지, 덩굴과 하얀 박꽃
+func make_gourd_visual(g: Node3D, c: Color, radius: float) -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = int(g.position.x * 10.0 + g.position.z)
+	var R := radius
+	var body := [[Vector3(0, R * 0.9, 0), Vector3(2.0 * R, 1.8 * R, 2.0 * R), c]]
+	for i in 8:
+		var a := i * TAU / 8.0
+		body.append([Vector3(cos(a) * R * 0.3, R * 0.9, sin(a) * R * 0.3), Vector3(R * 1.5, 1.74 * R, R * 1.5), c.lightened(0.07) if i % 2 == 0 else c.darkened(0.04)])
+	body.append([Vector3(-R * 0.35, R * 1.35, R * 0.55), Vector3(R * 0.5, R * 0.35, R * 0.3), c.lightened(0.3)])
+	add_blobs(g, body, blob_gloss())
+	var stem := make_color(Color(0.45, 0.4, 0.2))
+	var top := Vector3(0, R * 1.78, 0)
+	add_beam(g, stem, top, top + Vector3(0.05, R * 0.22, 0.02), R * 0.09, R * 0.09)
+	add_beam(g, stem, top + Vector3(0.05, R * 0.22, 0.02), top + Vector3(R * 0.22, R * 0.3, 0.06), R * 0.06, R * 0.06)
+	var leaves := leaf_items(Vector3.ZERO, 5, R * 0.95, r, Color(0.3, 0.56, 0.24))
+	for i in 2:
+		var a := r.randf() * TAU
+		leaves.append([Vector3(cos(a) * R * 1.4, 0.2, sin(a) * R * 1.4), Vector3(0.32, 0.08, 0.32) * R, Color(1, 1, 0.97)])
+		leaves.append([Vector3(cos(a) * R * 1.4, 0.24, sin(a) * R * 1.4), Vector3(0.1, 0.06, 0.1) * R, Color(1.0, 0.92, 0.5)])
+	add_blobs(g, leaves, null, true)
+	var vine := make_color(Color(0.28, 0.48, 0.2))
+	var prev := Vector3(0, 0.08, 0)
+	for k in 6:
+		var nxt := prev + Vector3(r.randf_range(0.2, 0.6), 0, r.randf_range(-0.5, 0.5)) * R
+		nxt.y = 0.08
+		add_beam(g, vine, prev, nxt, 0.06, 0.06)
+		prev = nxt
+
+# 처마 밑 제비 둥지: 진흙 사발 + 입 벌린 아기 제비 셋
+func make_nest_visual(n: Node3D) -> void:
+	var root := Node3D.new()
+	root.position = Vector3(0.52, 1.45, 0.0)
+	root.rotation.y = -PI / 2.0
+	n.add_child(root)
+	add_mbox(root, dark_wood_mat, Vector3(0.7, 0.06, 0.45), Vector3(0, -0.2, 0))
+	var mud := []
+	var r := RandomNumberGenerator.new()
+	r.seed = 9
+	for i in 12:
+		var a := i * TAU / 12.0
+		mud.append([Vector3(cos(a) * 0.24, r.randf_range(-0.04, 0.04), sin(a) * 0.17), Vector3(0.2, 0.17, 0.17), Color(0.55, 0.42, 0.28).lightened(r.randf() * 0.15)])
+	mud.append([Vector3(0, -0.1, 0), Vector3(0.5, 0.18, 0.36), Color(0.5, 0.38, 0.25)])
+	for i in 6:
+		mud.append([Vector3(r.randf_range(-0.25, 0.25), 0.05, r.randf_range(-0.15, 0.15)), Vector3(0.3, 0.02, 0.02), Color(0.9, 0.78, 0.45), Vector3(0, r.randf_range(0, 180), r.randf_range(-20, 20))])
+	for i in 3:
+		var x := (i - 1) * 0.14
+		mud.append([Vector3(x, 0.12, 0.02), Vector3(0.13, 0.13, 0.13), Color(0.15, 0.17, 0.28)])
+		mud.append([Vector3(x, 0.09, 0.07), Vector3(0.08, 0.06, 0.04), Color(0.98, 0.95, 0.9)])
+		mud.append([Vector3(x, 0.17, 0.1), Vector3(0.09, 0.03, 0.08), Color(1.0, 0.75, 0.2), Vector3(-25, 0, 0)])
+		mud.append([Vector3(x, 0.14, 0.1), Vector3(0.08, 0.025, 0.07), Color(1.0, 0.6, 0.15), Vector3(20, 0, 0)])
+	add_blobs(root, mud)
+
+# 약초: 가는 줄기, 톱니 잎, 보랏빛 도라지꽃
+func make_herb_visual(h: Node3D) -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = int(h.position.x * 7.0 + h.position.z)
+	var items := leaf_items(Vector3.ZERO, 6, 0.28, r, Color(0.26, 0.52, 0.24))
+	var stem := make_color(Color(0.3, 0.5, 0.22))
+	for i in 4:
+		var a := i * TAU / 4.0 + r.randf() * 0.5
+		var top := Vector3(cos(a) * 0.18, r.randf_range(0.55, 0.85), sin(a) * 0.18)
+		add_beam(h, stem, Vector3(0, 0.02, 0), top, 0.035, 0.035)
+		items.append([top * 0.55, Vector3(0.18, 0.04, 0.1), Color(0.34, 0.6, 0.28), Vector3(0, -rad_to_deg(a), 25)])
+		var fc := Color(0.66, 0.45, 0.92) if i % 2 == 0 else Color(0.95, 0.5, 0.75)
+		for k in 5:
+			var b := k * TAU / 5.0
+			items.append([top + Vector3(cos(b) * 0.07, 0.02, sin(b) * 0.07), Vector3(0.09, 0.05, 0.09), fc])
+		items.append([top + Vector3(0, 0.04, 0), Vector3(0.05, 0.05, 0.05), Color(1.0, 0.95, 0.6)])
+	add_blobs(h, items)
+	# 뿌리 쪽 흙더미
+	add_blobs(h, [[Vector3(0, 0.02, 0), Vector3(0.6, 0.12, 0.6), Color(0.45, 0.33, 0.22)]], null, true)
+
+# 이야기 조각: 빛나는 두루마리가 둥실둥실 돌아요
+func make_piece_visual(p: Node3D) -> void:
+	var f := Node3D.new()
+	f.position.y = 0.6
+	p.add_child(f)
+	var paper := make_color(Color(1.0, 0.95, 0.78))
+	paper.emission_enabled = true
+	paper.emission = Color(1.0, 0.85, 0.45)
+	paper.emission_energy_multiplier = 0.45
+	add_mbox(f, paper, Vector3(0.5, 0.34, 0.02), Vector3.ZERO)
+	var ink := make_color(Color(0.35, 0.25, 0.2))
+	for i in 4:
+		add_mbox(f, ink, Vector3(0.025, 0.24, 0.025), Vector3(-0.14 + i * 0.09, 0, 0.012))
+	var roll := make_color(Color(0.75, 0.22, 0.2))
+	for sx in [-1.0, 1.0]:
+		add_mcyl(f, roll, 0.045, 0.045, 0.44, Vector3(sx * 0.27, 0, 0))
+		add_mcyl(f, glossy_mat(Color(0.95, 0.75, 0.25)), 0.03, 0.03, 0.54, Vector3(sx * 0.27, 0, 0))
+	var halo := MeshInstance3D.new()
+	var tor := TorusMesh.new()
+	tor.inner_radius = 0.42
+	tor.outer_radius = 0.46
+	halo.mesh = tor
+	var hm := make_color(Color(1.0, 0.9, 0.5))
+	hm.emission_enabled = true
+	hm.emission = Color(1.0, 0.85, 0.4)
+	hm.emission_energy_multiplier = 1.0
+	halo.material_override = hm
+	halo.rotation.x = PI / 2.0
+	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	f.add_child(halo)
+
+# 놀부가 흩뜨려 놓은 빨래: 구겨진 천 더미 + 저고리 한 벌
+func make_laundry_pile(n: Node3D) -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = int(n.position.x * 3.0 + n.position.z)
+	var cloth := [Color(0.98, 0.98, 0.96), Color(0.82, 0.9, 1.0), Color(1.0, 0.88, 0.86)]
+	var items := []
+	for i in 5:
+		items.append([Vector3(r.randf_range(-0.35, 0.35), 0.04 + i * 0.03, r.randf_range(-0.3, 0.3)), Vector3(r.randf_range(0.7, 1.0), 0.05, r.randf_range(0.5, 0.7)), cloth[i % 3], Vector3(r.randf_range(-5, 5), r.randf_range(0, 180), r.randf_range(-5, 5))])
+	items.append([Vector3(0.1, 0.2, 0.0), Vector3(0.5, 0.18, 0.35), cloth[0], Vector3(0, 30, 10)])
+	# 빨간 고름 하나
+	items.append([Vector3(0.25, 0.2, 0.1), Vector3(0.05, 0.03, 0.34), Color(0.85, 0.25, 0.3), Vector3(0, 35, 0)])
+	add_blobs(n, items, null, true)
+
+# 김 서방네 호박: 골 깊은 주황 호박 + 꼭지 + 잎
+func make_pumpkin(pos: Vector3, s: float, r: RandomNumberGenerator) -> void:
+	var root := Node3D.new()
+	root.position = pos
+	add_child(root)
+	var c := Color(0.95, 0.58, 0.18)
+	var items := []
+	for i in 8:
+		var a := i * TAU / 8.0
+		items.append([Vector3(cos(a) * 0.2 * s, 0.38 * s, sin(a) * 0.2 * s), Vector3(0.48, 0.66, 0.48) * s, c.lightened(0.06) if i % 2 == 0 else c.darkened(0.08)])
+	items.append([Vector3(0, 0.4 * s, 0), Vector3(0.8, 0.7, 0.8) * s, c])
+	add_blobs(root, items, blob_gloss())
+	add_beam(root, make_color(Color(0.42, 0.45, 0.2)), Vector3(0, 0.7 * s, 0), Vector3(0.05, 0.86 * s, 0.03), 0.07 * s, 0.07 * s)
+	add_blobs(root, leaf_items(Vector3.ZERO, 4, 0.55 * s, r, Color(0.3, 0.55, 0.24)), null, true)
+
+# 박 첨지네 논: 논두렁 + 찰랑이는 물 + 줄 맞춘 모
+func make_paddy(center: Vector3, w: float, d: float) -> void:
+	var earth := make_tex_material(Color(0.6, 0.5, 0.34), plaster_tex, 0.4)
+	add_mbox(self, earth, Vector3(w, 0.25, 0.4), center + Vector3(0, 0.12, d / 2.0))
+	add_mbox(self, earth, Vector3(w, 0.25, 0.4), center + Vector3(0, 0.12, -d / 2.0))
+	add_mbox(self, earth, Vector3(0.4, 0.25, d), center + Vector3(w / 2.0, 0.12, 0))
+	add_mbox(self, earth, Vector3(0.4, 0.25, d), center + Vector3(-w / 2.0, 0.12, 0))
+	add_mbox(self, make_color(Color(0.42, 0.34, 0.24)), Vector3(w - 0.4, 0.04, d - 0.4), center + Vector3(0, 0.02, 0))
+	var wtr := add_mbox(self, water_mat, Vector3(w - 0.4, 0.02, d - 0.4), center + Vector3(0, 0.08, 0))
+	wtr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var rice := []
+	var nx := 9
+	for ix in nx:
+		for iz in nx:
+			var p := center + Vector3(-w / 2.0 + 0.55 + ix * (w - 1.1) / (nx - 1), 0.25, -d / 2.0 + 0.55 + iz * (d - 1.1) / (nx - 1))
+			rice.append([p, Vector3(0.18, 0.4, 0.18), Color(0.45, 0.7, 0.3)])
+			rice.append([p + Vector3(0.05, 0.08, 0), Vector3(0.08, 0.36, 0.08), Color(0.55, 0.78, 0.35), Vector3(0, 0, -20)])
+	add_blobs(self, rice)
+	house_rects.append(Rect2(center.x - w / 2.0 - 0.3, center.z - d / 2.0 - 0.3, w + 0.6, d + 0.6))
+
+func spawn_rice(pile: Node3D) -> void:
+	for i in 3:
+		var p := Vector3((i - 1) * 0.85, 0, rng.randf_range(-0.2, 0.2))
+		add_blobs(pile, [[p + Vector3(0, 0.5, 0), Vector3(0.75, 1.0, 0.6), Color(1, 0.95, 0.8)], [p + Vector3(0, 1.02, 0), Vector3(0.4, 0.2, 0.35), Color(0.95, 0.85, 0.6)]], thatch_blob_mat)
+		add_beam(pile, make_color(Color(0.55, 0.4, 0.2)), p + Vector3(-0.3, 0.9, 0), p + Vector3(0.3, 0.9, 0), 0.04, 0.04)
+	var heap := [[Vector3(0, 0.2, 0.75), Vector3(1.3, 0.4, 0.9), Color(0.98, 0.97, 0.92)]]
+	for i in 14:
+		heap.append([Vector3(rng.randf_range(-0.8, 0.8), 0.04, 0.75 + rng.randf_range(-0.6, 0.6)), Vector3(0.06, 0.04, 0.04), Color(1, 1, 0.96)])
+	add_blobs(pile, heap)
+
+func spawn_silk(pile: Node3D) -> void:
+	var silk := [Color(0.85, 0.2, 0.3), Color(0.2, 0.4, 0.8), Color(0.95, 0.75, 0.2), Color(0.3, 0.65, 0.4), Color(0.75, 0.45, 0.85)]
+	var y := 0.2
+	for i in 5:
+		var roll := add_mcyl(pile, glossy_mat(silk[i]), 0.2, 0.2, 1.3, Vector3(-0.42 + (i % 2) * 0.42 + (0.21 if i >= 2 else 0.0), y + (i / 2) * 0.38, 0))
+		roll.rotation.z = PI / 2.0
+		add_mcyl(pile, glossy_mat(Color(0.95, 0.8, 0.3)), 0.205, 0.205, 0.08, roll.position).rotation.z = PI / 2.0
+
+func spawn_gold(pile: Node3D) -> void:
+	var gold := glossy_mat(Color(1.0, 0.78, 0.2))
+	gold.metallic = 0.7
+	gold.roughness = 0.25
+	# 열린 궤짝
+	add_mbox(pile, dark_wood_mat, Vector3(1.2, 0.6, 0.8), Vector3(0, 0.3, 0))
+	var lid := add_mbox(pile, make_color(Color(0.65, 0.18, 0.15)), Vector3(1.2, 0.08, 0.8), Vector3(0, 0.85, -0.55))
+	lid.rotation.x = -1.1
+	for sx in [-0.55, 0.55]:
+		add_mbox(pile, gold, Vector3(0.06, 0.62, 0.82), Vector3(sx, 0.31, 0))
+	var heap := []
+	for i in 22:
+		heap.append([Vector3(rng.randf_range(-0.45, 0.45), 0.62 + rng.randf() * 0.15, rng.randf_range(-0.28, 0.28)), Vector3(0.16, 0.05, 0.16), Color(1, 0.82, 0.25)])
+	var jewels := [Color(0.9, 0.15, 0.25), Color(0.2, 0.75, 0.5), Color(0.3, 0.45, 0.95)]
+	for i in 4:
+		heap.append([Vector3(rng.randf_range(-0.35, 0.35), 0.75, rng.randf_range(-0.2, 0.2)), Vector3(0.12, 0.12, 0.12), jewels[i % 3]])
+	add_blobs(pile, heap, blob_gloss())
+	# 말굽 은덩이와 엽전 꾸러미
+	for i in 3:
+		add_mbox(pile, gold, Vector3(0.36, 0.16, 0.22), Vector3(-0.9 + i * 0.25, 0.08, 0.75))
+	for i in 3:
+		for k in 5:
+			add_mcyl(pile, gold, 0.12, 0.12, 0.035, Vector3(0.75 + i * 0.28, 0.02 + k * 0.04, 0.7 - i * 0.1))
+
 # ---------- 마을 소품 ----------
 
 func make_jangdok(pos: Vector3, r: RandomNumberGenerator) -> void:
@@ -1488,7 +1703,7 @@ func make_gourd_at(pos: Vector3, c: Color, radius: float) -> Node3D:
 	var g := Node3D.new()
 	g.position = pos
 	add_child(g)
-	add_ball(g, c, radius, Vector3(0, radius, 0))
+	make_gourd_visual(g, c, radius)
 	add_tag(g, "박", radius * 2.0 + 0.7)
 	g.visible = false
 	return g
@@ -1582,8 +1797,8 @@ func make_village() -> void:
 	make_npc("heungbu", "흥부", Color(0.85, 0.6, 0.35), Vector3(-12, 0, 2.5), 1.0, true)
 	make_npc("kid1", "첫째", Color(0.95, 0.75, 0.5), Vector3(-16.5, 0, 4), 0.7, true)
 	make_npc("kid2", "막내", Color(0.98, 0.82, 0.6), Vector3(-9, 0, 5), 0.55, true)
-	var nest := make_spot(Vector3(-15.6, 0, 0.3), "nest", "", "제비 둥지", true)
-	add_ball(nest, Color(0.5, 0.38, 0.25), 0.35, Vector3(0, 1.2, 0))
+	var nest := make_spot(Vector3(-16.1, 0, -3.15), "nest", "", "제비 둥지", true)
+	make_nest_visual(nest)
 	for pos in [Vector3(-6.5, 0, -3), Vector3(-5, 0, 0), Vector3(-6.5, 0, 3)]:
 		add_thing(make_gourd_at(pos, Color(0.82, 0.9, 0.62), 1.2), "gourd", "")
 
@@ -1598,14 +1813,23 @@ func make_village() -> void:
 	make_npc("kim", "김 서방", Color(0.5, 0.45, 0.3), Vector3(-24, 0, 15), 1.0, true)
 	make_npc("ong", "옹기 할멈", Color(0.6, 0.5, 0.55), Vector3(27, 0, -9), 0.9, true)
 	make_npc("park", "박 첨지", Color(0.4, 0.5, 0.55), Vector3(-31, 0, -5), 1.0, true)
+	var pr := RandomNumberGenerator.new()
+	pr.seed = 15
 	for pos in [Vector3(-26.5, 0, 16.8), Vector3(-22.3, 0, 17), Vector3(-25, 0, 18.5)]:
-		add_ball(self, Color(0.95, 0.6, 0.2), 0.5, pos + Vector3(0, 0.45, 0))
+		make_pumpkin(pos, 1.25, pr)
+	var ong_jars := StaticBody3D.new()
+	add_child(ong_jars)
+	var crack := make_color(Color(0.15, 0.1, 0.08))
 	for pos in [Vector3(29, 0, -10), Vector3(29.8, 0, -8.6), Vector3(28.6, 0, -7.6)]:
-		add_ball(self, Color(0.45, 0.3, 0.2), 0.55, pos + Vector3(0, 0.55, 0))
-	add_box(self, Color(0.55, 0.5, 0.3), Vector3(6, 0.05, 6), Vector3(-34.5, 0.03, -3))
+		make_jar(ong_jars, pos, 1.05, Color(0.42, 0.25, 0.15))
+		# 놀부가 차서 생긴 금
+		var c0: Vector3 = pos + Vector3(-0.1, 0.85, 0.5)
+		add_beam(self, crack, c0, c0 + Vector3(0.12, -0.2, 0.02), 0.025, 0.02)
+		add_beam(self, crack, c0 + Vector3(0.12, -0.2, 0.02), c0 + Vector3(0.02, -0.4, 0.04), 0.025, 0.02)
+	make_paddy(Vector3(-34.5, 0, -3), 6.0, 6.0)
 	for pos in [Vector3(-14, 0, -13.2), Vector3(-21, 0, -17.6), Vector3(5, 0, -13.2)]:
 		var cloth := make_spot(pos, "laundry", "", "빨래", false)
-		add_box(cloth, Color(0.95, 0.95, 1.0), Vector3(0.8, 0.1, 0.6), Vector3(0, 0.1, 0))
+		make_laundry_pile(cloth)
 
 	# 품팔이 터
 	var well := make_spot(Vector3(4, 0, -3), "job", "water", "우물", true)
@@ -1646,7 +1870,7 @@ func make_village() -> void:
 	make_basket(Vector3(-10.3, 0, 0.9), 1.0, Color(0.95, 0.55, 0.15))
 	make_basket(Vector3(-25.2, 0, 13.0), 0.9, Color(0.4, 0.7, 0.3))
 	make_basket(Vector3(-7.1, 0, 25.5), 1.1, Color(0, 0, 0, 0))
-	make_sieve(Vector3(-15.55, 0, -0.1), 0.0)
+	make_sieve(Vector3(-11.6, 0, -4.15), PI)
 	make_sieve(Vector3(27.6, 0, -1.25), 0.3)
 	make_bench(Vector3(8.6, 0, 11.6), 0.2)
 	make_trellis(Vector3(-10.0, 0, 11.9), Vector3(-7.0, 0, 11.9), rr)
@@ -1654,7 +1878,7 @@ func make_village() -> void:
 	# 숨은 이야기 조각
 	for pos in [Vector3(14, 0, -6.5), Vector3(-31, 0, -12), Vector3(-9, 0, -36), Vector3(35, 0, 33), Vector3(-27.5, 0, 23.5), Vector3(30.8, 2.2, 5.6)]:
 		var p := make_spot(pos, "piece", "", "", true)
-		add_ball(p, Color(1.0, 0.85, 0.3), 0.3, Vector3(0, 0.6, 0))
+		make_piece_visual(p)
 
 # ---------- 마을 꾸미기 (돌담, 감나무, 장독대, 텃밭, 꽃, 징검돌, 시냇가) ----------
 
@@ -2041,7 +2265,7 @@ func make_forest() -> void:
 	var herb_spots := [Vector3(-24, 0, -25), Vector3(5, 0, -32), Vector3(27, 0, -22)]
 	for pos in herb_spots:
 		var h := make_spot(pos, "herb", "", "약초", false)
-		add_ball(h, Color(0.95, 0.4, 0.6), 0.4, Vector3(0, 0.4, 0))
+		make_herb_visual(h)
 
 	# 가시덤불로 막힌 연못 (금도끼 은도끼)
 	var hedge := Color(0.2, 0.4, 0.22)
@@ -3040,17 +3264,13 @@ func spawn_treasure(order: int, pos: Vector3) -> void:
 	pile.position = pos
 	add_child(pile)
 	if order == 0:
-		for i in 9:
-			add_ball(pile, Color(0.97, 0.97, 0.93), 0.35, Vector3(rng.randf_range(-1, 1), 0.3 + (i % 3) * 0.3, rng.randf_range(-1, 1)))
+		spawn_rice(pile)
 		add_tag(pile, "쌀", 2.0)
 	elif order == 1:
-		var silk := [Color(0.85, 0.2, 0.3), Color(0.2, 0.4, 0.8), Color(0.95, 0.75, 0.2), Color(0.3, 0.65, 0.4)]
-		for i in 4:
-			add_box(pile, silk[i], Vector3(1.4, 0.3, 0.6), Vector3(0, 0.15 + i * 0.3, 0))
+		spawn_silk(pile)
 		add_tag(pile, "비단", 2.0)
 	else:
-		for i in 6:
-			add_ball(pile, Color(1.0, 0.8, 0.2), 0.3, Vector3(rng.randf_range(-0.8, 0.8), 0.3, rng.randf_range(-0.8, 0.8)))
+		spawn_gold(pile)
 		add_tag(pile, "금은보화", 1.6)
 		hut.visible = false
 		pop3d(make_house(hut.position, Vector3(7, 3.4, 4.5), Color(0.96, 0.94, 0.88), Color(0.2, 0.35, 0.5), "tile"), true)
@@ -3728,7 +3948,8 @@ func _physics_process(delta: float) -> void:
 		if t["kind"] == "piece":
 			var piece: Node3D = t["node"]
 			var ball: Node3D = piece.get_child(0)
-			ball.position.y = 0.6 + sin(idle_time * 3.0 + piece.position.x) * 0.12
+			ball.position.y = 0.75 + sin(idle_time * 3.0 + piece.position.x) * 0.12
+			ball.rotation.y = idle_time * 1.4 + piece.position.x
 
 	current_thing = {}
 	if not busy:
