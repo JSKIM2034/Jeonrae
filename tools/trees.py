@@ -16,7 +16,7 @@ def lumpy(size, loc, m, rnd, strength=0.3, subdiv=3):
     o.scale = size
     bpy.ops.object.transform_apply(scale=True)
     tex = bpy.data.textures.new("n", "CLOUDS")
-    tex.noise_scale = 0.38
+    tex.noise_scale = 0.22
     md = o.modifiers.new("d", "DISPLACE")
     md.texture = tex
     md.strength = strength
@@ -55,12 +55,16 @@ def broadleaf(name, ox, seed):
         _, tip = branch(tuple(s), (math.cos(a), math.sin(a), 0.9), rnd.uniform(1.2, 1.7), 0.13, 0.05, rnd, bend=0.2, n=5)
         tips.append(tip)
     leaves = []
+    # 작은 잎 뭉치를 많이: 가지 끝마다 5~7개, 가운데도 듬성듬성
     for tip in tips:
-        for j in range(2):
-            c = tip + Vector((rnd.uniform(-0.4, 0.4), rnd.uniform(-0.4, 0.4), rnd.uniform(0.0, 0.5)))
-            r = rnd.uniform(0.85, 1.25)
-            leaves.append(lumpy((r * 1.15, r * 1.15, r * 0.85), tuple(c), M_LEAF, rnd))
-    leaves.append(lumpy((1.5, 1.5, 1.1), tuple(top + Vector((0, 0, 0.6))), M_LEAF, rnd))
+        for j in range(rnd.randint(5, 7)):
+            c = tip + Vector((rnd.uniform(-0.75, 0.75), rnd.uniform(-0.75, 0.75), rnd.uniform(-0.35, 0.55)))
+            r = rnd.uniform(0.38, 0.62)
+            leaves.append(lumpy((r * 1.1, r * 1.1, r * 0.85), tuple(c), M_LEAF, rnd, strength=0.16, subdiv=2))
+    for j in range(5):
+        c = top + Vector((rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.6), rnd.uniform(0.2, 0.9)))
+        r = rnd.uniform(0.45, 0.65)
+        leaves.append(lumpy((r, r, r * 0.85), tuple(c), M_LEAF, rnd, strength=0.16, subdiv=2))
     for lf in leaves:
         tint = rnd.uniform(-0.04, 0.05)
         def col(co, n, tint=tint):
@@ -103,8 +107,10 @@ def pine(name, ox, seed):
         pads.append(tip)
     pads.append(top)
     for tip in pads:
-        r = rnd.uniform(0.95, 1.35)
-        pad = lumpy((r * 1.3, r * 1.2, r * 0.42), tuple(tip + Vector((0, 0, 0.12))), M_NEEDLE, rnd, strength=0.14)
+      for j in range(3):
+        r = rnd.uniform(0.5, 0.75)
+        off = Vector((rnd.uniform(-0.45, 0.45), rnd.uniform(-0.45, 0.45), rnd.uniform(-0.05, 0.12)))
+        pad = lumpy((r * 1.3, r * 1.2, r * 0.45), tuple(tip + off + Vector((0, 0, 0.1))), M_NEEDLE, rnd, strength=0.12, subdiv=2)
         def col(co, n):
             side = 0.5 + 0.5 * n.z
             return (0.14 + 0.12 * side, 0.32 + 0.2 * side, 0.2 + 0.06 * side)

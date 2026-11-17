@@ -2203,8 +2203,8 @@ func make_tree(pos: Vector3) -> void:
 			else:
 				mi.set_surface_override_material(i, bark_mat)
 		mi.rotation.y = rng.randf() * TAU
-		var sc := rng.randf_range(0.9, 1.25)
-		mi.scale = Vector3(sc, sc * rng.randf_range(0.92, 1.1), sc)
+		var sc := rng.randf_range(0.78, 1.02)
+		mi.scale = Vector3(sc, sc * rng.randf_range(0.95, 1.12), sc)
 		tree.add_child(mi)
 		return
 	var pine := rng.randf() < 0.4  # 소나무
@@ -2882,10 +2882,18 @@ func make_flowers(pos: Vector3, r: RandomNumberGenerator) -> void:
 	var petals := [Color(0.95, 0.4, 0.6), Color(0.98, 0.98, 0.95), Color(0.98, 0.78, 0.12), Color(0.72, 0.45, 0.92)]
 	var pc: Color = petals[r.randi() % petals.size()]
 	var items := []
-	for i in 3:
-		items.append([Vector3(r.randf_range(-0.3, 0.3), 0.3, r.randf_range(-0.3, 0.3)), Vector3(0.9, 0.6, 0.9), Color(0.25 + 0.1 * r.randf(), 0.55 + 0.1 * r.randf(), 0.25)])
-	for i in 9:
-		items.append([Vector3(r.randf_range(-0.5, 0.5), r.randf_range(0.4, 0.62), r.randf_range(-0.5, 0.5)), Vector3(0.22, 0.2, 0.22), pc if i % 4 != 0 else Color(1.0, 0.95, 0.6)])
+	# 작은 잎 뭉치들이 모인 낮은 덤불 + 줄기 끝의 작은 꽃
+	var base_g := Color(0.3 + 0.08 * r.randf(), 0.55 + 0.08 * r.randf(), 0.26)
+	for i in 11:
+		var a := r.randf() * TAU
+		var d := r.randf_range(0.0, 0.42)
+		var y := r.randf_range(0.12, 0.42) * (1.0 - d * 0.8)
+		var sz := r.randf_range(0.2, 0.34)
+		items.append([Vector3(cos(a) * d, y, sin(a) * d), Vector3(sz, sz * 0.8, sz), base_g.lightened(r.randf() * 0.2 + y * 0.3)])
+	for i in 8:
+		var a := r.randf() * TAU
+		var d := r.randf_range(0.05, 0.42)
+		items.append([Vector3(cos(a) * d, r.randf_range(0.38, 0.55) - d * 0.3, sin(a) * d), Vector3(0.1, 0.07, 0.1), pc if i % 4 != 0 else Color(1.0, 0.95, 0.6)])
 	add_blobs(root, items)
 	sway_items.append([root, Vector3.ZERO, 1, pos.x * 1.1 + pos.z, 0.05])
 
