@@ -1198,11 +1198,61 @@ func add_lattice(parent: Node3D, pos: Vector3, w: float, h: float, rot_y: float)
 	add_mbox(root, dark_wood_mat, Vector3(f, h, 0.1), Vector3(w / 2.0 + f / 2.0, 0, 0))
 	add_mbox(root, dark_wood_mat, Vector3(f, h, 0.1), Vector3(-w / 2.0 - f / 2.0, 0, 0))
 
+# 블렌더로 만든 초가집 모델 (models/choga.glb). 없으면 코드로 그린 집을 써요
+var choga_scene: PackedScene = null
+var choga_tried := false
+
+func thatch_roof_mat(roof: Color) -> StandardMaterial3D:
+	var tm := StandardMaterial3D.new()
+	tm.albedo_texture = thatch_tex
+	tm.albedo_color = Color(1, 1, 1).lerp(roof * 1.25, 0.2)
+	tm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	tm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	tm.roughness = 1.0
+	return tm
+
+func make_choga_from_model(house: Node3D, size: Vector3, wall: Color, roof: Color) -> bool:
+	if not choga_tried:
+		choga_tried = true
+		if ResourceLoader.exists("res://models/choga.glb"):
+			choga_scene = load("res://models/choga.glb")
+	if choga_scene == null:
+		return false
+	var inst := choga_scene.instantiate() as Node3D
+	inst.scale = Vector3(size.x / 4.5, size.y / 2.8, size.z / 3.5)
+	house.add_child(inst)
+	var paper := make_color(Color(0.98, 0.95, 0.86))
+	paper.emission_enabled = true
+	paper.emission = Color(1.0, 0.95, 0.8)
+	paper.emission_energy_multiplier = 0.12
+	var map := {
+		"Thatch": thatch_roof_mat(roof), "ThatchDark": thatch_dark_mat, "Plaster": plaster_mat(wall),
+		"Wood": wood_mat, "DarkWood": dark_wood_mat, "Plank": plank_mat, "Stone": stone_mat, "Paper": paper,
+		"Rope": make_color(Color(0.5, 0.37, 0.2)), "Clay": make_tex_material(Color(0.66, 0.52, 0.38), plaster_tex, 0.6),
+		"Straw": make_tex_material(Color(0.95, 0.82, 0.52), thatch_tex, 1.4),
+	}
+	for node in inst.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		for i in mi.mesh.get_surface_count():
+			var m := mi.mesh.surface_get_material(i)
+			var key := m.resource_name if m != null else ""
+			if map.has(key):
+				mi.set_surface_override_material(i, map[key])
+	return true
+
 func make_house(pos: Vector3, size: Vector3, wall: Color, roof: Color, style: String = "thatch") -> Node3D:
 	var house := StaticBody3D.new()
 	house.position = pos
 	add_child(house)
 	house_rects.append(Rect2(pos.x - size.x / 2.0 - 0.7, pos.z - size.z / 2.0 - 0.7, size.x + 1.4, size.z + 2.6))
+	if style == "thatch" and make_choga_from_model(house, size, wall, roof):
+		var mcol := CollisionShape3D.new()
+		var mshape := BoxShape3D.new()
+		mshape.size = size
+		mcol.shape = mshape
+		mcol.position.y = size.y / 2.0
+		house.add_child(mcol)
+		return house
 	var r := RandomNumberGenerator.new()
 	r.seed = int(pos.x * 13.0 + pos.z * 7.0 + size.x)
 	var base_h := 0.32
