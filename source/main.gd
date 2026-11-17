@@ -2555,6 +2555,15 @@ func make_person_model(parent: Node3D, kind: String, c: Color) -> Node3D:
 				mi.set_surface_override_material(i, outfit)
 			else:
 				mi.set_surface_override_material(i, toon_of(m))
+	# 아래팔은 위팔에, 정강이는 허벅지에 매달아요 (팔꿈치와 무릎이 접혀요)
+	for pair in [["ForeL", "ArmL"], ["ForeR", "ArmR"], ["ShinL", "LegL"], ["ShinR", "LegR"]]:
+		if nodes.has(pair[0]) and nodes.has(pair[1]):
+			var child: Node3D = nodes[pair[0]]
+			var holder: Node3D = nodes[pair[1]]
+			var t := holder.transform.affine_inverse() * child.transform
+			body.remove_child(child)
+			holder.add_child(child)
+			child.transform = t
 	body.set_meta("model_parts", nodes)
 	return body
 
@@ -2597,14 +2606,21 @@ func make_person(parent: Node3D, kind: String, c: Color, solid: bool) -> Node3D:
 func pose_person(body: Node3D, swing: float, arm_up: float) -> void:
 	if body.has_meta("model_parts"):
 		var nodes: Dictionary = body.get_meta("model_parts")
-		for part in ["ArmL", "ArmR", "LegL", "LegR"]:
-			if not nodes.has(part):
-				continue
-			var sx := -1.0 if part.ends_with("L") else 1.0
-			var ang := swing * 0.75 * sx
-			if part.begins_with("Arm"):
-				ang = lerpf(-swing * 0.6 * sx, -2.5, arm_up)
-			(nodes[part] as Node3D).rotation.x = ang
+		for side in ["L", "R"]:
+			var sx := -1.0 if side == "L" else 1.0
+			var leg := swing * 0.5 * sx
+			if nodes.has("Leg" + side):
+				(nodes["Leg" + side] as Node3D).rotation.x = lerpf(leg, -0.55, arm_up)
+			if nodes.has("Shin" + side):
+				# 다리가 뒤로 갈 때 무릎이 접혀요. 점프하면 웅크려요
+				var knee := clampf(leg * 1.3, 0.0, 1.1) + absf(swing) * 0.15
+				(nodes["Shin" + side] as Node3D).rotation.x = lerpf(knee, 1.0, arm_up)
+			if nodes.has("Arm" + side):
+				(nodes["Arm" + side] as Node3D).rotation.x = lerpf(-swing * 0.6 * sx, -2.5, arm_up)
+			if nodes.has("Fore" + side):
+				# 걸을 때 팔꿈치가 살짝 굽어요
+				var elbow := -0.18 - absf(swing) * 0.45 - maxf(0.0, -swing * sx) * 0.3
+				(nodes["Fore" + side] as Node3D).rotation.x = lerpf(elbow, -0.2, arm_up)
 		return
 	var mmi: MultiMeshInstance3D = body.get_meta("mmi")
 	var base: Array = body.get_meta("base")
@@ -2684,7 +2700,7 @@ func make_world() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-42, 38, 0)
 	sun.light_color = Color(1.0, 0.93, 0.8)
-	sun.light_energy = 0.85
+	sun.light_energy = 0.66
 	# 부드러운 그림자 (가까운 곳만 그려서 가볍게)
 	sun.shadow_enabled = SHADOWS_ON
 	sun.shadow_blur = 1.6
@@ -2714,14 +2730,14 @@ func make_world() -> void:
 	# 따뜻하고 포근한 빛: 하늘 대신 부드러운 크림색으로 전체를 밝혀요
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color(1.0, 0.96, 0.88)
-	e.ambient_light_energy = 0.5
+	e.ambient_light_energy = 0.56
 	# 멀리는 살짝 뿌옇게 (공기감) + 색을 조금 선명하게
 	e.fog_enabled = true
 	e.fog_light_color = Color(0.72, 0.84, 0.92)
 	e.fog_density = 0.0018
 	e.fog_sky_affect = 0.0
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 1.05
+	e.tonemap_exposure = 1.02
 	e.tonemap_white = 5.0
 	e.adjustment_enabled = true
 	e.adjustment_saturation = 1.12

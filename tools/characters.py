@@ -23,7 +23,7 @@ def C(name, col, rough=0.8):
         MATC[name] = m
     return MATC[name]
 
-SKIN0 = C("Skin", (0.98, 0.82, 0.7))
+SKIN0 = C("Skin", (0.96, 0.77, 0.63))
 SKIN = SKIN0
 BLUSH = C("Blush", (1.0, 0.76, 0.7))
 WHITE = C("EyeWhite", (1.0, 1.0, 1.0), 0.25)
@@ -42,7 +42,7 @@ HZN = 0.79             # 실제 머리 중심 높이
 class Char:
     def __init__(self, kind, ox):
         self.kind, self.ox = kind, ox
-        self.groups = {k: [] for k in ("Body", "Eyes", "ArmL", "ArmR", "LegL", "LegR")}
+        self.groups = {k: [] for k in ("Body", "Eyes", "ArmL", "ArmR", "ForeL", "ForeR", "LegL", "LegR", "ShinL", "ShinR")}
         self.cur = "Body"
         self.hm = True     # 머리 모드: 머리 좌표를 줄여서 목 위로 옮겨요
     def P(self, p):
@@ -125,13 +125,15 @@ def face(ch, brow_col, brows="kind", mouth="smile", lids="open", wide=1.0):
     ch.cur = "Body"
     hz = HEAD_Z
     ch.sph((HR[0] * 2 * wide, HR[1] * 2, HR[2] * 2), (0, 0, hz), SKIN, segs=32, rings=20)
-    ch.sph((0.34 * wide, 0.26, 0.2), (0, -0.07, hz - 0.13), SKIN, segs=20, rings=12)       # 볼과 턱
+    ch.sph((0.42 * wide, 0.34, 0.24), (0, -0.05, hz - 0.1), SKIN, segs=20, rings=12)       # 볼
+    ch.sph((0.2 * wide, 0.2, 0.16), (0, -0.1, hz - 0.2), SKIN, segs=16, rings=10)         # 갸름한 턱 끝
     ch.tube((0, 0.01, hz - 0.2), (0, 0.01, hz - 0.5), 0.085, 0.095, SKIN)              # 목
     for sx in (-1, 1):
         ch.sph((0.08, 0.05, 0.12), (sx * 0.262 * wide, 0.02, hz - 0.02), SKIN)         # 귀
         ch.sph((0.045, 0.03, 0.06), (sx * 0.272 * wide, -0.005, hz - 0.02), C("EarIn", (0.95, 0.72, 0.62)))
         ch.sph((0.08, 0.015, 0.045), (sx * 0.155, -0.218, hz - 0.075), BLUSH)
-    ch.sph((0.05, 0.04, 0.045), (0, -0.25, hz - 0.055), C("Nose", (1.0, 0.78, 0.66)))
+    ch.sph((0.045, 0.05, 0.07), (0, -0.24, hz - 0.035), SKIN, rot=(0.35, 0, 0))   # 콧대
+    ch.sph((0.05, 0.04, 0.04), (0, -0.252, hz - 0.068), C("Nose", (0.99, 0.78, 0.66)))
     # 눈썹
     for sx in (-1, 1):
         if brows == "angry":
@@ -141,7 +143,7 @@ def face(ch, brow_col, brows="kind", mouth="smile", lids="open", wide=1.0):
         ch.curve(pts, 0.012, brow_col, radii=[0.8, 1.0, 0.5])
     # 입
     if mouth == "smile":
-        ch.curve([(-0.045, -0.238, hz - 0.13), (-0.015, -0.248, hz - 0.145), (0.015, -0.248, hz - 0.145), (0.045, -0.238, hz - 0.13)], 0.008, MOUTH)
+        ch.curve([(-0.05, -0.236, hz - 0.13), (-0.017, -0.247, hz - 0.146), (0.017, -0.247, hz - 0.146), (0.05, -0.236, hz - 0.13)], 0.01, MOUTH)
     elif mouth == "smirk":
         ch.curve([(-0.05, -0.243, hz - 0.14), (0.0, -0.25, hz - 0.142), (0.05, -0.238, hz - 0.122)], 0.009, MOUTH)
     elif mouth == "grin":
@@ -195,6 +197,13 @@ def hair_cap(ch, col, part=False):
         ch.curve([(x * 0.3, -0.2, hz + 0.21), (x * 0.7, -0.05, hz + 0.31), (x, 0.12, hz + 0.27)], 0.008, col)
     if part:
         ch.curve([(0, -0.22, hz + 0.2), (0, -0.08, hz + 0.31), (0, 0.06, hz + 0.31)], 0.007, SKIN)
+    else:
+        # 이마 위 잔머리와 귀 앞 구레나룻 (머리카락 결)
+        for k in range(-3, 4):
+            x = k * 0.05
+            ch.curve([(x * 1.2, -0.12, hz + 0.27), (x * 1.3, -0.21, hz + 0.21), (x * 1.25 + 0.015, -0.235, hz + 0.16)], 0.03, col, radii=[1, 0.8, 0.25])
+        for sx in (-1, 1):
+            ch.curve([(sx * 0.24, -0.08, hz + 0.12), (sx * 0.255, -0.12, hz + 0.03), (sx * 0.25, -0.13, hz - 0.04)], 0.028, col, radii=[1, 0.7, 0.2])
 
 def topknot(ch, col):
     hz = HEAD_Z
@@ -229,7 +238,7 @@ def gat(ch, gold=False):
 def beard(ch, col, kind):
     hz = HEAD_Z
     if kind == "goatee":
-        ch.sph((0.05, 0.03, 0.05), (0, -0.236, hz - 0.18), col)
+        ch.sph((0.04, 0.025, 0.035), (0, -0.215, hz - 0.225), col)
     elif kind == "point":
         ch.tube((0, -0.225, hz - 0.17), (0, -0.21, hz - 0.25), 0.035, 0.006, col)
     elif kind == "long":
@@ -268,6 +277,8 @@ def sleeves(ch, col, cuff=None, wide=0.0, hand_item=None, glove=None):
         ch.sph((0.12, 0.12, 0.12), sh, col)
         ch.tube(sh, el, 0.055, 0.052 + wide * 0.4, col)
         ch.sph((0.1 + wide * 0.8, 0.1 + wide * 0.8, 0.1), el, col)
+        ch.cur = "Fore" + side[-1]          # 팔꿈치 아래는 따로 (접히게)
+        ch.sph((0.098 + wide * 0.8, 0.098 + wide * 0.8, 0.098), el, col)
         ch.tube(el, wr, 0.052 + wide * 0.4, 0.05 + wide, col)
         if cuff:
             ch.tube((sx * 0.268, -0.02, 0.02), (sx * 0.272, -0.02, -0.035), 0.052 + wide, 0.054 + wide, cuff)
@@ -287,19 +298,25 @@ def legs(ch, shoe, pants=None, baggy=False, cuff=None, hidden=False, sock=SOCK):
         x = sx * 0.085
         if pants and not hidden:
             if baggy:
-                ch.sph((0.19, 0.19, 0.62), (x * 1.15, 0, -0.34), pants)
+                ch.sph((0.19, 0.19, 0.5), (x * 1.15, 0, -0.22), pants)
+                ch.cur = "Shin" + side[-1]
+                ch.sph((0.17, 0.17, 0.36), (x * 1.1, 0, -0.52), pants)
                 ch.tube((x, 0, -0.6), (x, -0.005, -0.76), 0.06, 0.05, pants)
                 ch.tube((x, 0, -0.72), (x, 0, -0.76), 0.055, 0.055, C("AnkleTie", (0.95, 0.92, 0.84)))
                 ch.tube((x, 0, -0.76), (x, -0.008, -0.88), 0.042, 0.042, sock)
             else:
                 ch.tube((x, 0, 0.02), (x * 1.04, 0, -0.42), 0.085, 0.072, pants)
                 ch.sph((0.15, 0.15, 0.12), (x * 1.04, -0.005, -0.42), pants)
+                ch.cur = "Shin" + side[-1]
+                ch.sph((0.144, 0.144, 0.12), (x * 1.04, -0.005, -0.42), pants)
                 ch.tube((x * 1.04, 0, -0.42), (x * 1.06, 0, -0.8), 0.072, 0.068, pants)
                 if cuff:
                     ch.tube((x * 1.06, 0, -0.76), (x * 1.06, 0, -0.83), 0.078, 0.078, cuff)
                 ch.tube((x * 1.06, 0, -0.82), (x * 1.06, -0.005, -0.88), 0.04, 0.04, SKIN)
         else:
+            ch.cur = "Shin" + side[-1]
             ch.tube((x, 0, -0.78), (x, -0.008, -0.88), 0.042, 0.042, sock)
+        ch.cur = "Shin" + side[-1]
         shoe(ch, x)
     ch.cur = "Body"
 
@@ -491,7 +508,8 @@ chars = [
     build_man("villager", C("Outfit", (0.7, 0.62, 0.5)), C("Baji", (0.84, 0.8, 0.68))),
     build_dokkaebi(),
 ]
-PIV = {"ArmL": (-0.2, 0, 0.49), "ArmR": (0.2, 0, 0.49), "LegL": (-0.085, 0, 0.0), "LegR": (0.085, 0, 0.0), "Eyes": (0, -0.23 * HS, HZN)}
+PIV = {"ArmL": (-0.2, 0, 0.49), "ArmR": (0.2, 0, 0.49), "ForeL": (-0.245, 0, 0.22), "ForeR": (0.245, 0, 0.22),
+       "LegL": (-0.085, 0, 0.0), "LegR": (0.085, 0, 0.0), "ShinL": (-0.088, 0, -0.42), "ShinR": (0.088, 0, -0.42), "Eyes": (0, -0.23 * HS, HZN)}
 for ch in chars:
     ch.done(PIV)
 bpy.ops.object.select_all(action="SELECT")
