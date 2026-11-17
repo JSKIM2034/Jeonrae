@@ -339,7 +339,7 @@ func add_dome(parent: Node3D, c: Color, rx: float, ry: float, rz: float, pos: Ve
 	parent.add_child(mi)
 
 # 납작한 원기둥(처마 두께, 돌단 등)
-func add_disc(parent: Node3D, c: Color, rx: float, h: float, rz: float, pos: Vector3) -> void:
+func add_disc(parent: Node3D, c: Color, rx: float, h: float, rz: float, pos: Vector3) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var cy := CylinderMesh.new()
 	cy.top_radius = 1.0
@@ -351,6 +351,7 @@ func add_disc(parent: Node3D, c: Color, rx: float, h: float, rz: float, pos: Vec
 	mi.position = pos
 	mi.scale = Vector3(rx, 1.0, rz)
 	parent.add_child(mi)
+	return mi
 
 # 새끼줄 띠(얇은 고리)
 func add_ring(parent: Node3D, c: Color, rx: float, rz: float, pos: Vector3) -> void:
@@ -392,57 +393,485 @@ func add_door(parent: Node3D, pos: Vector3, w: float, h: float) -> void:
 	add_box(parent, wood, Vector3(w - 0.16, 0.06, 0.18), pos + Vector3(0, -h * 0.18, 0))
 
 # 한옥. style: "thatch" 초가집 / "tile" 기와집. 앞쪽은 +z 방향
+# ---------- 고운 질감: 코드로 직접 그린 그림들 ----------
+
+func tex_from(img: Image) -> ImageTexture:
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
+# 0~1 사이 값이 부드럽게 오르내리는 줄 (짚결, 나뭇결에 써요)
+func rand_row(r: RandomNumberGenerator, n: int, passes: int) -> PackedFloat32Array:
+	var a := PackedFloat32Array()
+	a.resize(n)
+	for i in n:
+		a[i] = r.randf()
+	for p in passes:
+		var b := a.duplicate()
+		for i in n:
+			a[i] = (b[(i + n - 1) % n] + b[i] * 2.0 + b[(i + 1) % n]) * 0.25
+	var lo := 1.0
+	var hi := 0.0
+	for v in a:
+		lo = minf(lo, v)
+		hi = maxf(hi, v)
+	for i in n:
+		a[i] = (a[i] - lo) / maxf(hi - lo, 0.001)
+	return a
+
+# 초가지붕 짚: 결이 아래로 흐르고, 층층이 덮인 그늘이 있어요
+func make_thatch_tex() -> ImageTexture:
+	var n := 256
+	var r := RandomNumberGenerator.new()
+	r.seed = 31
+	var fine := rand_row(r, n, 0)
+	var mid := rand_row(r, n, 2)
+	var coarse := rand_row(r, n, 8)
+	var img := Image.create(n, n, false, Image.FORMAT_RGB8)
+	var dark := Color(0.58, 0.41, 0.18)
+	var light := Color(1.0, 0.87, 0.5)
+	for y in n:
+		var band := fposmod(float(y), 64.0) / 64.0
+		var shade := 0.86 + 0.14 * smoothstep(0.0, 0.25, band)
+		var shift := int(y / 64) * 53 + int(sin(y * 0.11) * 2.0) + n * 4
+		for x in n:
+			var xi := (x + shift) % n
+			var s := fine[xi] * 0.35 + mid[xi] * 0.4 + coarse[xi] * 0.25
+			var c := dark.lerp(light, s)
+			img.set_pixel(x, y, Color(c.r * shade, c.g * shade, c.b * shade))
+	return tex_from(img)
+
+# 기와: 둥근 수키와 줄 + 한 장 한 장 끝의 그늘
+func make_tile_tex() -> ImageTexture:
+	var n := 128
+	var img := Image.create(n, n, false, Image.FORMAT_RGB8)
+	for y in n:
+		var row := fposmod(float(y), 32.0) / 32.0
+		var edge := 0.6 + 0.4 * smoothstep(0.0, 0.2, row)
+		for x in n:
+			var ux := fposmod(float(x), 32.0) / 32.0
+			var ridge := 0.5 + 0.5 * pow(sin(ux * PI), 0.7)
+			var v := ridge * edge
+			img.set_pixel(x, y, Color(v, v, v * 1.02))
+	return tex_from(img)
+
+# 나뭇결 (세로 결). plank_every > 0 이면 마루 널빤지 이음매가 생겨요
+func make_wood_tex(seed_v: int, plank_every: int) -> ImageTexture:
+	var n := 128
+	var r := RandomNumberGenerator.new()
+	r.seed = seed_v
+	var grain := rand_row(r, n, 1)
+	var wave := rand_row(r, n, 5)
+	var img := Image.create(n, n, false, Image.FORMAT_RGB8)
+	for y in n:
+		for x in n:
+			var wob := int(sin(y * 0.05 + wave[x] * 6.0) * 3.0)
+			var g := grain[(x + wob + n) % n]
+			var v := 0.76 + 0.24 * g
+			if plank_every > 0:
+				var px := x % plank_every
+				if px < 2:
+					v *= 0.55
+				elif px < 4:
+					v *= 1.08
+			img.set_pixel(x, y, Color(v, v * 0.97, v * 0.93))
+	return tex_from(img)
+
+# 문살과 창호지 (아래쪽은 나무 판)
+func make_lattice_tex() -> ImageTexture:
+	var w := 128
+	var h := 192
+	var img := Image.create(w, h, false, Image.FORMAT_RGB8)
+	var paper := Color(0.98, 0.95, 0.86)
+	var wood := Color(0.47, 0.3, 0.17)
+	var panel_top := int(h * 0.8)
+	for y in h:
+		for x in w:
+			var c := paper
+			var frame := x < 7 or x >= w - 7 or y < 7 or y >= h - 7
+			if frame or y >= panel_top:
+				c = wood
+				if y >= panel_top and not frame and (y == panel_top + 3 or x == w / 2):
+					c = wood.darkened(0.3)
+			elif (x - 7) % 15 < 2 or (y - 7) % 15 < 2:
+				c = wood.lightened(0.08)
+			else:
+				var k := 0.96 + 0.04 * sin(x * 0.9 + y * 0.37)
+				c = Color(paper.r * k, paper.g * k, paper.b * k)
+			img.set_pixel(x, y, c)
+	return tex_from(img)
+
+# 대나무 바구니 엮음
+func make_weave_tex() -> ImageTexture:
+	var n := 64
+	var img := Image.create(n, n, false, Image.FORMAT_RGB8)
+	for y in n:
+		for x in n:
+			var horiz := ((x / 8) + (y / 8)) % 2 == 0
+			var t := fposmod(float(y if horiz else x), 8.0) / 8.0
+			var v := 0.62 + 0.38 * sin(t * PI)
+			img.set_pixel(x, y, Color(0.88 * v, 0.7 * v, 0.42 * v))
+	return tex_from(img)
+
+var stone_mat: StandardMaterial3D
+var stone_blob_mat: StandardMaterial3D
+var thatch_blob_mat: StandardMaterial3D
+var thatch_dark_mat: StandardMaterial3D
+var wood_mat: StandardMaterial3D
+var dark_wood_mat: StandardMaterial3D
+var plank_mat: StandardMaterial3D
+var lattice_mat: StandardMaterial3D
+var basket_mat: StandardMaterial3D
+var thatch_tex: ImageTexture
+var tile_tex: ImageTexture
+var plaster_tex: Texture2D
+var house_rects: Array = []
+
+func make_village_materials() -> void:
+	var stone_tex := make_noise_tex(Color(0.62, 0.62, 0.62), Color(1.0, 1.0, 1.0), 0.09, 17)
+	stone_mat = make_tex_material(Color(0.86, 0.84, 0.8), stone_tex, 0.6)
+	stone_blob_mat = make_tex_material(Color(1.0, 1.0, 1.0), stone_tex, 0.9)
+	stone_blob_mat.vertex_color_use_as_albedo = true
+	thatch_tex = make_thatch_tex()
+	thatch_blob_mat = make_tex_material(Color(1, 1, 1), thatch_tex, 0.7)
+	thatch_blob_mat.vertex_color_use_as_albedo = true
+	thatch_dark_mat = make_tex_material(Color(0.92, 0.82, 0.62), thatch_tex, 1.4)
+	var wtex := make_wood_tex(41, 0)
+	wood_mat = make_tex_material(Color(0.62, 0.42, 0.26), wtex, 0.9)
+	dark_wood_mat = make_tex_material(Color(0.42, 0.27, 0.16), wtex, 0.9)
+	plank_mat = make_tex_material(Color(0.78, 0.57, 0.36), make_wood_tex(43, 32), 0.7)
+	tile_tex = make_tile_tex()
+	lattice_mat = StandardMaterial3D.new()
+	lattice_mat.albedo_texture = make_lattice_tex()
+	lattice_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	lattice_mat.roughness = 1.0
+	basket_mat = make_tex_material(Color(1, 1, 1), make_weave_tex(), 2.2)
+	plaster_tex = make_noise_tex(Color(0.88, 0.86, 0.82), Color(1, 1, 1), 0.035, 23)
+
+func plaster_mat(c: Color) -> StandardMaterial3D:
+	return make_tex_material(c, plaster_tex, 0.5)
+
+func glossy_mat(c: Color) -> StandardMaterial3D:
+	var m := make_color(c)
+	m.roughness = 0.34
+	m.metallic_specular = 0.45
+	return m
+
+func add_mbox(parent: Node3D, mat: Material, size: Vector3, pos: Vector3) -> MeshInstance3D:
+	var mi := add_box(parent, Color.WHITE, size, pos)
+	mi.material_override = mat
+	return mi
+
+func add_mcyl(parent: Node3D, mat: Material, top_r: float, bottom_r: float, h: float, pos: Vector3) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var cy := CylinderMesh.new()
+	cy.top_radius = top_r
+	cy.bottom_radius = bottom_r
+	cy.height = h
+	cy.radial_segments = 16
+	mi.mesh = cy
+	mi.material_override = mat
+	mi.position = pos
+	parent.add_child(mi)
+	return mi
+
+# 두 점을 잇는 막대 (밧줄, 지붕 마루 등)
+func add_beam(parent: Node3D, mat: Material, a: Vector3, b: Vector3, w: float, h: float) -> MeshInstance3D:
+	var mi := add_mbox(parent, mat, Vector3(w, h, a.distance_to(b)), (a + b) / 2.0)
+	var dir := (b - a).normalized()
+	var up := Vector3.UP if absf(dir.y) < 0.95 else Vector3.RIGHT
+	mi.basis = Basis.looking_at(dir, up)
+	return mi
+
+func mesh_tri(st: SurfaceTool, pts: Array) -> void:
+	for p in pts:
+		st.set_uv(p[1])
+		st.add_vertex(p[0])
+
+# 초가지붕: 둥글게 부푼 짚더미 모양 + 두툼한 처마
+func build_thatch_roof(rx: float, rz: float, h: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var na := 56
+	var nt := 16
+	var urep := maxf(2.0, roundf((rx + rz) * 1.15))
+	var vrep := (maxf(rx, rz) + h) / 2.2
+	var rows := []
+	for it in nt + 3:
+		var row := []
+		for ia in na + 1:
+			var th := TAU * ia / na
+			var c := cos(th)
+			var s := sin(th)
+			var bx := rx * signf(c) * pow(absf(c), 0.6)
+			var bz := rz * signf(s) * pow(absf(s), 0.6)
+			var p := Vector3.ZERO
+			var v := 0.0
+			if it <= nt:
+				var t := float(it) / nt
+				p = Vector3(bx * t, h * pow(cos(t * PI * 0.5), 0.62), bz * t)
+				v = t * vrep
+			elif it == nt + 1:
+				p = Vector3(bx * 1.02, -0.2, bz * 1.02)
+				v = vrep + 0.06
+			else:
+				p = Vector3(bx * 0.96, -0.42, bz * 0.96)
+				v = vrep + 0.12
+			row.append([p, Vector2(float(ia) / na * urep, v)])
+		rows.append(row)
+	for it in rows.size() - 1:
+		for ia in na:
+			var a: Array = rows[it][ia]
+			var b: Array = rows[it][ia + 1]
+			var c2: Array = rows[it + 1][ia]
+			var d: Array = rows[it + 1][ia + 1]
+			mesh_tri(st, [a, b, c2])
+			mesh_tri(st, [b, d, c2])
+	st.index()
+	st.generate_normals()
+	return st.commit()
+
+# 기와지붕 높이: 가운데 용마루에서 오목하게 내려가고, 네 귀퉁이 처마가 하늘로 들려요
+func tile_roof_y(x: float, z: float, rxx: float, rz: float, ridge: float, h: float, lift: float) -> float:
+	var ax := absf(x)
+	var dz := absf(z) / rz
+	var dx := clampf((ax - ridge) / (rxx - ridge), 0.0, 1.0)
+	var d := maxf(dz, dx)
+	var y := h * pow(1.0 - d, 1.55)
+	y += lift * pow((ax / rxx) * dz, 2.0)
+	y += lift * 0.35 * pow(ax / rxx, 4.0) * d
+	return y
+
+func build_tile_roof(rx: float, rz: float, h: float, lift: float, edge_mat: Material) -> Dictionary:
+	var nz := 12
+	var step := rz / nz
+	var nxh := int(ceil(rx / step))
+	var rxx := nxh * step
+	var ridge := maxf(rxx - rz, step)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rows := []
+	for iz in range(-nz, nz + 1):
+		var row := []
+		for ix in range(-nxh, nxh + 1):
+			var x := ix * step
+			var z := iz * step
+			var dz := absf(z) / rz
+			var dx := clampf((absf(x) - ridge) / (rxx - ridge), 0.0, 1.0)
+			var y := tile_roof_y(x, z, rxx, rz, ridge, h, lift)
+			var uv := Vector2(x / 1.4, (1.0 - dz) * rz / 1.6)
+			if dx > dz:
+				uv = Vector2(z / 1.4, (1.0 - dx) * (rxx - ridge) / 1.6)
+			row.append([Vector3(x, y, z), uv])
+		rows.append(row)
+	for iz in rows.size() - 1:
+		for ix in rows[0].size() - 1:
+			var a: Array = rows[iz][ix]
+			var b: Array = rows[iz][ix + 1]
+			var c: Array = rows[iz + 1][ix]
+			var d: Array = rows[iz + 1][ix + 1]
+			mesh_tri(st, [a, b, c])
+			mesh_tri(st, [b, d, c])
+	st.index()
+	st.generate_normals()
+	var mesh := st.commit()
+	# 처마 두께 (가장자리를 아래로 내린 띠)
+	var edge := []
+	var nx: int = rows[0].size()
+	for ix in nx:
+		edge.append(rows[0][ix][0])
+	for iz in range(1, rows.size()):
+		edge.append(rows[iz][nx - 1][0])
+	for ix in range(nx - 2, -1, -1):
+		edge.append(rows[rows.size() - 1][ix][0])
+	for iz in range(rows.size() - 2, -1, -1):
+		edge.append(rows[iz][0][0])
+	var st2 := SurfaceTool.new()
+	st2.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in edge.size() - 1:
+		var p0: Vector3 = edge[i]
+		var p1: Vector3 = edge[i + 1]
+		var down := Vector3(0, -0.26, 0)
+		mesh_tri(st2, [[p0, Vector2.ZERO], [p1, Vector2.ZERO], [p0 + down, Vector2.ZERO]])
+		mesh_tri(st2, [[p1, Vector2.ZERO], [p1 + down, Vector2.ZERO], [p0 + down, Vector2.ZERO]])
+	st2.generate_normals()
+	st2.commit(mesh)
+	mesh.surface_set_material(1, edge_mat)
+	return {"mesh": mesh, "rxx": rxx, "ridge": ridge}
+
+func add_lattice(parent: Node3D, pos: Vector3, w: float, h: float, rot_y: float) -> void:
+	var root := Node3D.new()
+	root.position = pos
+	root.rotation.y = rot_y
+	parent.add_child(root)
+	var q := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(w, h)
+	q.mesh = qm
+	q.material_override = lattice_mat
+	q.position.z = 0.02
+	root.add_child(q)
+	var f := 0.09
+	add_mbox(root, dark_wood_mat, Vector3(w + f * 2.0, f, 0.1), Vector3(0, h / 2.0 + f / 2.0, 0))
+	add_mbox(root, dark_wood_mat, Vector3(w + f * 2.0, f, 0.1), Vector3(0, -h / 2.0 - f / 2.0, 0))
+	add_mbox(root, dark_wood_mat, Vector3(f, h, 0.1), Vector3(w / 2.0 + f / 2.0, 0, 0))
+	add_mbox(root, dark_wood_mat, Vector3(f, h, 0.1), Vector3(-w / 2.0 - f / 2.0, 0, 0))
+
 func make_house(pos: Vector3, size: Vector3, wall: Color, roof: Color, style: String = "thatch") -> Node3D:
 	var house := StaticBody3D.new()
 	house.position = pos
 	add_child(house)
-	var wood := Color(0.5, 0.33, 0.2)
-	var base_h := 0.3
+	house_rects.append(Rect2(pos.x - size.x / 2.0 - 0.7, pos.z - size.z / 2.0 - 0.7, size.x + 1.4, size.z + 2.6))
+	var r := RandomNumberGenerator.new()
+	r.seed = int(pos.x * 13.0 + pos.z * 7.0 + size.x)
+	var base_h := 0.32
 	var body_h := size.y - base_h
-	# 돌 기단과 하얀 벽, 나무 기둥
-	add_box(house, Color(0.68, 0.65, 0.6), Vector3(size.x + 0.3, base_h, size.z + 0.3), Vector3(0, base_h / 2.0, 0))
-	add_box(house, wall, Vector3(size.x, body_h, size.z), Vector3(0, base_h + body_h / 2.0, 0))
-	for sx in [-1.0, 1.0]:
-		for sz in [-1.0, 1.0]:
-			add_box(house, wood, Vector3(0.28, body_h, 0.28), Vector3(sx * size.x / 2.0, base_h + body_h / 2.0, sz * size.z / 2.0))
-	add_box(house, wood, Vector3(size.x + 0.1, 0.24, 0.3), Vector3(0, size.y - 0.14, size.z / 2.0))
-	# 앞문 두 짝, 툇마루, 돌계단
-	var dw := size.x * 0.3
-	var dh := body_h * 0.62
-	var door_y := base_h + 0.15 + dh / 2.0
-	var fz := size.z / 2.0 + 0.05
-	add_door(house, Vector3(-size.x * 0.2, door_y, fz), dw, dh)
-	add_door(house, Vector3(size.x * 0.2, door_y, fz), dw, dh)
-	add_box(house, wood, Vector3(size.x * 0.95, 0.16, 1.0), Vector3(0, 0.26, size.z / 2.0 + 0.5))
-	var step_w := minf(1.8, size.x * 0.4)
-	add_box(house, Color(0.72, 0.7, 0.66), Vector3(step_w, 0.16, 0.6), Vector3(0, 0.08, size.z / 2.0 + 1.3))
-	add_lantern(house, Vector3(-(size.x / 2.0 - 0.5), size.y - 0.8, size.z / 2.0 + 0.3))
-	add_lantern(house, Vector3(size.x / 2.0 - 0.5, size.y - 0.8, size.z / 2.0 + 0.3))
-	# 지붕
-	if style == "thatch":
-		var rx := (size.x + 1.8) / 2.0
-		var rz := (size.z + 1.8) / 2.0
-		var ry := size.y * 0.62
-		add_disc(house, roof.darkened(0.12), rx, 0.4, rz, Vector3(0, size.y + 0.1, 0))
-		add_dome(house, roof, rx * 0.98, ry, rz * 0.98, Vector3(0, size.y + 0.25, 0))
-		var t := 0.55
-		var f := sqrt(1.0 - t * t) * 0.98
-		add_ring(house, Color(0.45, 0.32, 0.18), rx * f, rz * f, Vector3(0, size.y + 0.25 + t * ry, 0))
+	var hx := size.x / 2.0
+	var hz := size.z / 2.0
+	# 돌 기단 + 앞쪽 둥근 돌
+	add_mbox(house, stone_mat, Vector3(size.x + 0.5, base_h, size.z + 0.5), Vector3(0, base_h / 2.0, 0))
+	var rim := []
+	var x := -hx - 0.25
+	while x < hx + 0.2:
+		var w := r.randf_range(0.42, 0.7)
+		rim.append([Vector3(x + w / 2.0, base_h * 0.5, hz + 0.26), Vector3(w * 1.06, base_h * 0.98, 0.24), stone_color(r)])
+		x += w
+	add_blobs(house, rim, stone_blob_mat)
+	# 회벽
+	add_mbox(house, plaster_mat(wall), Vector3(size.x - 0.06, body_h, size.z - 0.06), Vector3(0, base_h + body_h / 2.0, 0))
+	# 기둥
+	var post := 0.26
+	var xs: Array = [-hx, hx]
+	if size.x > 5.5:
+		xs += [-hx / 3.0, hx / 3.0]
 	else:
-		var eave := Vector3(size.x + 2.2, 0.3, size.z + 2.2)
-		add_box(house, roof.darkened(0.2), eave, Vector3(0, size.y + 0.15, 0))
-		var roof_mi := MeshInstance3D.new()
-		var prism := PrismMesh.new()
-		prism.size = Vector3(size.x + 1.8, size.y * 0.6, size.z + 1.8)
-		roof_mi.mesh = prism
-		roof_mi.material_override = make_color(roof)
-		roof_mi.position.y = size.y + 0.3 + size.y * 0.3
+		xs += [0.0]
+	xs.sort()
+	for px in xs:
+		add_mbox(house, wood_mat, Vector3(post, body_h, post), Vector3(px, base_h + body_h / 2.0, hz))
+	for px in [-hx, hx]:
+		add_mbox(house, wood_mat, Vector3(post, body_h, post), Vector3(px, base_h + body_h / 2.0, -hz))
+	# 도리 (지붕 아래 가로 나무)와 아랫단
+	add_mbox(house, wood_mat, Vector3(size.x + 0.3, 0.26, 0.3), Vector3(0, size.y - 0.13, hz))
+	add_mbox(house, wood_mat, Vector3(size.x + 0.3, 0.26, 0.3), Vector3(0, size.y - 0.13, -hz))
+	add_mbox(house, wood_mat, Vector3(0.3, 0.26, size.z), Vector3(hx, size.y - 0.13, 0))
+	add_mbox(house, wood_mat, Vector3(0.3, 0.26, size.z), Vector3(-hx, size.y - 0.13, 0))
+	add_mbox(house, wood_mat, Vector3(size.x, 0.12, 0.16), Vector3(0, base_h + 0.06, hz + 0.02))
+	# 문과 창 (문살 + 창호지)
+	var dh := body_h * 0.7
+	var door_y := base_h + 0.14 + dh / 2.0
+	for i in xs.size() - 1:
+		var x0: float = xs[i]
+		var x1: float = xs[i + 1]
+		var cx := (x0 + x1) / 2.0
+		var bw := x1 - x0 - post
+		if xs.size() == 4 and i != 1:
+			add_lattice(house, Vector3(cx, base_h + body_h * 0.55, hz), bw * 0.62, body_h * 0.4, 0.0)
+		elif xs.size() == 4:
+			add_lattice(house, Vector3(cx - bw * 0.24, door_y, hz), bw * 0.44, dh, 0.0)
+			add_lattice(house, Vector3(cx + bw * 0.24, door_y, hz), bw * 0.44, dh, 0.0)
+		else:
+			add_lattice(house, Vector3(cx, door_y, hz), bw * 0.64, dh, 0.0)
+	for sx in [-1.0, 1.0]:
+		add_lattice(house, Vector3(sx * hx, base_h + body_h * 0.56, 0), minf(size.z * 0.35, 1.2), body_h * 0.34, sx * PI / 2.0)
+	# 툇마루와 디딤돌
+	var maru_d := 0.95
+	var mz := hz + 0.25 + maru_d / 2.0
+	add_mbox(house, plank_mat, Vector3(size.x - 0.2, 0.13, maru_d), Vector3(0, base_h, mz))
+	for lx in [-hx + 0.35, 0.0, hx - 0.35]:
+		add_mbox(house, dark_wood_mat, Vector3(0.15, base_h, 0.15), Vector3(lx, base_h / 2.0, mz + maru_d / 2.0 - 0.14))
+	add_blobs(house, [[Vector3(0, 0.08, mz + maru_d / 2.0 + 0.42), Vector3(1.3, 0.16, 0.62), Color(0.84, 0.82, 0.78)]], stone_blob_mat, true)
+	# 등롱
+	for sx in [-1.0, 1.0]:
+		var lp := Vector3(sx * (hx - 0.45), size.y - 0.8, hz + 0.42)
+		add_box(house, Color(0.3, 0.22, 0.15), Vector3(0.025, 0.5, 0.025), lp + Vector3(0, 0.5, 0))
+		add_lantern(house, lp)
+	# 지붕
+	var roof_mi := MeshInstance3D.new()
+	if style == "thatch":
+		var rx := hx + 0.95
+		var rz := hz + 0.95
+		var rh := size.y * 0.58 + 0.3
+		roof_mi.mesh = build_thatch_roof(rx, rz, rh)
+		var tm := StandardMaterial3D.new()
+		tm.albedo_texture = thatch_tex
+		tm.albedo_color = Color(1, 1, 1).lerp(roof * 1.25, 0.2)
+		tm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		tm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		tm.roughness = 1.0
+		roof_mi.material_override = tm
+		roof_mi.position.y = size.y - 0.04
 		house.add_child(roof_mi)
-		add_box(house, roof.darkened(0.3), Vector3(size.x + 1.8, 0.18, 0.34), Vector3(0, size.y + 0.3 + size.y * 0.6, 0))
-		for cx in [-1.0, 1.0]:
-			for cz in [-1.0, 1.0]:
-				var tip := add_box(house, roof.darkened(0.2), Vector3(0.9, 0.14, 0.5), Vector3(cx * (eave.x / 2.0), size.y + 0.4, cz * (eave.z / 2.0)))
-				tip.rotation_degrees.z = -cx * 22.0
+		# 용마름 (꼭대기 짚 두루마리)과 새끼줄
+		var top := size.y - 0.04 + rh
+		var ridge := MeshInstance3D.new()
+		var cap := CapsuleMesh.new()
+		cap.radius = 0.24
+		cap.height = rx * 1.0
+		ridge.mesh = cap
+		ridge.material_override = thatch_dark_mat
+		ridge.rotation.z = PI / 2.0
+		ridge.position.y = top - 0.02
+		house.add_child(ridge)
+		var rope := make_color(Color(0.42, 0.3, 0.17))
+		for i in 5:
+			var rxp := (i - 2) * rx * 0.22
+			var ring := MeshInstance3D.new()
+			var tor := TorusMesh.new()
+			tor.inner_radius = 0.24
+			tor.outer_radius = 0.28
+			ring.mesh = tor
+			ring.material_override = rope
+			ring.rotation.z = PI / 2.0
+			ring.position = Vector3(rxp, top - 0.02, 0)
+			house.add_child(ring)
+	else:
+		var rx := hx + 1.25
+		var rz := hz + 1.15
+		var rh := size.y * 0.62
+		var lift := 0.6
+		var edge := make_color(roof.darkened(0.45))
+		edge.cull_mode = BaseMaterial3D.CULL_DISABLED
+		var data := build_tile_roof(rx, rz, rh, lift, edge)
+		roof_mi.mesh = data["mesh"]
+		var tm := StandardMaterial3D.new()
+		tm.albedo_texture = tile_tex
+		tm.albedo_color = Color(minf(roof.r * 1.7, 1.0), minf(roof.g * 1.7, 1.0), minf(roof.b * 1.7, 1.0))
+		tm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		tm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		tm.roughness = 0.55
+		tm.metallic_specular = 0.55
+		roof_mi.set_surface_override_material(0, tm)
+		var base_y := size.y + 0.08
+		roof_mi.position.y = base_y
+		house.add_child(roof_mi)
+		var rxx: float = data["rxx"]
+		var rdg: float = data["ridge"]
+		var dark := make_color(roof.darkened(0.35))
+		var lime := make_color(Color(0.95, 0.94, 0.9))
+		# 용마루 (흰 줄 + 짙은 기와)
+		add_box(house, Color(0.95, 0.94, 0.9), Vector3(rdg * 2.0 + 0.5, 0.14, 0.62), Vector3(0, base_y + rh + 0.02, 0)).material_override = lime
+		add_mbox(house, dark, Vector3(rdg * 2.0 + 0.4, 0.3, 0.44), Vector3(0, base_y + rh + 0.2, 0))
+		for sx in [-1.0, 1.0]:
+			var tip := add_mbox(house, dark, Vector3(0.5, 0.26, 0.42), Vector3(sx * (rdg + 0.35), base_y + rh + 0.36, 0))
+			tip.rotation.z = -sx * 0.6
+			# 내림마루 (용마루 끝에서 네 귀퉁이로)
+			for sz in [-1.0, 1.0]:
+				var prev := Vector3(sx * rdg, base_y + rh + 0.1, 0)
+				for k in range(1, 5):
+					var f := float(k) / 4.0
+					var px: float = sx * (rdg + (rxx - rdg) * f)
+					var pz: float = sz * rz * f
+					var cur := Vector3(px, base_y + tile_roof_y(px, pz, rxx, rz, rdg, rh, lift) + 0.12, pz)
+					add_beam(house, dark, prev, cur, 0.26, 0.2)
+					prev = cur
+		# 서까래 끝 (처마 아래 줄지어 보이는 나무)
+		var rafters := []
+		var rx2 := -hx - 0.6
+		while rx2 <= hx + 0.6:
+			for sz in [-1.0, 1.0]:
+				rafters.append([Vector3(rx2, size.y + 0.02, sz * (hz + 0.65)), Vector3(0.13, 0.13, 1.3), Color(0.5, 0.33, 0.2)])
+			rx2 += 0.38
+		add_blobs(house, rafters)
 	var col := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
 	shape.size = size
@@ -450,6 +879,190 @@ func make_house(pos: Vector3, size: Vector3, wall: Color, roof: Color, style: St
 	col.position.y = size.y / 2.0
 	house.add_child(col)
 	return house
+
+# ---------- 마을 소품 ----------
+
+func make_jangdok(pos: Vector3, r: RandomNumberGenerator) -> void:
+	var root := StaticBody3D.new()
+	root.position = pos
+	add_child(root)
+	add_mbox(root, stone_mat, Vector3(3.2, 0.36, 2.1), Vector3(0, 0.18, 0))
+	var rim := []
+	for i in 22:
+		var a := i * TAU / 22.0
+		var p := Vector3(cos(a) * 1.7, 0.2, sin(a) * 1.15)
+		rim.append([p, Vector3(0.55, 0.42, 0.42), stone_color(r)])
+	add_blobs(root, rim, stone_blob_mat)
+	var jars := [[-1.0, -0.4, 1.0], [0.05, -0.45, 1.15], [1.05, -0.3, 0.95], [-0.55, 0.45, 0.75], [0.45, 0.5, 0.68], [1.15, 0.55, 0.5]]
+	for j in jars:
+		make_jar(root, Vector3(j[0], 0.36, j[1]), j[2], Color(0.36, 0.2, 0.12).lerp(Color(0.5, 0.3, 0.18), r.randf()))
+
+func make_laundry(a: Vector3, b: Vector3) -> void:
+	for p in [a, b]:
+		add_mbox(self, dark_wood_mat, Vector3(0.13, 1.9, 0.13), p + Vector3(0, 0.95, 0))
+	var d := b - a
+	var root := Node3D.new()
+	root.position = (a + b) / 2.0 + Vector3(0, 1.78, 0)
+	root.rotation.y = atan2(-d.z, d.x)
+	add_child(root)
+	var length := d.length()
+	add_box(root, Color(0.78, 0.68, 0.48), Vector3(length, 0.03, 0.03), Vector3.ZERO)
+	var cloths := [[-0.95, 0.75, Color(0.99, 0.99, 0.97)], [0.0, 0.95, Color(0.84, 0.92, 1.0)], [0.95, 0.62, Color(1.0, 0.9, 0.86)]]
+	for c in cloths:
+		var cl := Node3D.new()
+		cl.position = Vector3(c[0] * length / 3.0, 0, 0)
+		root.add_child(cl)
+		add_box(cl, c[2], Vector3(0.72, c[1], 0.03), Vector3(0, -c[1] / 2.0, 0))
+		sway_items.append([cl, cl.position, 1, c[0] * 2.0 + a.x, 0.1])
+
+func make_basket(pos: Vector3, s: float, fill: Color) -> void:
+	add_mcyl(self, basket_mat, 0.34 * s, 0.25 * s, 0.34 * s, pos + Vector3(0, 0.17 * s, 0))
+	var rim := MeshInstance3D.new()
+	var tor := TorusMesh.new()
+	tor.inner_radius = 0.31 * s
+	tor.outer_radius = 0.38 * s
+	rim.mesh = tor
+	rim.material_override = basket_mat
+	rim.position = pos + Vector3(0, 0.34 * s, 0)
+	add_child(rim)
+	if fill.a > 0.0:
+		var items := []
+		for i in 7:
+			var a := i * TAU / 7.0
+			items.append([pos + Vector3(cos(a) * 0.16 * s, 0.36 * s, sin(a) * 0.16 * s), Vector3(0.17, 0.15, 0.17) * s, fill.lightened(0.1 * (i % 3))])
+		items.append([pos + Vector3(0, 0.42 * s, 0), Vector3(0.18, 0.16, 0.18) * s, fill])
+		add_blobs(self, items)
+
+# 벽에 기대 둔 둥근 채반
+func make_sieve(pos: Vector3, rot_y: float) -> void:
+	var mi := add_mcyl(self, basket_mat, 0.55, 0.55, 0.06, pos + Vector3(0, 0.55, 0))
+	mi.rotation = Vector3(deg_to_rad(72.0), rot_y, 0)
+
+func make_bench(pos: Vector3, rot_y: float) -> void:
+	var root := StaticBody3D.new()
+	root.position = pos
+	root.rotation.y = rot_y
+	add_child(root)
+	add_mbox(root, plank_mat, Vector3(2.0, 0.12, 1.3), Vector3(0, 0.5, 0))
+	add_mbox(root, dark_wood_mat, Vector3(2.08, 0.08, 0.1), Vector3(0, 0.46, 0.66))
+	for sx in [-0.9, 0.9]:
+		for sz in [-0.55, 0.55]:
+			add_mbox(root, dark_wood_mat, Vector3(0.12, 0.46, 0.12), Vector3(sx, 0.22, sz))
+	# 상 위에 소쿠리와 그릇
+	add_mcyl(root, basket_mat, 0.3, 0.22, 0.12, Vector3(-0.45, 0.62, 0.1))
+	add_blobs(root, [[Vector3(-0.45, 0.7, 0.1), Vector3(0.36, 0.1, 0.36), Color(0.95, 0.5, 0.15)], [Vector3(0.5, 0.64, -0.2), Vector3(0.3, 0.14, 0.3), Color(0.96, 0.95, 0.9)]])
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(2.0, 0.56, 1.3)
+	col.shape = shape
+	col.position.y = 0.28
+	root.add_child(col)
+
+# 콩 넝쿨 지지대
+func make_trellis(a: Vector3, b: Vector3, r: RandomNumberGenerator) -> void:
+	var n := 4
+	var leaves := []
+	for i in n:
+		var p := a.lerp(b, float(i) / (n - 1))
+		add_beam(self, dark_wood_mat, p, p + Vector3(0, 1.7, 0), 0.06, 0.06)
+		for k in 6:
+			var y := r.randf_range(0.3, 1.6)
+			leaves.append([p + Vector3(r.randf_range(-0.2, 0.2), y, r.randf_range(-0.12, 0.12)), Vector3(0.26, 0.2, 0.08), Color(0.32, 0.62, 0.26).lightened(r.randf() * 0.15)])
+	add_beam(self, dark_wood_mat, a + Vector3(0, 1.55, 0), b + Vector3(0, 1.55, 0), 0.05, 0.05)
+	add_beam(self, dark_wood_mat, a + Vector3(0, 0.8, 0), b + Vector3(0, 0.8, 0), 0.04, 0.04)
+	add_blobs(self, leaves)
+
+func make_well_visual(n: Node3D) -> void:
+	add_mcyl(n, stone_mat, 0.78, 0.85, 0.85, Vector3(0, 0.42, 0))
+	var water := add_mcyl(n, water_mat, 0.62, 0.62, 0.04, Vector3(0, 0.78, 0))
+	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var r := RandomNumberGenerator.new()
+	r.seed = 77
+	var rim := []
+	for i in 14:
+		var a := i * TAU / 14.0
+		rim.append([Vector3(cos(a) * 0.74, 0.9, sin(a) * 0.74), Vector3(0.36, 0.2, 0.3), stone_color(r)])
+	add_blobs(n, rim, stone_blob_mat)
+	for sx in [-0.95, 0.95]:
+		add_mbox(n, dark_wood_mat, Vector3(0.14, 2.1, 0.14), Vector3(sx, 1.05, 0))
+	var bar := add_mcyl(n, wood_mat, 0.07, 0.07, 2.0, Vector3(0, 1.75, 0))
+	bar.rotation.z = PI / 2.0
+	for sz in [-1.0, 1.0]:
+		var plank := add_mbox(n, plank_mat, Vector3(2.3, 0.06, 0.75), Vector3(0, 2.25, sz * 0.32))
+		plank.rotation.x = sz * 0.5
+	add_beam(n, make_color(Color(0.7, 0.6, 0.42)), Vector3(0.2, 1.75, 0), Vector3(0.2, 1.25, 0), 0.025, 0.025)
+	add_mcyl(n, wood_mat, 0.17, 0.14, 0.26, Vector3(0.2, 1.12, 0))
+
+func make_haystack_visual(n: Node3D) -> void:
+	add_blobs(n, [
+		[Vector3(0, 0.45, 0), Vector3(1.8, 1.0, 1.4), Color(1.0, 0.92, 0.7)],
+		[Vector3(0.1, 0.85, 0.05), Vector3(1.3, 0.8, 1.0), Color(1.0, 0.95, 0.75)],
+		[Vector3(0, 1.15, 0), Vector3(0.6, 0.4, 0.5), Color(0.95, 0.85, 0.6)],
+	], thatch_blob_mat)
+	# 세워 둔 짚단과 만들다 만 짚신
+	for i in 3:
+		var sheaf := add_mcyl(n, thatch_dark_mat, 0.14, 0.2, 0.9, Vector3(-1.1 + i * 0.25, 0.45, 0.75))
+		sheaf.rotation.z = (i - 1) * 0.15
+	add_blobs(n, [[Vector3(0.9, 0.06, 0.8), Vector3(0.22, 0.1, 0.42), Color(0.86, 0.7, 0.4)], [Vector3(1.15, 0.06, 0.85), Vector3(0.22, 0.1, 0.42), Color(0.86, 0.7, 0.4)]], thatch_blob_mat)
+
+func make_stump_visual(n: Node3D) -> void:
+	add_mcyl(n, dark_wood_mat, 0.48, 0.58, 0.7, Vector3(0, 0.35, 0))
+	add_mcyl(n, make_color(Color(0.86, 0.7, 0.5)), 0.47, 0.47, 0.02, Vector3(0, 0.71, 0))
+	var ring := MeshInstance3D.new()
+	var tor := TorusMesh.new()
+	tor.inner_radius = 0.22
+	tor.outer_radius = 0.26
+	ring.mesh = tor
+	ring.material_override = make_color(Color(0.7, 0.52, 0.34))
+	ring.position.y = 0.715
+	ring.scale.y = 0.2
+	n.add_child(ring)
+	# 꽂혀 있는 도끼
+	var handle := add_mbox(n, wood_mat, Vector3(0.07, 0.75, 0.07), Vector3(0.1, 1.05, 0.05))
+	handle.rotation.z = -0.35
+	add_mbox(n, make_color(Color(0.55, 0.57, 0.6)), Vector3(0.3, 0.2, 0.05), Vector3(-0.02, 0.78, 0.05))
+	for i in 3:
+		var lg := add_mcyl(n, wood_mat, 0.12, 0.12, 0.7, Vector3(0.9, 0.12, -0.4 + i * 0.26))
+		lg.rotation.x = PI / 2.0
+
+func make_stall(pos: Vector3) -> void:
+	var root := Node3D.new()
+	root.position = pos
+	add_child(root)
+	add_mbox(root, plank_mat, Vector3(4.0, 0.12, 1.2), Vector3(0, 0.9, 0))
+	add_mbox(root, dark_wood_mat, Vector3(3.9, 0.8, 1.0), Vector3(0, 0.45, 0))
+	for sx in [-1.95, 1.95]:
+		for sz in [-0.6, 1.6]:
+			add_mbox(root, dark_wood_mat, Vector3(0.14, 2.6, 0.14), Vector3(sx, 1.3, sz))
+	# 줄무늬 차양
+	for i in 8:
+		var c := Color(0.86, 0.26, 0.24) if i % 2 == 0 else Color(0.98, 0.94, 0.84)
+		var s := add_box(root, c, Vector3(0.58, 0.06, 2.6), Vector3(-2.03 + i * 0.58, 2.62, 0.5))
+		s.rotation.x = -0.18
+	for i in 8:
+		var fc := Color(0.86, 0.26, 0.24) if i % 2 == 0 else Color(0.98, 0.94, 0.84)
+		add_box(root, fc, Vector3(0.56, 0.32, 0.04), Vector3(-2.03 + i * 0.58, 2.28, 1.78))
+	# 물건: 과일 바구니, 옹기, 비단 두루마리
+	for i in 3:
+		var bp := Vector3(-1.3 + i * 1.0, 0.96, 0.1)
+		add_mcyl(root, basket_mat, 0.3, 0.22, 0.18, bp + Vector3(0, 0.09, 0))
+		var fc: Color = [Color(0.98, 0.5, 0.12), Color(0.85, 0.2, 0.2), Color(0.95, 0.85, 0.3)][i]
+		var fr := []
+		for k in 6:
+			var a := k * TAU / 6.0
+			fr.append([bp + Vector3(cos(a) * 0.13, 0.22, sin(a) * 0.13), Vector3(0.16, 0.14, 0.16), fc])
+		fr.append([bp + Vector3(0, 0.28, 0), Vector3(0.16, 0.14, 0.16), fc])
+		add_blobs(root, fr)
+	for i in 3:
+		var roll := add_mcyl(root, make_color([Color(0.4, 0.6, 0.85), Color(0.95, 0.6, 0.7), Color(0.55, 0.8, 0.55)][i]), 0.1, 0.1, 0.7, Vector3(1.55, 1.06 + i * 0.0, -0.25 + i * 0.22))
+		roll.rotation.x = PI / 2.0
+
+func make_rock(pos: Vector3, size: Vector3, r: RandomNumberGenerator) -> void:
+	var items := [[pos, size * Vector3(1.15, 1.0, 1.15), stone_color(r).darkened(0.05)]]
+	for i in 3:
+		items.append([pos + Vector3(r.randf_range(-0.3, 0.3), -size.y * 0.2, r.randf_range(-0.3, 0.3)) * size, size * r.randf_range(0.6, 0.85), stone_color(r)])
+	items.append([pos + Vector3(0, size.y * 0.42, 0), Vector3(size.x * 0.7, 0.12, size.z * 0.7), Color(0.45, 0.62, 0.32)])
+	add_blobs(self, items, stone_blob_mat)
 
 # ---------- 땅, 풀, 물 질감 ----------
 
@@ -484,8 +1097,8 @@ func make_tex_material(tint: Color, tex: Texture2D, tile: float, shiny: float = 
 
 func make_surface_materials() -> void:
 	var tex := make_noise_tex(Color(0.8, 0.92, 0.7), Color(1.0, 1.0, 0.9), 0.012, 5)
-	grass_mat = make_tex_material(Color(0.42, 0.66, 0.32), tex, 0.05)
-	forest_mat = make_tex_material(Color(0.34, 0.56, 0.3), tex, 0.06)
+	grass_mat = make_tex_material(Color(0.5, 0.68, 0.3), tex, 0.05)
+	forest_mat = make_tex_material(Color(0.4, 0.58, 0.28), tex, 0.06)
 	var sand_tex := make_noise_tex(Color(0.9, 0.85, 0.72), Color(1.0, 1.0, 0.95), 0.015, 9)
 	sand_mat = make_tex_material(Color(0.78, 0.67, 0.45), sand_tex, 0.07)
 	# 물: 일렁이는 무늬 + 반짝임 (_process에서 흘러가요)
@@ -497,6 +1110,7 @@ func make_surface_materials() -> void:
 	water_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	water_mat.roughness = 0.22
 	water_mat.metallic_specular = 0.7
+	make_village_materials()
 
 # 바람에 살랑이는 풀 더미 (뾰족한 잎 세 개)
 func make_tuft_mesh() -> ArrayMesh:
@@ -528,7 +1142,7 @@ func make_grass(r: RandomNumberGenerator) -> void:
 	var keep_out := [
 		Rect2(-3.6, -18.0, 3.4, 36.0), Rect2(-12.6, 6.5, 27.0, 3.0), Rect2(18.4, 6.5, 3.2, 15.0),
 		Rect2(-40.0, -17.4, 80.0, 3.8), Rect2(-19.6, -5.8, 4.4, 3.0), Rect2(-10.2, 12.0, 3.4, 2.4),
-		Rect2(30.0, -39.0, 7.0, 7.0), Rect2(9.0, -1.5, 10.0, 7.0), Rect2(-15.5, -4.2, 5.5, 4.8)]
+		Rect2(30.0, -39.0, 7.0, 7.0), Rect2(9.0, -1.5, 10.0, 7.0), Rect2(-15.5, -4.2, 5.5, 4.8)] + house_rects
 	var spots := []
 	var tries := 0
 	while spots.size() < GRASS_COUNT and tries < GRASS_COUNT * 4:
@@ -894,12 +1508,15 @@ func make_world() -> void:
 	e.ambient_light_energy = 0.5
 	# 멀리는 살짝 뿌옇게 (공기감) + 색을 조금 선명하게
 	e.fog_enabled = true
-	e.fog_light_color = Color(0.86, 0.93, 0.96)
-	e.fog_density = 0.0045
+	e.fog_light_color = Color(0.72, 0.84, 0.92)
+	e.fog_density = 0.0018
 	e.fog_sky_affect = 0.0
+	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	e.tonemap_exposure = 1.05
+	e.tonemap_white = 5.0
 	e.adjustment_enabled = true
 	e.adjustment_saturation = 1.12
-	e.adjustment_contrast = 1.04
+	e.adjustment_contrast = 1.02
 	env.environment = e
 	add_child(env)
 
@@ -917,7 +1534,7 @@ func make_world() -> void:
 	var creek := add_box(self, Color(0.35, 0.6, 0.85), Vector3(full, 0.06, 3), Vector3(0, 0.03, -15.5))
 	creek.material_override = water_mat
 	creek_mat = water_mat
-	add_box(self, Color(0.55, 0.4, 0.25), Vector3(3, 0.2, 4), Vector3(-2, 0.1, -15.5))
+	add_box(self, Color(0.55, 0.4, 0.25), Vector3(3, 0.2, 4), Vector3(-2, 0.1, -15.5)).material_override = plank_mat
 	# 개울은 다리로만 건널 수 있어요 (점프로도 못 넘는 보이지 않는 벽, 다리 자리만 비워 둠)
 	var creek_left_len := (-3.5) - (-MAP_HALF)
 	var creek_right_len := MAP_HALF - (-0.5)
@@ -946,8 +1563,8 @@ func make_village() -> void:
 		add_thing(make_gourd_at(pos, Color(0.82, 0.9, 0.62), 1.2), "gourd", "")
 
 	# 장터
-	add_solid(Vector3(20, 1, 19.2), Vector3(4, 2, 1.2), Color(0.6, 0.42, 0.25))
-	add_box(self, Color(0.85, 0.25, 0.25), Vector3(4.6, 0.2, 2.2), Vector3(20, 2.4, 19.6))
+	add_solid(Vector3(20, 1, 19.2), Vector3(4, 2, 1.2), Color(0, 0, 0, 0))
+	make_stall(Vector3(20, 0, 19.2))
 	make_npc("merchant", "장터 상인", Color(0.3, 0.5, 0.35), Vector3(20, 0, 21.2), 1.0, true)
 
 	# 놀부 심술에 당한 마을 사람들
@@ -967,13 +1584,13 @@ func make_village() -> void:
 
 	# 품팔이 터
 	var well := make_spot(Vector3(4, 0, -3), "job", "water", "우물", true)
-	add_box(well, Color(0.6, 0.6, 0.62), Vector3(1.4, 0.9, 1.4), Vector3(0, 0.45, 0))
+	make_well_visual(well)
 	add_solid(Vector3(4, 0.45, -3), Vector3(1.4, 0.9, 1.4), Color(0, 0, 0, 0))
 	var straw := make_spot(Vector3(-17.5, 0, 8.5), "job", "shoes", "짚더미", true)
-	add_box(straw, Color(0.9, 0.78, 0.4), Vector3(1.6, 0.8, 1.2), Vector3(0, 0.4, 0))
+	make_haystack_visual(straw)
 	add_solid(Vector3(-17.5, 0.4, 8.5), Vector3(1.6, 0.8, 1.2), Color(0, 0, 0, 0))
 	var stump := make_spot(Vector3(15, 0, -19.5), "job", "wood", "나무터", true)
-	add_box(stump, Color(0.5, 0.35, 0.2), Vector3(1.0, 0.7, 1.0), Vector3(0, 0.35, 0))
+	make_stump_visual(stump)
 	add_solid(Vector3(15, 0.35, -19.5), Vector3(1.0, 0.7, 1.0), Color(0, 0, 0, 0))
 
 	# 숨바꼭질하는 흥부네 동생들
@@ -987,8 +1604,27 @@ func make_village() -> void:
 		make_tree(pos)
 
 	# 바위 (점프해서 올라가요)
-	add_solid(Vector3(29, 0.55, 7.5), Vector3(1.8, 1.1, 1.8), Color(0.55, 0.55, 0.58))
-	add_solid(Vector3(30.8, 1.1, 5.6), Vector3(2.4, 2.2, 2.4), Color(0.5, 0.5, 0.53))
+	add_solid(Vector3(29, 0.55, 7.5), Vector3(1.8, 1.1, 1.8), Color(0, 0, 0, 0))
+	add_solid(Vector3(30.8, 1.1, 5.6), Vector3(2.4, 2.2, 2.4), Color(0, 0, 0, 0))
+	var rr := RandomNumberGenerator.new()
+	rr.seed = 5
+	make_rock(Vector3(29, 0.45, 7.5), Vector3(2.0, 1.25, 2.0), rr)
+	make_rock(Vector3(30.8, 1.0, 5.6), Vector3(2.6, 2.4, 2.6), rr)
+
+	# 이웃 초가집들과 살림살이
+	make_house(Vector3(-28, 0, 10), Vector3(4.6, 2.4, 3.4), Color(0.94, 0.9, 0.82), Color(0.8, 0.66, 0.3), "thatch")
+	make_house(Vector3(30, 0, -3), Vector3(4.4, 2.3, 3.4), Color(0.93, 0.89, 0.8), Color(0.8, 0.66, 0.3), "thatch")
+	make_house(Vector3(-10, 0, 22), Vector3(4.8, 2.4, 3.5), Color(0.95, 0.91, 0.83), Color(0.8, 0.66, 0.3), "thatch")
+	make_jangdok(Vector3(7.8, 0, -2.7), rr)
+	make_laundry(Vector3(-19.4, 0, 0.9), Vector3(-17.0, 0, 0.9))
+	make_laundry(Vector3(-13.2, 0, 25.0), Vector3(-6.8, 0, 25.0))
+	make_basket(Vector3(-10.3, 0, 0.9), 1.0, Color(0.95, 0.55, 0.15))
+	make_basket(Vector3(-25.2, 0, 13.0), 0.9, Color(0.4, 0.7, 0.3))
+	make_basket(Vector3(-7.1, 0, 25.5), 1.1, Color(0, 0, 0, 0))
+	make_sieve(Vector3(-15.55, 0, -0.1), 0.0)
+	make_sieve(Vector3(27.6, 0, -1.25), 0.3)
+	make_bench(Vector3(8.6, 0, 11.6), 0.2)
+	make_trellis(Vector3(-10.0, 0, 11.9), Vector3(-7.0, 0, 11.9), rr)
 
 	# 숨은 이야기 조각
 	for pos in [Vector3(14, 0, -6.5), Vector3(-31, 0, -12), Vector3(-9, 0, -36), Vector3(35, 0, 33), Vector3(-27.5, 0, 23.5), Vector3(30.8, 2.2, 5.6)]:
@@ -998,12 +1634,12 @@ func make_village() -> void:
 # ---------- 마을 꾸미기 (돌담, 감나무, 장독대, 텃밭, 꽃, 징검돌, 시냇가) ----------
 
 # 둥근 덩어리 여러 개를 한 번에 그려요. items 한 칸: [위치, 크기(가로,높이,세로), 색]
-func add_blobs(parent: Node3D, items: Array) -> MultiMeshInstance3D:
+func add_blobs(parent: Node3D, items: Array, mat_in: Material = null, flat: bool = false) -> MultiMeshInstance3D:
 	if items.is_empty():
 		return null
 	var sph := SphereMesh.new()
 	sph.radius = 0.5
-	sph.height = 1.0
+	sph.height = 0.25 if flat else 1.0
 	sph.radial_segments = 12
 	sph.rings = 6
 	var mm := MultiMesh.new()
@@ -1012,7 +1648,10 @@ func add_blobs(parent: Node3D, items: Array) -> MultiMeshInstance3D:
 	mm.mesh = sph
 	mm.instance_count = items.size()
 	for i in items.size():
-		var basis := Basis.from_scale(items[i][1])
+		var sc: Vector3 = items[i][1]
+		if flat:
+			sc.y /= 0.25
+		var basis := Basis.from_scale(sc)
 		if items[i].size() > 3:
 			var rd: Vector3 = items[i][3]
 			basis = Basis.from_euler(Vector3(deg_to_rad(rd.x), deg_to_rad(rd.y), deg_to_rad(rd.z))) * basis
@@ -1022,13 +1661,13 @@ func add_blobs(parent: Node3D, items: Array) -> MultiMeshInstance3D:
 	mat.vertex_color_use_as_albedo = true
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm
-	mi.material_override = mat
+	mi.material_override = mat if mat_in == null else mat_in
 	parent.add_child(mi)
 	return mi
 
 func stone_color(r: RandomNumberGenerator) -> Color:
 	var v := r.randf()
-	return Color(0.62 + 0.14 * v, 0.6 + 0.1 * v, 0.55 + 0.08 * v)
+	return Color(0.56 + 0.14 * v, 0.55 + 0.12 * v, 0.53 + 0.1 * v)
 
 # 둥근 돌을 쌓은 낮은 돌담. 점프하면 넘을 수 있어요
 func make_stone_wall(a: Vector2, b: Vector2, r: RandomNumberGenerator) -> void:
@@ -1047,10 +1686,10 @@ func make_stone_wall(a: Vector2, b: Vector2, r: RandomNumberGenerator) -> void:
 		if i < n - 1:
 			items.append([Vector3(x + step * 0.5, 0.74, r.randf_range(-0.05, 0.05)), Vector3(step * 1.1, 0.46, 0.58), stone_color(r)])
 		items.append([Vector3(x, 1.06, r.randf_range(-0.04, 0.04)), Vector3(step * 0.95, 0.3, 0.5), stone_color(r)])
-	add_blobs(root, items)
+	add_blobs(root, items, stone_blob_mat)
 	for e in [-1.0, 1.0]:
-		add_box(root, Color(0.5, 0.33, 0.2), Vector3(0.3, 1.3, 0.3), Vector3(e * length / 2.0, 0.65, 0))
-		add_box(root, Color(0.75, 0.73, 0.69), Vector3(0.44, 0.16, 0.44), Vector3(e * length / 2.0, 1.38, 0))
+		add_mbox(root, dark_wood_mat, Vector3(0.3, 1.3, 0.3), Vector3(e * length / 2.0, 0.65, 0))
+		add_mbox(root, stone_mat, Vector3(0.44, 0.16, 0.44), Vector3(e * length / 2.0, 1.38, 0))
 	var col := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(length + 0.3, 1.2, 0.7)
@@ -1059,17 +1698,20 @@ func make_stone_wall(a: Vector2, b: Vector2, r: RandomNumberGenerator) -> void:
 	root.add_child(col)
 
 func make_jar(root: StaticBody3D, pos: Vector3, s: float, c: Color) -> void:
-	add_ball(root, c, 0.5 * s, pos + Vector3(0, 0.5 * s, 0))
+	var belly := add_ball(root, c, 0.5 * s, pos + Vector3(0, 0.5 * s, 0))
+	belly.material_override = glossy_mat(c)
+	belly.scale = Vector3(1.0, 1.08, 1.0)
 	var neck := MeshInstance3D.new()
 	var cy := CylinderMesh.new()
 	cy.top_radius = 0.2 * s
 	cy.bottom_radius = 0.3 * s
 	cy.height = 0.28 * s
 	neck.mesh = cy
-	neck.material_override = make_color(c.darkened(0.1))
+	neck.material_override = glossy_mat(c.darkened(0.1))
 	neck.position = pos + Vector3(0, 1.0 * s, 0)
 	root.add_child(neck)
-	add_disc(root, c.darkened(0.3), 0.27 * s, 0.07 * s, 0.27 * s, pos + Vector3(0, 1.18 * s, 0))
+	add_disc(root, c.darkened(0.3), 0.3 * s, 0.07 * s, 0.3 * s, pos + Vector3(0, 1.17 * s, 0)).material_override = glossy_mat(c.darkened(0.25))
+	add_ball(root, c.darkened(0.3), 0.07 * s, pos + Vector3(0, 1.23 * s, 0)).material_override = glossy_mat(c.darkened(0.3))
 	var col := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(0.9 * s, 1.1 * s, 0.9 * s)
@@ -1082,15 +1724,15 @@ func make_persimmon(pos: Vector3, r: RandomNumberGenerator) -> void:
 	var root := StaticBody3D.new()
 	root.position = pos
 	add_child(root)
-	add_disc(root, Color(0.72, 0.7, 0.66), 2.7, 0.22, 2.7, Vector3(0, 0.11, 0))
-	add_disc(root, Color(0.62, 0.6, 0.56), 2.3, 0.14, 2.3, Vector3(0, 0.29, 0))
+	add_disc(root, Color(0.72, 0.7, 0.66), 2.7, 0.22, 2.7, Vector3(0, 0.11, 0)).material_override = stone_mat
+	add_disc(root, Color(0.62, 0.6, 0.56), 2.3, 0.14, 2.3, Vector3(0, 0.29, 0)).material_override = stone_mat
 	var trunk := MeshInstance3D.new()
 	var cy := CylinderMesh.new()
 	cy.top_radius = 0.32
 	cy.bottom_radius = 0.55
 	cy.height = 2.8
 	trunk.mesh = cy
-	trunk.material_override = make_color(Color(0.45, 0.3, 0.18))
+	trunk.material_override = dark_wood_mat
 	trunk.position.y = 1.5
 	root.add_child(trunk)
 	var tcol := CollisionShape3D.new()
@@ -1123,10 +1765,10 @@ func make_garden(pos: Vector3, w: float, d: float, r: RandomNumberGenerator) -> 
 	add_child(root)
 	var wood := Color(0.5, 0.33, 0.2)
 	add_box(root, Color(0.4, 0.27, 0.18), Vector3(w, 0.14, d), Vector3(0, 0.07, 0))
-	add_box(root, wood, Vector3(w + 0.2, 0.22, 0.12), Vector3(0, 0.11, d / 2.0 + 0.06))
-	add_box(root, wood, Vector3(w + 0.2, 0.22, 0.12), Vector3(0, 0.11, -d / 2.0 - 0.06))
-	add_box(root, wood, Vector3(0.12, 0.22, d), Vector3(w / 2.0 + 0.06, 0.11, 0))
-	add_box(root, wood, Vector3(0.12, 0.22, d), Vector3(-w / 2.0 - 0.06, 0.11, 0))
+	add_mbox(root, wood_mat, Vector3(w + 0.2, 0.22, 0.12), Vector3(0, 0.11, d / 2.0 + 0.06))
+	add_mbox(root, wood_mat, Vector3(w + 0.2, 0.22, 0.12), Vector3(0, 0.11, -d / 2.0 - 0.06))
+	add_mbox(root, wood_mat, Vector3(0.12, 0.22, d), Vector3(w / 2.0 + 0.06, 0.11, 0))
+	add_mbox(root, wood_mat, Vector3(0.12, 0.22, d), Vector3(-w / 2.0 - 0.06, 0.11, 0))
 	var items := []
 	var nx := int(w / 0.8)
 	var nz := int(d / 0.8)
@@ -1169,7 +1811,7 @@ func make_firewood(pos: Vector3) -> void:
 		cy.height = 0.95
 		cy.radial_segments = 10
 		log_mi.mesh = cy
-		log_mi.material_override = make_color(Color(0.55, 0.38, 0.22))
+		log_mi.material_override = wood_mat
 		log_mi.rotation_degrees.x = 90.0
 		log_mi.position = Vector3(row[0], row[1], 0)
 		root.add_child(log_mi)
@@ -1201,7 +1843,7 @@ func make_decor() -> void:
 		steps.append([Vector3(14 + r.randf_range(-0.25, 0.25), 0.05, z + r.randf_range(-0.1, 0.1)), Vector3(0.9, 0.12, 0.7), stone_color(r)])
 	for x in [-9.0, -8.0, -7.0]:
 		steps.append([Vector3(x, 0.05, 3.2 + r.randf_range(-0.2, 0.2)), Vector3(0.8, 0.12, 0.6), stone_color(r)])
-	add_blobs(self, steps)
+	add_blobs(self, steps, stone_blob_mat, true)
 	# 시냇가 돌과 물빛, 다리 난간
 	for zb in [-14.1, -16.9]:
 		var bank := []
@@ -1211,7 +1853,7 @@ func make_decor() -> void:
 			if absf(x + 2.0) < 2.3:
 				continue
 			bank.append([Vector3(x, 0.08, zb + r.randf_range(-0.25, 0.25)), Vector3(r.randf_range(0.6, 1.1), r.randf_range(0.35, 0.6), r.randf_range(0.5, 0.8)), stone_color(r)])
-		add_blobs(self, bank)
+		add_blobs(self, bank, stone_blob_mat)
 	var foam := []
 	for i in 22:
 		foam.append([Vector3(r.randf_range(-38, 38), 0.07, r.randf_range(-16.4, -14.6)), Vector3(r.randf_range(0.6, 1.4), 0.04, 0.12), Color(0.85, 0.95, 1.0)])
@@ -1222,10 +1864,10 @@ func make_decor() -> void:
 	var rail := Color(0.55, 0.38, 0.22)
 	for sx in [-3.45, -0.55]:
 		for pz in [-17.3, -15.5, -13.7]:
-			add_box(self, rail, Vector3(0.16, 0.95, 0.16), Vector3(sx, 0.55, pz))
+			add_mbox(self, dark_wood_mat, Vector3(0.16, 0.95, 0.16), Vector3(sx, 0.55, pz))
 			add_ball(self, Color(0.72, 0.7, 0.66), 0.14, Vector3(sx, 1.05, pz))
-		add_box(self, rail, Vector3(0.12, 0.1, 3.9), Vector3(sx, 0.92, -15.5))
-		add_box(self, rail, Vector3(0.1, 0.08, 3.9), Vector3(sx, 0.55, -15.5))
+		add_mbox(self, wood_mat, Vector3(0.12, 0.1, 3.9), Vector3(sx, 0.92, -15.5))
+		add_mbox(self, wood_mat, Vector3(0.1, 0.08, 3.9), Vector3(sx, 0.55, -15.5))
 	# 멀리 보이는 둥근 언덕
 	make_butterflies(r)
 	make_clouds(r)
@@ -1238,6 +1880,13 @@ func make_decor() -> void:
 		var k := r.randf()
 		hills.append([Vector3(cos(ang) * rad, -3.0, sin(ang) * rad), Vector3(r.randf_range(30, 46), r.randf_range(14, 24), r.randf_range(30, 46)), Color(0.42 + 0.08 * k, 0.7 - 0.06 * k, 0.45 + 0.05 * k)])
 	add_blobs(self, hills)
+	var far := []
+	for i in 20:
+		var ang := i * TAU / 20.0 + r.randf_range(-0.1, 0.1)
+		var rad := r.randf_range(125.0, 145.0)
+		far.append([Vector3(cos(ang) * rad, -6.0, sin(ang) * rad), Vector3(r.randf_range(50, 75), r.randf_range(34, 52), r.randf_range(40, 60)), Color(0.46, 0.64, 0.6).lerp(Color(0.55, 0.7, 0.72), r.randf())])
+	var far_mi := add_blobs(self, far)
+	far_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 # ---------- 살아있는 느낌 (바람, 물결, 나비, 구름, 낙엽) ----------
 
