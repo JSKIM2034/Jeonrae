@@ -2393,7 +2393,65 @@ func person_parts(kind: String, c: Color) -> Dictionary:
 		items.append([Vector3(0.72, -0.2, 0.15), Vector3(0.22, 0.9, 0.22), Color(0.5, 0.33, 0.2), Vector3(0, 0, -8.0)])
 	return {"items": items, "outfit": outfit, "limbs": limbs, "eyes": eyes}
 
+# 블렌더로 만든 인물 (models/characters.glb). 몸, 눈, 팔 둘, 다리 둘로 나뉘어 있어요
+var char_lib := {}
+var char_tried := false
+const FIXED_LOOK := ["hero", "heungbu", "nolbu", "sansin", "dokkaebi"]
+
+func load_chars() -> void:
+	char_tried = true
+	if not ResourceLoader.exists("res://models/characters.glb"):
+		return
+	var root: Node = (load("res://models/characters.glb") as PackedScene).instantiate()
+	for holder in root.find_children("Char_*", "", true, false):
+		var kind := String(holder.name).substr(5)
+		var parts := {}
+		for ch in holder.get_children():
+			if ch is MeshInstance3D:
+				var nm := String(ch.name)
+				parts[nm.substr(nm.rfind("_") + 1)] = [(ch as MeshInstance3D).mesh, (ch as Node3D).transform]
+		char_lib[kind] = parts
+	root.free()
+
+func make_person_model(parent: Node3D, kind: String, c: Color) -> Node3D:
+	if not char_tried:
+		load_chars()
+	var key := kind
+	if not char_lib.has(key):
+		key = "kid" if (kind.begins_with("kid") or kind == "dori") else "villager"
+	if not char_lib.has(key):
+		return null
+	var body := Node3D.new()
+	body.position.y = 1.0
+	parent.add_child(body)
+	var nodes := {}
+	var outfit := make_color(c) if not FIXED_LOOK.has(kind) else null
+	for part in char_lib[key]:
+		var mi := MeshInstance3D.new()
+		mi.mesh = char_lib[key][part][0]
+		mi.transform = char_lib[key][part][1]
+		body.add_child(mi)
+		nodes[part] = mi
+		if outfit != null:
+			for i in mi.mesh.get_surface_count():
+				var m := mi.mesh.surface_get_material(i)
+				if m != null and m.resource_name == "Outfit":
+					mi.set_surface_override_material(i, outfit)
+	body.set_meta("model_parts", nodes)
+	return body
+
 func make_person(parent: Node3D, kind: String, c: Color, solid: bool) -> Node3D:
+	var model := make_person_model(parent, kind, c)
+	if model != null:
+		model.set_meta("blink_at", rng.randf_range(1.0, 4.0))
+		model.set_meta("blink_on", false)
+		people.append(model)
+		if solid:
+			var mcol := CollisionShape3D.new()
+			mcol.shape = CapsuleShape3D.new()
+			mcol.position.y = 1.0
+			parent.add_child(mcol)
+		return model
 	var data := person_parts(kind, c)
 	var body := Node3D.new()
 	body.position.y = 1.0
@@ -2419,6 +2477,17 @@ func make_person(parent: Node3D, kind: String, c: Color, solid: bool) -> Node3D:
 
 # 팔다리 흔들기. swing: -1~1 (걷는 박자), arm_up: 0~1 (팔 번쩍)
 func pose_person(body: Node3D, swing: float, arm_up: float) -> void:
+	if body.has_meta("model_parts"):
+		var nodes: Dictionary = body.get_meta("model_parts")
+		for part in ["ArmL", "ArmR", "LegL", "LegR"]:
+			if not nodes.has(part):
+				continue
+			var sx := -1.0 if part.ends_with("L") else 1.0
+			var ang := swing * 0.75 * sx
+			if part.begins_with("Arm"):
+				ang = lerpf(-swing * 0.6 * sx, -2.5, arm_up)
+			(nodes[part] as Node3D).rotation.x = ang
+		return
 	var mmi: MultiMeshInstance3D = body.get_meta("mmi")
 	var base: Array = body.get_meta("base")
 	for l in body.get_meta("limbs"):
@@ -2434,6 +2503,11 @@ func pose_person(body: Node3D, swing: float, arm_up: float) -> void:
 
 # 눈 깜빡이기
 func blink_person(body: Node3D, closed: bool) -> void:
+	if body.has_meta("model_parts"):
+		var nodes: Dictionary = body.get_meta("model_parts")
+		if nodes.has("Eyes"):
+			(nodes["Eyes"] as Node3D).scale.y = 0.12 if closed else 1.0
+		return
 	if body.get_meta("blink_on") == closed:
 		return
 	body.set_meta("blink_on", closed)
@@ -2447,6 +2521,14 @@ func blink_person(body: Node3D, closed: bool) -> void:
 
 # 옷 색 바꾸기 (한복을 사 입을 때)
 func recolor_outfit(body: Node3D, c: Color) -> void:
+	if body.has_meta("model_parts"):
+		var mat := make_color(c)
+		for mi in (body.get_meta("model_parts") as Dictionary).values():
+			for i in (mi as MeshInstance3D).mesh.get_surface_count():
+				var m: Material = (mi as MeshInstance3D).mesh.surface_get_material(i)
+				if m != null and m.resource_name == "Outfit":
+					(mi as MeshInstance3D).set_surface_override_material(i, mat)
+		return
 	var mmi: MultiMeshInstance3D = body.get_meta("mmi")
 	for i in body.get_meta("outfit"):
 		mmi.multimesh.set_instance_color(i, c)
