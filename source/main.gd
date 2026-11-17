@@ -1678,7 +1678,7 @@ func make_thorn_shrubs(parent: Node3D, size: Vector3, c: Color) -> void:
 func make_jangseung(pos: Vector3, female: bool) -> void:
 	var root := StaticBody3D.new()
 	root.position = pos
-	root.rotation.y = PI + randf_range(-0.08, 0.08)
+	root.rotation.y = randf_range(-0.08, 0.08)
 	add_child(root)
 	add_mcyl(root, wood_mat, 0.26, 0.3, 2.6, Vector3(0, 1.3, 0))
 	add_mcyl(root, make_color(Color(0.65, 0.15, 0.12) if female else Color(0.12, 0.1, 0.1)), 0.3, 0.28, 0.42, Vector3(0, 2.75, 0))
@@ -1712,7 +1712,6 @@ func make_jangseung(pos: Vector3, female: bool) -> void:
 
 func make_signpost(pos: Vector3) -> void:
 	var sign := make_spot(pos, "gate", "", "", true)
-	sign.rotation.y = PI
 	add_mcyl(sign, dark_wood_mat, 0.07, 0.08, 1.9, Vector3(0, 0.95, 0))
 	var board := add_mbox(sign, plank_mat, Vector3(1.7, 0.42, 0.08), Vector3(0, 1.62, 0))
 	board.rotation.z = -0.05
@@ -2508,6 +2507,29 @@ func load_chars() -> void:
 		char_lib[kind] = parts
 	root.free()
 
+# 젤다처럼 빛과 그림자가 또렷하게 나뉘는 셀 셰이딩 + 가장자리 빛
+var toon_cache := {}
+
+func toon_of(m: Material) -> Material:
+	if m == null:
+		return null
+	if toon_cache.has(m):
+		return toon_cache[m]
+	var t: StandardMaterial3D
+	if m is StandardMaterial3D:
+		t = (m as StandardMaterial3D).duplicate() as StandardMaterial3D
+	else:
+		t = StandardMaterial3D.new()
+	t.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	t.specular_mode = BaseMaterial3D.SPECULAR_TOON
+	t.metallic_specular = 0.25
+	t.roughness = maxf(t.roughness, 0.6)
+	t.rim_enabled = true
+	t.rim = 0.22
+	t.rim_tint = 0.5
+	toon_cache[m] = t
+	return t
+
 func make_person_model(parent: Node3D, kind: String, c: Color) -> Node3D:
 	if not char_tried:
 		load_chars()
@@ -2520,18 +2542,19 @@ func make_person_model(parent: Node3D, kind: String, c: Color) -> Node3D:
 	body.position.y = 1.0
 	parent.add_child(body)
 	var nodes := {}
-	var outfit := make_color(c) if not FIXED_LOOK.has(kind) else null
+	var outfit: Material = toon_of(make_color(c)) if not FIXED_LOOK.has(kind) else null
 	for part in char_lib[key]:
 		var mi := MeshInstance3D.new()
 		mi.mesh = char_lib[key][part][0]
 		mi.transform = char_lib[key][part][1]
 		body.add_child(mi)
 		nodes[part] = mi
-		if outfit != null:
-			for i in mi.mesh.get_surface_count():
-				var m := mi.mesh.surface_get_material(i)
-				if m != null and m.resource_name == "Outfit":
-					mi.set_surface_override_material(i, outfit)
+		for i in mi.mesh.get_surface_count():
+			var m := mi.mesh.surface_get_material(i)
+			if outfit != null and m != null and m.resource_name == "Outfit":
+				mi.set_surface_override_material(i, outfit)
+			else:
+				mi.set_surface_override_material(i, toon_of(m))
 	body.set_meta("model_parts", nodes)
 	return body
 
@@ -2617,7 +2640,7 @@ func blink_person(body: Node3D, closed: bool) -> void:
 # 옷 색 바꾸기 (한복을 사 입을 때)
 func recolor_outfit(body: Node3D, c: Color) -> void:
 	if body.has_meta("model_parts"):
-		var mat := make_color(c)
+		var mat := toon_of(make_color(c))
 		for mi in (body.get_meta("model_parts") as Dictionary).values():
 			for i in (mi as MeshInstance3D).mesh.get_surface_count():
 				var m: Material = (mi as MeshInstance3D).mesh.surface_get_material(i)
