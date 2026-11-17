@@ -53,6 +53,14 @@ var bush_col: CollisionShape3D
 var saw_thing: Dictionary = {}
 var rng := RandomNumberGenerator.new()
 # 살아있는 느낌(흔들림, 물결, 나비, 구름)용
+# 폰이 버벅이면 아래 두 값을 줄여 보세요 (그림자 끄기: false, 풀 개수: 800)
+const SHADOWS_ON := true
+const GRASS_COUNT := 2600
+const CAM_OFFSET := Vector3(0, 7.0, 7.2)   # 카메라가 캐릭터 뒤 위에서 따라와요 (작을수록 가까워요)
+var grass_mat: StandardMaterial3D
+var sand_mat: StandardMaterial3D
+var forest_mat: StandardMaterial3D
+var water_mat: StandardMaterial3D
 var anim_t := 0.0
 var people := []         # 눈 깜빡임 등을 위한 모든 사람 몸
 var limb_amt := 0.0       # 팔다리 흔들림 세기 (걷는 중이면 1)
@@ -231,6 +239,7 @@ func _ready() -> void:
 	update_quest_text()
 
 	cam = Camera3D.new()
+	cam.fov = 64.0
 	add_child(cam)
 	cam.make_current()
 	show_card("할머니 댁 다락방에서\n낡은 옛이야기 책을 펼쳤더니...\n\n눈을 떠 보니\n책 속 세상이었어요!", 1.0, 4.0, Callable())
@@ -249,6 +258,8 @@ func add_box(parent: Node3D, c: Color, size: Vector3, pos: Vector3) -> MeshInsta
 	mi.mesh = box
 	mi.material_override = make_color(c)
 	mi.position = pos
+	if maxf(size.x, size.z) > 30.0:
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(mi)
 	return mi
 
@@ -440,22 +451,173 @@ func make_house(pos: Vector3, size: Vector3, wall: Color, roof: Color, style: St
 	house.add_child(col)
 	return house
 
+# ---------- 땅, 풀, 물 질감 ----------
+
+func make_noise_tex(c1: Color, c2: Color, freq: float, seed_v: int) -> NoiseTexture2D:
+	var n := FastNoiseLite.new()
+	n.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	n.frequency = freq
+	n.fractal_octaves = 3
+	n.seed = seed_v
+	var g := Gradient.new()
+	g.set_color(0, c1)
+	g.set_color(1, c2)
+	var t := NoiseTexture2D.new()
+	t.width = 256
+	t.height = 256
+	t.seamless = true
+	t.noise = n
+	t.color_ramp = g
+	return t
+
+func make_tex_material(tint: Color, tex: Texture2D, tile: float, shiny: float = 0.0) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = tint
+	m.albedo_texture = tex
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	m.uv1_scale = Vector3(tile, tile, tile)
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	m.roughness = 1.0
+	m.metallic_specular = shiny
+	return m
+
+func make_surface_materials() -> void:
+	var tex := make_noise_tex(Color(0.8, 0.92, 0.7), Color(1.0, 1.0, 0.9), 0.012, 5)
+	grass_mat = make_tex_material(Color(0.42, 0.66, 0.32), tex, 0.05)
+	forest_mat = make_tex_material(Color(0.34, 0.56, 0.3), tex, 0.06)
+	var sand_tex := make_noise_tex(Color(0.9, 0.85, 0.72), Color(1.0, 1.0, 0.95), 0.015, 9)
+	sand_mat = make_tex_material(Color(0.78, 0.67, 0.45), sand_tex, 0.07)
+	# 물: 일렁이는 무늬 + 반짝임 (_process에서 흘러가요)
+	var wtex := make_noise_tex(Color(0.62, 0.8, 0.95), Color(0.95, 1.0, 1.0), 0.045, 3)
+	water_mat = StandardMaterial3D.new()
+	water_mat.albedo_color = Color(0.35, 0.6, 0.85)
+	water_mat.albedo_texture = wtex
+	water_mat.uv1_scale = Vector3(16, 1.6, 1)
+	water_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	water_mat.roughness = 0.22
+	water_mat.metallic_specular = 0.7
+
+# 바람에 살랑이는 풀 더미 (뾰족한 잎 세 개)
+func make_tuft_mesh() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var blades := [[Vector2(-0.05, 0.0), 0.5, 12.0], [Vector2(0.06, 0.03), 0.38, -16.0], [Vector2(0.0, -0.05), 0.3, 6.0]]
+	for b in blades:
+		var o: Vector2 = b[0]
+		var h: float = b[1]
+		var lean := deg_to_rad(b[2])
+		var base_c := Color(0.55, 0.68, 0.5)
+		var tip := Vector3(o.x + sin(lean) * h * 0.5, h, o.y)
+		var corners := [Vector3(o.x - 0.045, 0, o.y), Vector3(o.x + 0.045, 0, o.y), Vector3(o.x, 0, o.y + 0.045)]
+		for i in 3:
+			var a: Vector3 = corners[i]
+			var c: Vector3 = corners[(i + 1) % 3]
+			for v in [[a, base_c], [c, base_c], [tip, Color(1, 1, 1)]]:
+				st.set_normal(Vector3.UP)
+				st.set_color(v[1])
+				st.add_vertex(v[0])
+	return st.commit()
+
+func make_grass(r: RandomNumberGenerator) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = make_tuft_mesh()
+	# 풀이 나면 안 되는 곳: 길, 개울, 다리, 텃밭, 연못
+	var keep_out := [
+		Rect2(-3.6, -18.0, 3.4, 36.0), Rect2(-12.6, 6.5, 27.0, 3.0), Rect2(18.4, 6.5, 3.2, 15.0),
+		Rect2(-40.0, -17.4, 80.0, 3.8), Rect2(-19.6, -5.8, 4.4, 3.0), Rect2(-10.2, 12.0, 3.4, 2.4),
+		Rect2(30.0, -39.0, 7.0, 7.0), Rect2(9.0, -1.5, 10.0, 7.0), Rect2(-15.5, -4.2, 5.5, 4.8)]
+	var spots := []
+	var tries := 0
+	while spots.size() < GRASS_COUNT and tries < GRASS_COUNT * 4:
+		tries += 1
+		var p := Vector2(r.randf_range(-38, 38), r.randf_range(-38, 38))
+		var ok := true
+		for k in keep_out:
+			if k.has_point(p):
+				ok = false
+				break
+		if ok:
+			spots.append(p)
+	mm.instance_count = spots.size()
+	for i in spots.size():
+		var p: Vector2 = spots[i]
+		var sc := r.randf_range(0.55, 1.0)
+		var basis := Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(sc, sc * r.randf_range(0.8, 1.3), sc))
+		mm.set_instance_transform(i, Transform3D(basis, Vector3(p.x, 0.0, p.y)))
+		mm.set_instance_color(i, Color(0.36, 0.6, 0.27).lerp(Color(0.62, 0.8, 0.34), r.randf()))
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+render_mode cull_disabled;
+void vertex() {
+	float h = max(VERTEX.y, 0.0);
+	float ph = MODEL_MATRIX[3].x * 0.9 + MODEL_MATRIX[3].z * 0.6;
+	VERTEX.x += sin(TIME * 1.7 + ph) * 0.09 * h;
+	VERTEX.z += cos(TIME * 1.3 + ph) * 0.05 * h;
+}
+void fragment() {
+	ALBEDO = COLOR.rgb;
+	ROUGHNESS = 1.0;
+	SPECULAR = 0.0;
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	# 들꽃 (작은 알록달록 점)
+	var wild := []
+	var palette := [Color(1.0, 0.8, 0.85), Color(1.0, 0.97, 0.8), Color(0.85, 0.8, 1.0), Color(1.0, 0.9, 0.45), Color(1, 1, 1)]
+	for i in 160:
+		var p: Vector2 = spots[r.randi() % spots.size()]
+		wild.append([Vector3(p.x, 0.13, p.y), Vector3(0.13, 0.1, 0.13), palette[r.randi() % palette.size()]])
+	var wmi := add_blobs(self, wild)
+	wmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
 func make_tree(pos: Vector3) -> void:
 	var tree := StaticBody3D.new()
 	tree.position = pos
 	add_child(tree)
+	var pine := rng.randf() < 0.4  # 소나무
+	var trunk_h := 3.4 if pine else 2.3
 	var trunk := MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
-	cyl.top_radius = 0.25
-	cyl.bottom_radius = 0.35
-	cyl.height = 2.0
+	cyl.top_radius = 0.2
+	cyl.bottom_radius = 0.38
+	cyl.height = trunk_h
+	cyl.radial_segments = 8
 	trunk.mesh = cyl
-	trunk.material_override = make_color(Color(0.45, 0.3, 0.18))
-	trunk.position.y = 1.0
+	var bark := Color(0.52, 0.33, 0.2) if pine else Color(0.45, 0.31, 0.19)
+	trunk.material_override = make_color(bark)
+	trunk.position.y = trunk_h / 2.0
+	if pine:
+		trunk.rotation_degrees = Vector3(rng.randf_range(-4, 4), 0, rng.randf_range(-6, 6))
 	tree.add_child(trunk)
-	var green := Color(0.18 + rng.randf() * 0.1, 0.45 + rng.randf() * 0.15, 0.2)
-	var canopy := add_ball(tree, green, 1.2 + rng.randf() * 0.5, Vector3(0, 2.8, 0))
-	sway_items.append([canopy, canopy.position, 0, pos.x * 0.7 + pos.z * 0.5, 1.0])
+	var blobs := []
+	var base_y := trunk_h + 0.2
+	if pine:
+		# 넓적하게 층층이 퍼진 소나무 잎
+		var tone := rng.randf_range(0.0, 0.06)
+		for i in 4:
+			var w := 3.0 - i * 0.55
+			blobs.append([Vector3(rng.randf_range(-0.25, 0.25), base_y - 0.3 + i * 0.62, rng.randf_range(-0.25, 0.25)), Vector3(w, 0.95, w * 0.92), Color(0.14 + tone + i * 0.02, 0.38 + i * 0.03, 0.24)])
+		blobs.append([Vector3(0.4, base_y + 0.5, 0.2), Vector3(1.5, 0.8, 1.3), Color(0.2 + tone, 0.46, 0.27)])
+	else:
+		var hue := rng.randf_range(0.0, 0.08)
+		var spread := rng.randf_range(0.8, 1.1)
+		blobs.append([Vector3(0, base_y + 0.7, 0), Vector3(2.9, 2.5, 2.9), Color(0.2 + hue, 0.5 + hue, 0.22)])
+		for i in 5:
+			var a := i * TAU / 5.0 + rng.randf() * 0.5
+			var up := rng.randf_range(0.2, 1.4)
+			blobs.append([Vector3(cos(a) * spread, base_y + up, sin(a) * spread), Vector3(rng.randf_range(1.5, 2.0), rng.randf_range(1.3, 1.7), rng.randf_range(1.5, 2.0)), Color(0.24 + hue, 0.55 + hue * 0.8, 0.25)])
+		blobs.append([Vector3(rng.randf_range(-0.3, 0.3), base_y + 1.9, rng.randf_range(-0.3, 0.3)), Vector3(1.7, 1.2, 1.7), Color(0.4 + hue, 0.7, 0.3)])
+	var canopy := add_blobs(tree, blobs)
+	sway_items.append([canopy, canopy.position, 0, pos.x * 0.7 + pos.z * 0.5, 0.6])
 	var col := CollisionShape3D.new()
 	var shape := CylinderShape3D.new()
 	shape.radius = 0.45
@@ -701,9 +863,19 @@ func make_gourd_at(pos: Vector3, c: Color, radius: float) -> Node3D:
 # ---------- 세상 만들기 ----------
 
 func make_world() -> void:
+	make_surface_materials()
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-50, 30, 0)
-	sun.light_color = Color(1.0, 0.94, 0.82)
+	sun.rotation_degrees = Vector3(-42, 38, 0)
+	sun.light_color = Color(1.0, 0.93, 0.8)
+	sun.light_energy = 0.85
+	# 부드러운 그림자 (가까운 곳만 그려서 가볍게)
+	sun.shadow_enabled = SHADOWS_ON
+	sun.shadow_blur = 1.6
+	sun.shadow_bias = 0.04
+	sun.shadow_normal_bias = 1.0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.directional_shadow_max_distance = 42.0
+	RenderingServer.directional_shadow_atlas_set_size(2048, true)
 	add_child(sun)
 	var env := WorldEnvironment.new()
 	var e := Environment.new()
@@ -719,31 +891,41 @@ func make_world() -> void:
 	# 따뜻하고 포근한 빛: 하늘 대신 부드러운 크림색으로 전체를 밝혀요
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color(1.0, 0.96, 0.88)
-	e.ambient_light_energy = 0.55
+	e.ambient_light_energy = 0.5
+	# 멀리는 살짝 뿌옇게 (공기감) + 색을 조금 선명하게
+	e.fog_enabled = true
+	e.fog_light_color = Color(0.86, 0.93, 0.96)
+	e.fog_density = 0.0045
+	e.fog_sky_affect = 0.0
+	e.adjustment_enabled = true
+	e.adjustment_saturation = 1.12
+	e.adjustment_contrast = 1.04
 	env.environment = e
 	add_child(env)
 
 	var full := MAP_HALF * 2.0
 	var none := Color(0, 0, 0, 0)
-	add_solid(Vector3(0, -0.5, 0), Vector3(full, 1, full), Color(0.45, 0.7, 0.35))
+	var ground_col := add_solid(Vector3(0, -0.5, 0), Vector3(full, 1, full), Color(0.45, 0.7, 0.35))
+	(ground_col.get_parent().get_child(0) as MeshInstance3D).material_override = grass_mat
 	add_solid(Vector3(0, 2, -MAP_HALF), Vector3(full, 8, 1), none)
 	add_solid(Vector3(0, 2, MAP_HALF), Vector3(full, 8, 1), none)
 	add_solid(Vector3(-MAP_HALF, 2, 0), Vector3(1, 8, full), none)
 	add_solid(Vector3(MAP_HALF, 2, 0), Vector3(1, 8, full), none)
 
 	# 숲 바닥, 개울, 다리, 길
-	add_box(self, Color(0.33, 0.58, 0.3), Vector3(full, 0.04, 23), Vector3(0, 0.02, -28.5))
+	add_box(self, Color(0.33, 0.58, 0.3), Vector3(full, 0.04, 23), Vector3(0, 0.02, -28.5)).material_override = forest_mat
 	var creek := add_box(self, Color(0.35, 0.6, 0.85), Vector3(full, 0.06, 3), Vector3(0, 0.03, -15.5))
-	creek_mat = creek.material_override
+	creek.material_override = water_mat
+	creek_mat = water_mat
 	add_box(self, Color(0.55, 0.4, 0.25), Vector3(3, 0.2, 4), Vector3(-2, 0.1, -15.5))
 	# 개울은 다리로만 건널 수 있어요 (점프로도 못 넘는 보이지 않는 벽, 다리 자리만 비워 둠)
 	var creek_left_len := (-3.5) - (-MAP_HALF)
 	var creek_right_len := MAP_HALF - (-0.5)
 	add_solid(Vector3(-MAP_HALF + creek_left_len / 2.0, 2, -15.5), Vector3(creek_left_len, 5, 3), none)
 	add_solid(Vector3(-0.5 + creek_right_len / 2.0, 2, -15.5), Vector3(creek_right_len, 5, 3), none)
-	add_box(self, Color(0.8, 0.72, 0.5), Vector3(2.5, 0.04, 30), Vector3(-2, 0.02, 1))
-	add_box(self, Color(0.8, 0.72, 0.5), Vector3(26, 0.04, 2.5), Vector3(1, 0.02, 8))
-	add_box(self, Color(0.8, 0.72, 0.5), Vector3(2.5, 0.04, 14), Vector3(20, 0.02, 14))
+	add_box(self, Color(0.8, 0.72, 0.5), Vector3(2.5, 0.04, 30), Vector3(-2, 0.02, 1)).material_override = sand_mat
+	add_box(self, Color(0.8, 0.72, 0.5), Vector3(26, 0.04, 2.5), Vector3(1, 0.02, 8)).material_override = sand_mat
+	add_box(self, Color(0.8, 0.72, 0.5), Vector3(2.5, 0.04, 14), Vector3(20, 0.02, 14)).material_override = sand_mat
 
 func make_village() -> void:
 	# 놀부네
@@ -1047,6 +1229,7 @@ func make_decor() -> void:
 	# 멀리 보이는 둥근 언덕
 	make_butterflies(r)
 	make_clouds(r)
+	make_grass(r)
 	add_box(self, Color(0.42, 0.66, 0.38), Vector3(600, 1, 600), Vector3(0, -0.6, 0))
 	var hills := []
 	for i in 28:
@@ -1151,6 +1334,7 @@ func _process(delta: float) -> void:
 	# 시냇물 흐름
 	if creek_mat != null:
 		creek_mat.albedo_color = Color(0.35, 0.6, 0.85).lerp(Color(0.44, 0.7, 0.92), 0.5 + 0.5 * sin(t * 0.8))
+		creek_mat.uv1_offset = Vector3(t * 0.03, sin(t * 0.5) * 0.04, 0)
 	if foam_mm != null:
 		for i in foam_data.size():
 			var fd: Array = foam_data[i]
@@ -1200,7 +1384,8 @@ func make_forest() -> void:
 	disc.bottom_radius = 3.2
 	disc.height = 0.08
 	pond.mesh = disc
-	pond.material_override = make_color(Color(0.3, 0.55, 0.8))
+	pond.material_override = water_mat
+	pond.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	pond.position = Vector3(33.5, 0.05, -35.5)
 	add_child(pond)
 	make_npc("woodman", "나무꾼", Color(0.55, 0.42, 0.3), Vector3(28, 0, -33), 1.0, true)
@@ -2847,8 +3032,8 @@ func _physics_process(delta: float) -> void:
 		player.velocity = Vector3.ZERO
 	if dir.length() > 0.1:
 		player.rotation.y = lerp_angle(player.rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * 14.0))
-	cam.position = player.position + Vector3(0, 9, 9).rotated(Vector3.UP, cam_yaw)
-	cam.look_at(player.position + Vector3.UP)
+	cam.position = player.position + CAM_OFFSET.rotated(Vector3.UP, cam_yaw)
+	cam.look_at(player.position + Vector3(0, 1.3, 0))
 
 	# 화면 흔들림
 	if shake_amt > 0.3:
