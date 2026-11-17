@@ -1656,6 +1656,101 @@ func spawn_gold(pile: Node3D) -> void:
 		for k in 5:
 			add_mcyl(pile, gold, 0.12, 0.12, 0.035, Vector3(0.75 + i * 0.28, 0.02 + k * 0.04, 0.7 - i * 0.1))
 
+# 가시덤불: 작은 잎 뭉치와 삐죽한 가시 가지
+func make_thorn_shrubs(parent: Node3D, size: Vector3, c: Color) -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = int(parent.position.x * 7.0 + parent.position.z * 3.0)
+	var items := []
+	var n := int(maxf(size.x, size.z) * 7.0)
+	for i in n:
+		var p := Vector3(r.randf_range(-0.5, 0.5) * size.x, r.randf_range(-0.5, 0.45) * size.y, r.randf_range(-0.5, 0.5) * size.z)
+		var sz := r.randf_range(0.35, 0.7)
+		items.append([p, Vector3(sz, sz * 0.85, sz), c.lightened(r.randf() * 0.15 + (p.y / size.y + 0.5) * 0.15)])
+	var mi := add_blobs(parent, items)
+	mi.position.y = 0.0
+	var thorn := make_color(Color(0.42, 0.3, 0.2))
+	for i in int(n / 3):
+		var a := Vector3(r.randf_range(-0.5, 0.5) * size.x, r.randf_range(-0.3, 0.5) * size.y, r.randf_range(-0.5, 0.5) * size.z)
+		add_beam(parent, thorn, a, a + Vector3(r.randf_range(-0.5, 0.5), r.randf_range(0.2, 0.5), r.randf_range(-0.5, 0.5)), 0.03, 0.03)
+
+# ---------- 맵 가장자리: 둘러 심은 나무, 다음 이야기로 가는 장승과 이정표 ----------
+
+func make_jangseung(pos: Vector3, female: bool) -> void:
+	var root := StaticBody3D.new()
+	root.position = pos
+	root.rotation.y = PI + randf_range(-0.08, 0.08)
+	add_child(root)
+	add_mcyl(root, wood_mat, 0.26, 0.3, 2.6, Vector3(0, 1.3, 0))
+	add_mcyl(root, make_color(Color(0.65, 0.15, 0.12) if female else Color(0.12, 0.1, 0.1)), 0.3, 0.28, 0.42, Vector3(0, 2.75, 0))
+	add_mcyl(root, make_color(Color(0.65, 0.15, 0.12) if female else Color(0.12, 0.1, 0.1)), 0.42, 0.42, 0.06, Vector3(0, 2.55, 0))
+	var face := []
+	for sx in [-1.0, 1.0]:
+		face.append([Vector3(sx * 0.12, 2.2, 0.22), Vector3(0.18, 0.16, 0.08), Color(1, 1, 1)])
+		face.append([Vector3(sx * 0.12, 2.2, 0.26), Vector3(0.08, 0.08, 0.05), Color(0.08, 0.06, 0.05)])
+		face.append([Vector3(sx * 0.13, 2.36, 0.22), Vector3(0.2, 0.05, 0.06), Color(0.1, 0.08, 0.07), Vector3(0, 0, sx * -18.0)])
+		face.append([Vector3(sx * 0.15, 2.0, 0.24), Vector3(0.1, 0.07, 0.04), Color(0.85, 0.3, 0.25)])
+	face.append([Vector3(0, 2.05, 0.28), Vector3(0.1, 0.18, 0.1), Color(0.7, 0.5, 0.32)])
+	face.append([Vector3(0, 1.82, 0.25), Vector3(0.24, 0.07, 0.06), Color(0.15, 0.08, 0.06)])
+	face.append([Vector3(0, 1.84, 0.27), Vector3(0.18, 0.03, 0.03), Color(1, 1, 1)])
+	add_blobs(root, face)
+	var lab := Label3D.new()
+	lab.text = "지\n하\n여\n장\n군" if female else "천\n하\n대\n장\n군"
+	lab.font = font
+	lab.font_size = 48
+	lab.modulate = Color(0.15, 0.08, 0.05)
+	lab.outline_size = 0
+	lab.position = Vector3(0, 1.0, 0.31)
+	lab.pixel_size = 0.0045
+	root.add_child(lab)
+	var col := CollisionShape3D.new()
+	var shape := CylinderShape3D.new()
+	shape.radius = 0.32
+	shape.height = 2.8
+	col.shape = shape
+	col.position.y = 1.4
+	root.add_child(col)
+
+func make_signpost(pos: Vector3) -> void:
+	var sign := make_spot(pos, "gate", "", "", true)
+	sign.rotation.y = PI
+	add_mcyl(sign, dark_wood_mat, 0.07, 0.08, 1.9, Vector3(0, 0.95, 0))
+	var board := add_mbox(sign, plank_mat, Vector3(1.7, 0.42, 0.08), Vector3(0, 1.62, 0))
+	board.rotation.z = -0.05
+	var lab := Label3D.new()
+	lab.text = "이 길 끝은 2장\n해와 달이 된 오누이\n(준비 중)"
+	lab.font = font
+	lab.font_size = 34
+	lab.modulate = Color(0.25, 0.14, 0.08)
+	lab.outline_size = 0
+	lab.position = Vector3(0, 1.62, 0.05)
+	lab.pixel_size = 0.0034
+	sign.add_child(lab)
+	add_tag(sign, "다음 이야기로 가는 길", 2.4)
+
+func make_border(r: RandomNumberGenerator) -> void:
+	# 보이지 않는 벽 바깥에 나무와 덤불을 둘러 심어, 마을이 숲에 감싸인 것처럼
+	var side := MAP_HALF + 2.5
+	var t := -side
+	while t <= side:
+		for edge in 4:
+			var p := Vector3.ZERO
+			match edge:
+				0: p = Vector3(t, 0, -side)
+				1: p = Vector3(t, 0, side)
+				2: p = Vector3(-side, 0, t)
+				3: p = Vector3(side, 0, t)
+			p += Vector3(r.randf_range(-1.5, 1.5), 0, r.randf_range(-1.5, 1.5))
+			if edge == 1 and absf(p.x + 2.0) < 4.5:
+				continue
+			make_tree(p)
+			if r.randf() < 0.5:
+				make_tree(p + Vector3(r.randf_range(-3, 3), 0, r.randf_range(-3, 3)) + p.normalized() * 4.0)
+		t += r.randf_range(4.5, 6.5)
+	# 다음 이야기로 가는 남쪽 길목
+	make_jangseung(Vector3(-4.7, 0, 37.5), false)
+	make_jangseung(Vector3(0.7, 0, 37.5), true)
+	make_signpost(Vector3(1.6, 0, 34.0))
+
 # ---------- 마을 소품 ----------
 
 func make_jangdok(pos: Vector3, r: RandomNumberGenerator) -> void:
@@ -1957,7 +2052,7 @@ func near_path(p: Vector2, extra: float) -> bool:
 	return false
 
 func make_paths() -> void:
-	make_dirt_path([Vector2(-2.0, -13.6), Vector2(-2.3, -8.0), Vector2(-1.6, -2.5), Vector2(-2.3, 3.5), Vector2(-1.8, 8.0), Vector2(-2.4, 12.5), Vector2(-2.0, 16.5)], 2.5, 1.0)
+	make_dirt_path([Vector2(-2.0, -13.6), Vector2(-2.3, -8.0), Vector2(-1.6, -2.5), Vector2(-2.3, 3.5), Vector2(-1.8, 8.0), Vector2(-2.4, 12.5), Vector2(-2.0, 18.0), Vector2(-2.7, 25.0), Vector2(-1.7, 32.0), Vector2(-2.2, 39.0), Vector2(-2.0, 48.0)], 2.5, 1.0)
 	make_dirt_path([Vector2(-12.2, 6.4), Vector2(-7.5, 8.4), Vector2(-2.0, 8.0), Vector2(4.0, 7.5), Vector2(9.5, 8.4), Vector2(14.5, 8.0), Vector2(19.6, 8.6), Vector2(20.4, 13.5), Vector2(19.8, 17.6)], 2.3, 4.0)
 
 func make_creek() -> void:
@@ -2621,7 +2716,6 @@ func make_world() -> void:
 	add_solid(Vector3(MAP_HALF, 2, 0), Vector3(1, 8, full), none)
 
 	# 숲 바닥, 개울, 다리, 길
-	add_box(self, Color(0.33, 0.58, 0.3), Vector3(full, 0.04, 23), Vector3(0, 0.02, -28.5)).material_override = forest_mat
 	make_creek()
 	add_box(self, Color(0.55, 0.4, 0.25), Vector3(3, 0.2, 4), Vector3(-2, 0.1, -15.5)).material_override = plank_mat
 	# 개울은 다리로만 건널 수 있어요 (점프로도 못 넘는 보이지 않는 벽, 다리 자리만 비워 둠)
@@ -3054,7 +3148,8 @@ func make_decor() -> void:
 	make_butterflies(r)
 	make_clouds(r)
 	make_grass(r)
-	add_box(self, Color(0.42, 0.66, 0.38), Vector3(600, 1, 600), Vector3(0, -0.6, 0))
+	add_box(self, Color(0.42, 0.66, 0.38), Vector3(600, 1, 600), Vector3(0, -0.502, 0)).material_override = grass_mat
+	make_border(r)
 	var hills := []
 	for i in 28:
 		var ang := i * TAU / 28.0 + r.randf_range(-0.08, 0.08)
@@ -3201,11 +3296,12 @@ func make_forest() -> void:
 		make_herb_visual(h)
 
 	# 가시덤불로 막힌 연못 (금도끼 은도끼)
-	var hedge := Color(0.2, 0.4, 0.22)
-	add_solid(Vector3(23, 1.1, -37.5), Vector3(1, 2.2, 4), hedge)
-	add_solid(Vector3(23, 1.1, -31.25), Vector3(1, 2.2, 2.5), hedge)
-	add_solid(Vector3(31.25, 1.1, -30), Vector3(17.5, 2.2, 1), hedge)
-	bush_col = add_solid(Vector3(23, 1.0, -34), Vector3(1, 2.0, 3), Color(0.35, 0.45, 0.2))
+	var none := Color(0, 0, 0, 0)
+	for hd in [[Vector3(23, 1.1, -37.5), Vector3(1, 2.2, 4)], [Vector3(23, 1.1, -31.25), Vector3(1, 2.2, 2.5)], [Vector3(31.25, 1.1, -30), Vector3(17.5, 2.2, 1)]]:
+		var hc := add_solid(hd[0], hd[1], none)
+		make_thorn_shrubs(hc.get_parent(), hd[1], Color(0.2, 0.42, 0.22))
+	bush_col = add_solid(Vector3(23, 1.0, -34), Vector3(1, 2.0, 3), none)
+	make_thorn_shrubs(bush_col.get_parent(), Vector3(1, 2.0, 3), Color(0.36, 0.46, 0.2))
 	var bush: Node3D = bush_col.get_parent()
 	add_tag(bush, "가시덤불", 1.6)
 	add_thing(bush, "bush", "")
@@ -3852,6 +3948,8 @@ func action_text(t: Dictionary) -> String:
 		return "찾았다!"
 	if kind == "bush":
 		return "덤불 베기"
+	if kind == "gate":
+		return "이정표 보기"
 	if kind == "job":
 		if t["id"] == "water":
 			return "물 긷기"
@@ -3902,6 +4000,8 @@ func on_action() -> void:
 		burst3d(above, Color(0.98, 0.85, 0.65))
 		hiders_found += 1
 		say([["동생", "앗, 들켰다! 헤헤. (%d/4)" % hiders_found]], Callable())
+	elif kind == "gate":
+		say([["", "“이 길을 따라가면 해와 달이 된 오누이 이야기”"], ["", "2장은 아직 준비 중이에요. 흥부네 이야기를 끝까지 들려준 뒤에 다시 와 보세요!"]], Callable())
 	elif kind == "bush":
 		if has_sickle:
 			node.visible = false
