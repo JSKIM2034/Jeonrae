@@ -125,4 +125,11 @@ img.save(f"{out}/hanji.png")
 # ---- 기와 얼룩 (밝은 회색 → 기와 색으로) ----
 v = 0.86 + tile_noise(256, 8, 51) * 0.1 + tile_noise(256, 60, 52) * 0.06
 save(np.stack([v, v, v * 1.02], -1), "tile_mottle")
+# ---- 나이테 (그루터기, 장작 단면) ----
+yy, xx = np.mgrid[0:256, 0:256]
+rr = np.hypot(xx - 128, yy - 128) / 128.0
+ring = 0.5 + 0.5 * np.sin(rr * 46.0 + tile_noise(256, 10, 61) * 4.0)
+v = 0.82 - ring * 0.12 - np.clip(rr - 0.9, 0, 1) * 2.0
+arr = np.stack([v, v * 0.82, v * 0.6], -1)
+save(arr, "endgrain")
 print("ok")

@@ -1236,6 +1236,26 @@ func thatch_roof_mat(roof: Color) -> StandardMaterial3D:
 
 var house_scenes := {}
 var house_ao_cache := {}
+var endgrain_cache: StandardMaterial3D
+
+# 나이테가 보이는 나무 단면 (UV로 붙여요)
+func endgrain_mat() -> StandardMaterial3D:
+	if endgrain_cache == null:
+		endgrain_cache = StandardMaterial3D.new()
+		endgrain_cache.albedo_texture = tex_or("endgrain", null)
+		endgrain_cache.albedo_color = Color(1.0, 0.95, 0.88)
+		endgrain_cache.roughness = 0.95
+	return endgrain_cache
+
+# 블렌더로 만든 소품 하나를 놓아요 (재질 이름에 맞춰 게임 재질을 입혀요)
+func place_prop(parent: Node3D, file: String, pos: Vector3, s: float = 1.0, c: Color = Color(0.45, 0.27, 0.16), rot_y: float = 0.0) -> bool:
+	if not ResourceLoader.exists("res://models/%s.glb" % file):
+		return false
+	var holder := Node3D.new()
+	holder.position = pos
+	holder.rotation.y = rot_y
+	parent.add_child(holder)
+	return make_choga_from_model(holder, Vector3(s, s, s), c, Color(0.8, 0.66, 0.3), file, Vector3(1, 1, 1))
 
 func make_choga_from_model(house: Node3D, size: Vector3, wall: Color, roof: Color, file: String = "choga", base: Vector3 = Vector3(4.5, 2.8, 3.5)) -> bool:
 	if not house_scenes.has(file):
@@ -1261,6 +1281,9 @@ func make_choga_from_model(house: Node3D, size: Vector3, wall: Color, roof: Colo
 		"Tile": glossy_mat(Color(minf(roof.r * 1.35, 1.0), minf(roof.g * 1.35, 1.0), minf(roof.b * 1.35, 1.0))),
 		"TileBase": tile_base, "Lime": make_color(Color(0.95, 0.94, 0.9)),
 		"Paint": make_color(Color(0.32, 0.58, 0.48)), "PaintRed": make_color(Color(0.72, 0.28, 0.22)),
+		"PaintBlack": make_color(Color(0.1, 0.09, 0.09)), "Bark": dark_wood_mat,
+		"Onggi": glossy_mat(wall), "OnggiDark": glossy_mat(wall.darkened(0.3)),
+		"Iron": make_color(Color(0.48, 0.5, 0.54)), "EndGrain": endgrain_mat(),
 	}
 	var hanji: Texture2D = tex_or("hanji", null)
 	if hanji != null:
@@ -1733,6 +1756,25 @@ func make_jangseung(pos: Vector3, female: bool) -> void:
 	root.position = pos
 	root.rotation.y = randf_range(-0.08, 0.08)
 	add_child(root)
+	var carved := place_prop(root, "prop_jangseung_f" if female else "prop_jangseung_m", Vector3.ZERO)
+	if carved:
+		var col2 := CollisionShape3D.new()
+		var cs2 := CylinderShape3D.new()
+		cs2.radius = 0.32
+		cs2.height = 2.8
+		col2.shape = cs2
+		col2.position.y = 1.4
+		root.add_child(col2)
+		var lab2 := Label3D.new()
+		lab2.text = "지\n하\n여\n장\n군" if female else "천\n하\n대\n장\n군"
+		lab2.font = font
+		lab2.font_size = 44
+		lab2.modulate = Color(0.15, 0.08, 0.05)
+		lab2.outline_size = 0
+		lab2.position = Vector3(0, 1.0, 0.25)
+		lab2.pixel_size = 0.0042
+		root.add_child(lab2)
+		return
 	add_mcyl(root, wood_mat, 0.26, 0.3, 2.6, Vector3(0, 1.3, 0))
 	add_mcyl(root, make_color(Color(0.65, 0.15, 0.12) if female else Color(0.12, 0.1, 0.1)), 0.3, 0.28, 0.42, Vector3(0, 2.75, 0))
 	add_mcyl(root, make_color(Color(0.65, 0.15, 0.12) if female else Color(0.12, 0.1, 0.1)), 0.42, 0.42, 0.06, Vector3(0, 2.55, 0))
@@ -1896,16 +1938,17 @@ func make_trellis(a: Vector3, b: Vector3, r: RandomNumberGenerator) -> void:
 	add_blobs(self, leaves)
 
 func make_well_visual(n: Node3D) -> void:
-	add_mcyl(n, stone_mat, 0.78, 0.85, 0.85, Vector3(0, 0.42, 0))
-	var water := add_mcyl(n, water_mat, 0.62, 0.62, 0.04, Vector3(0, 0.78, 0))
+	var water := add_mcyl(n, water_material(1, Vector4(n.position.x, n.position.z, 0.66, 0.66), Color(0.08, 0.2, 0.28), Color(0.18, 0.34, 0.4), Vector2.ZERO, 0.3), 0.66, 0.66, 0.04, Vector3(0, 0.62, 0))
 	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var r := RandomNumberGenerator.new()
-	r.seed = 77
-	var rim := []
-	for i in 14:
-		var a := i * TAU / 14.0
-		rim.append([Vector3(cos(a) * 0.74, 0.9, sin(a) * 0.74), Vector3(0.36, 0.2, 0.3), stone_color(r)])
-	add_blobs(n, rim, stone_blob_mat)
+	if not place_prop(n, "prop_wellring", Vector3.ZERO):
+		add_mcyl(n, stone_mat, 0.78, 0.85, 0.85, Vector3(0, 0.42, 0))
+		var r := RandomNumberGenerator.new()
+		r.seed = 77
+		var rim := []
+		for i in 14:
+			var a := i * TAU / 14.0
+			rim.append([Vector3(cos(a) * 0.74, 0.9, sin(a) * 0.74), Vector3(0.36, 0.2, 0.3), stone_color(r)])
+		add_blobs(n, rim, stone_blob_mat)
 	for sx in [-0.95, 0.95]:
 		add_mbox(n, dark_wood_mat, Vector3(0.14, 2.1, 0.14), Vector3(sx, 1.05, 0))
 	var bar := add_mcyl(n, wood_mat, 0.07, 0.07, 2.0, Vector3(0, 1.75, 0))
@@ -1917,6 +1960,12 @@ func make_well_visual(n: Node3D) -> void:
 	add_mcyl(n, wood_mat, 0.17, 0.14, 0.26, Vector3(0.2, 1.12, 0))
 
 func make_haystack_visual(n: Node3D) -> void:
+	if place_prop(n, "prop_hay", Vector3.ZERO):
+		for i in 3:
+			var sheaf2 := add_mcyl(n, thatch_dark_mat, 0.14, 0.2, 0.9, Vector3(-1.2 + i * 0.25, 0.45, 0.75))
+			sheaf2.rotation.z = (i - 1) * 0.15
+		add_blobs(n, [[Vector3(0.95, 0.06, 0.85), Vector3(0.22, 0.1, 0.42), Color(0.86, 0.7, 0.4)], [Vector3(1.2, 0.06, 0.9), Vector3(0.22, 0.1, 0.42), Color(0.86, 0.7, 0.4)]], thatch_blob_mat)
+		return
 	add_blobs(n, [
 		[Vector3(0, 0.45, 0), Vector3(1.8, 1.0, 1.4), Color(1.0, 0.92, 0.7)],
 		[Vector3(0.1, 0.85, 0.05), Vector3(1.3, 0.8, 1.0), Color(1.0, 0.95, 0.75)],
@@ -1929,6 +1978,8 @@ func make_haystack_visual(n: Node3D) -> void:
 	add_blobs(n, [[Vector3(0.9, 0.06, 0.8), Vector3(0.22, 0.1, 0.42), Color(0.86, 0.7, 0.4)], [Vector3(1.15, 0.06, 0.85), Vector3(0.22, 0.1, 0.42), Color(0.86, 0.7, 0.4)]], thatch_blob_mat)
 
 func make_stump_visual(n: Node3D) -> void:
+	if place_prop(n, "prop_stump", Vector3.ZERO, 1.0, Color(0.45, 0.27, 0.16), 0.4):
+		return
 	add_mcyl(n, dark_wood_mat, 0.48, 0.58, 0.7, Vector3(0, 0.35, 0))
 	add_mcyl(n, make_color(Color(0.86, 0.7, 0.5)), 0.47, 0.47, 0.02, Vector3(0, 0.71, 0))
 	var ring := MeshInstance3D.new()
@@ -4787,6 +4838,14 @@ func make_stone_wall(a: Vector2, b: Vector2, r: RandomNumberGenerator) -> void:
 	root.add_child(col)
 
 func make_jar(root: StaticBody3D, pos: Vector3, s: float, c: Color) -> void:
+	if place_prop(root, "prop_jar", pos, s * 0.97, c, randf() * TAU):
+		var jcol := CollisionShape3D.new()
+		var jshape := BoxShape3D.new()
+		jshape.size = Vector3(0.9 * s, 1.1 * s, 0.9 * s)
+		jcol.shape = jshape
+		jcol.position = pos + Vector3(0, 0.55 * s, 0)
+		root.add_child(jcol)
+		return
 	var belly := add_ball(root, c, 0.5 * s, pos + Vector3(0, 0.5 * s, 0))
 	belly.material_override = glossy_mat(c)
 	belly.scale = Vector3(1.0, 1.08, 1.0)
