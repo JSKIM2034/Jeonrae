@@ -1017,30 +1017,39 @@ var plank_mat: StandardMaterial3D
 var lattice_mat: StandardMaterial3D
 var basket_mat: StandardMaterial3D
 var thatch_tex: ImageTexture
+var thatch_img: Texture2D
 var tile_tex: ImageTexture
 var plaster_tex: Texture2D
 var house_rects: Array = []
 
+# 블렌더/파이썬으로 미리 그려 둔 질감이 있으면 그걸 쓰고, 없으면 코드로 그려요
+func tex_or(name: String, fallback: Texture2D) -> Texture2D:
+	var path := "res://textures/%s.png" % name
+	if ResourceLoader.exists(path):
+		return load(path)
+	return fallback
+
 func make_village_materials() -> void:
-	var stone_tex := make_noise_tex(Color(0.62, 0.62, 0.62), Color(1.0, 1.0, 1.0), 0.09, 17)
+	var stone_tex: Texture2D = tex_or("stone", make_noise_tex(Color(0.62, 0.62, 0.62), Color(1.0, 1.0, 1.0), 0.09, 17))
 	stone_mat = make_tex_material(Color(0.86, 0.84, 0.8), stone_tex, 0.6)
 	stone_blob_mat = make_tex_material(Color(1.0, 1.0, 1.0), stone_tex, 0.9)
 	stone_blob_mat.vertex_color_use_as_albedo = true
 	thatch_tex = make_thatch_tex()
+	thatch_img = tex_or("thatch", thatch_tex)
 	thatch_blob_mat = make_tex_material(Color(1, 1, 1), thatch_tex, 0.7)
 	thatch_blob_mat.vertex_color_use_as_albedo = true
-	thatch_dark_mat = make_tex_material(Color(0.92, 0.82, 0.62), thatch_tex, 1.4)
-	var wtex := make_wood_tex(41, 0)
-	wood_mat = make_tex_material(Color(0.62, 0.42, 0.26), wtex, 0.9)
-	dark_wood_mat = make_tex_material(Color(0.42, 0.27, 0.16), wtex, 0.9)
-	plank_mat = make_tex_material(Color(0.78, 0.57, 0.36), make_wood_tex(43, 32), 0.7)
+	thatch_dark_mat = make_tex_material(Color(0.8, 0.72, 0.6), thatch_img, 0.8)
+	var wtex: Texture2D = tex_or("wood", make_wood_tex(41, 0))
+	wood_mat = make_tex_material(Color(0.78, 0.55, 0.36), wtex, 0.7)
+	dark_wood_mat = make_tex_material(Color(0.52, 0.35, 0.22), wtex, 0.7)
+	plank_mat = make_tex_material(Color(0.95, 0.72, 0.5), tex_or("plank", make_wood_tex(43, 32)), 0.45)
 	tile_tex = make_tile_tex()
 	lattice_mat = StandardMaterial3D.new()
 	lattice_mat.albedo_texture = make_lattice_tex()
 	lattice_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	lattice_mat.roughness = 1.0
 	basket_mat = make_tex_material(Color(1, 1, 1), make_weave_tex(), 2.2)
-	plaster_tex = make_noise_tex(Color(0.88, 0.86, 0.82), Color(1, 1, 1), 0.035, 23)
+	plaster_tex = tex_or("plaster", make_noise_tex(Color(0.88, 0.86, 0.82), Color(1, 1, 1), 0.035, 23))
 	load_rocks()
 
 func plaster_mat(c: Color) -> StandardMaterial3D:
@@ -1218,14 +1227,15 @@ var choga_tried := false
 
 func thatch_roof_mat(roof: Color) -> StandardMaterial3D:
 	var tm := StandardMaterial3D.new()
-	tm.albedo_texture = thatch_tex
-	tm.albedo_color = Color(1, 1, 1).lerp(roof * 1.25, 0.2)
+	tm.albedo_texture = thatch_img
+	tm.albedo_color = Color(1, 1, 1).lerp(roof * 1.25, 0.12)
 	tm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	tm.cull_mode = BaseMaterial3D.CULL_DISABLED
 	tm.roughness = 1.0
 	return tm
 
 var house_scenes := {}
+var house_ao_cache := {}
 
 func make_choga_from_model(house: Node3D, size: Vector3, wall: Color, roof: Color, file: String = "choga", base: Vector3 = Vector3(4.5, 2.8, 3.5)) -> bool:
 	if not house_scenes.has(file):
@@ -1247,18 +1257,48 @@ func make_choga_from_model(house: Node3D, size: Vector3, wall: Color, roof: Colo
 		"Thatch": thatch_roof_mat(roof), "ThatchDark": thatch_dark_mat, "Plaster": plaster_mat(wall),
 		"Wood": wood_mat, "DarkWood": dark_wood_mat, "Plank": plank_mat, "Stone": stone_mat, "Paper": paper,
 		"Rope": make_color(Color(0.5, 0.37, 0.2)), "Clay": make_tex_material(Color(0.66, 0.52, 0.38), plaster_tex, 0.6),
-		"Straw": make_tex_material(Color(0.95, 0.82, 0.52), thatch_tex, 1.4),
+		"Straw": make_tex_material(Color(1.0, 0.94, 0.82), thatch_img, 1.0),
 		"Tile": glossy_mat(Color(minf(roof.r * 1.35, 1.0), minf(roof.g * 1.35, 1.0), minf(roof.b * 1.35, 1.0))),
 		"TileBase": tile_base, "Lime": make_color(Color(0.95, 0.94, 0.9)),
 		"Paint": make_color(Color(0.32, 0.58, 0.48)), "PaintRed": make_color(Color(0.72, 0.28, 0.22)),
 	}
+	var hanji: Texture2D = tex_or("hanji", null)
+	if hanji != null:
+		paper.albedo_texture = hanji
+		paper.uv1_triplanar = true
+		paper.uv1_world_triplanar = true
+		paper.uv1_scale = Vector3(1.5, 1.5, 1.5)
+	var mottle: Texture2D = tex_or("tile_mottle", null)
+	if mottle != null:
+		var tile_m: StandardMaterial3D = map["Tile"]
+		tile_m.albedo_texture = mottle
+		tile_m.uv1_triplanar = true
+		tile_m.uv1_world_triplanar = true
+		tile_m.uv1_scale = Vector3(0.6, 0.6, 0.6)
+	# 블렌더에서 구운 그늘(꼭짓점 색)을 곱해 줘요
+	if not house_ao_cache.has(file):
+		house_ao_cache[file] = {}
+	var cache: Dictionary = house_ao_cache[file]
 	for node in inst.find_children("*", "MeshInstance3D", true, false):
 		var mi := node as MeshInstance3D
+		var has_ao := false
+		for i in mi.mesh.get_surface_count():
+			var arrays: int = mi.mesh.surface_get_format(i)
+			if arrays & Mesh.ARRAY_FORMAT_COLOR:
+				has_ao = true
 		for i in mi.mesh.get_surface_count():
 			var m := mi.mesh.surface_get_material(i)
 			var key := m.resource_name if m != null else ""
 			if map.has(key):
-				mi.set_surface_override_material(i, map[key])
+				var use: Material = map[key]
+				if has_ao and use is StandardMaterial3D:
+					var ck := "%s|%d" % [key, (use as Object).get_instance_id()]
+					if not cache.has(ck):
+						var dup := (use as StandardMaterial3D).duplicate() as StandardMaterial3D
+						dup.vertex_color_use_as_albedo = true
+						cache[ck] = dup
+					use = cache[ck]
+				mi.set_surface_override_material(i, use)
 	return true
 
 func make_house(pos: Vector3, size: Vector3, wall: Color, roof: Color, style: String = "thatch") -> Node3D:
@@ -4695,6 +4735,24 @@ func make_stone_wall(a: Vector2, b: Vector2, r: RandomNumberGenerator) -> void:
 	root.position = Vector3((a.x + b.x) / 2.0, 0, (a.y + b.y) / 2.0)
 	root.rotation.y = atan2(-d.y, d.x)
 	add_child(root)
+	# 블렌더로 만든 돌담 한 칸(2m)을 이어 붙여요. 흥부네 쪽은 짚, 놀부네 쪽은 기와를 얹어요
+	var file := "wall_tile" if (a.x + b.x) / 2.0 > 0.0 else "wall_straw"
+	if ResourceLoader.exists("res://models/%s.glb" % file):
+		var n := maxi(1, int(round(length / 2.0)))
+		var seg := length / n
+		var roof_c := Color(0.28, 0.3, 0.36) if file == "wall_tile" else Color(0.8, 0.66, 0.3)
+		for i in n:
+			var holder := Node3D.new()
+			holder.position = Vector3(-length / 2.0 + (i + 0.5) * seg, 0, 0)
+			root.add_child(holder)
+			make_choga_from_model(holder, Vector3(seg, 1, 1), Color(0.92, 0.9, 0.86), roof_c, file, Vector3(2.0, 1, 1))
+		var mcol := CollisionShape3D.new()
+		var mshape := BoxShape3D.new()
+		mshape.size = Vector3(length + 0.1, 1.3, 0.66)
+		mcol.shape = mshape
+		mcol.position.y = 0.65
+		root.add_child(mcol)
+		return
 	var items := []
 	var n := int(ceil(length / 0.62))
 	var step := length / n
