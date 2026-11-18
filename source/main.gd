@@ -709,6 +709,7 @@ func _ready() -> void:
 	make_village()
 	make_forest()
 	make_decor()
+	apply_ground_splat()
 	apply_distance_culling(self)
 	if light_mode:
 		# 3D 화면은 조금 낮은 해상도로 그리고, 글자와 버튼은 그대로 또렷하게
@@ -1614,7 +1615,7 @@ func make_paddy(center: Vector3, w: float, d: float) -> void:
 	add_mbox(self, earth, Vector3(0.4, 0.25, d), center + Vector3(w / 2.0, 0.12, 0))
 	add_mbox(self, earth, Vector3(0.4, 0.25, d), center + Vector3(-w / 2.0, 0.12, 0))
 	add_mbox(self, make_color(Color(0.42, 0.34, 0.24)), Vector3(w - 0.4, 0.04, d - 0.4), center + Vector3(0, 0.02, 0))
-	var wtr := add_mbox(self, water_mat, Vector3(w - 0.4, 0.02, d - 0.4), center + Vector3(0, 0.08, 0))
+	var wtr := add_mbox(self, water_material(2, Vector4(center.x, center.z, w / 2.0 - 0.2, d / 2.0 - 0.2), Color(0.36, 0.44, 0.36), Color(0.52, 0.6, 0.48), Vector2.ZERO, 0.25), Vector3(w - 0.4, 0.02, d - 0.4), center + Vector3(0, 0.08, 0))
 	wtr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var rice := []
 	var nx := 9
@@ -2033,11 +2034,7 @@ func make_dirt_path(pts: Array, width: float, seed_v: float) -> void:
 	var dirt := sand_mat.duplicate() as StandardMaterial3D
 	dirt.cull_mode = BaseMaterial3D.CULL_DISABLED
 	# 바깥: 풀이 닳은 자리, 안: 흙, 가운데: 발길에 다져진 자국
-	add_ribbon(line, width * 1.5, 0.012, worn, seed_v + 3.0)
-	add_ribbon(line, width, 0.022, dirt, seed_v)
-	var core := make_tex_material(Color(0.72, 0.6, 0.4), sand_mat.albedo_texture, 0.09)
-	core.cull_mode = BaseMaterial3D.CULL_DISABLED
-	add_ribbon(line, width * 0.38, 0.03, core, seed_v + 7.0)
+	# 흙길 자체는 땅 셰이더가 그려요 (apply_ground_splat). 여기서는 돌멩이만
 	# 길 위 자갈과 길가 돌멩이
 	var r := RandomNumberGenerator.new()
 	r.seed = int(seed_v * 100.0)
@@ -2089,16 +2086,218 @@ func make_creek() -> void:
 			st.add_vertex(quad[k][0])
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
-	var wm := water_mat
-	wm.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mi.material_override = wm
+	mi.material_override = water_material(0, Vector4(0, 0, 1, 1), Color(0.13, 0.4, 0.6), Color(0.42, 0.72, 0.82), Vector2(0.06, 0.0), 0.8)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
-	creek_mat = water_mat
-	# 물가의 진흙 띠
-	var bank := make_tex_material(Color(0.6, 0.58, 0.42), sand_mat.albedo_texture, 0.07)
-	bank.cull_mode = BaseMaterial3D.CULL_DISABLED
-	add_ribbon(line, 3.4, 0.015, bank, 9.0, false)
+
+
+# ---------- 땅과 물 셰이더 (그림 같은 풀밭, 땅에 스며든 흙길, 반짝이는 물) ----------
+
+const GROUND_SHADER := """
+shader_type spatial;
+render_mode diffuse_lambert, specular_schlick_ggx;
+uniform sampler2D grass_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D dirt_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D macro_tex : filter_linear_mipmap, repeat_enable;
+uniform sampler2D splat_tex : filter_linear, repeat_disable;
+uniform vec4 world_rect = vec4(-50.0, -50.0, 100.0, 100.0);
+varying vec3 wp;
+void vertex() {
+	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+void fragment() {
+	vec2 p = wp.xz;
+	vec3 mac = texture(macro_tex, p * 0.012).rgb;
+	vec3 mac2 = texture(macro_tex, p * 0.05 + 0.37).rgb;
+	vec3 g1 = texture(grass_tex, p * 0.16).rgb;
+	vec3 g2 = texture(grass_tex, p * 0.047 + 0.5).rgb;
+	vec3 grass = mix(g1, g2, 0.35);
+	grass *= mix(vec3(0.9, 1.0, 0.92), vec3(1.1, 1.05, 0.84), smoothstep(0.3, 0.75, mac.r));
+	grass *= 0.8 + mac2.g * 0.22;
+	grass = mix(grass, grass * vec3(0.82, 0.95, 0.9), smoothstep(0.55, 0.85, mac2.r) * 0.6);
+	vec2 suv = (p - world_rect.xy) / world_rect.zw;
+	vec4 s = texture(splat_tex, suv);
+	float inside = step(0.0, suv.x) * step(suv.x, 1.0) * step(0.0, suv.y) * step(suv.y, 1.0);
+	s *= inside;
+	float tuft = dot(g1, vec3(0.33)) * 2.2 - 0.9;
+	float jit = (mac2.b - 0.5) * 0.55 + (texture(macro_tex, p * 0.21).g - 0.5) * 0.5 + tuft * 0.35;
+	float dirt_m = smoothstep(0.42, 0.6, s.r + jit);
+	float worn = smoothstep(0.0, 0.45, s.r + jit) * (1.0 - dirt_m);
+	float mud_m = smoothstep(0.36, 0.66, s.g + jit);
+	vec3 dirt = texture(dirt_tex, p * 0.22).rgb * (0.86 + mac.g * 0.16);
+	// 발길이 많이 닿는 가운데는 조금 더 진하고 매끈해요
+	dirt *= mix(1.0, 0.86, smoothstep(0.8, 1.0, s.r) * (0.5 + 0.5 * mac2.g));
+	vec3 mud = texture(dirt_tex, p * 0.3 + 0.2).rgb * vec3(0.6, 0.58, 0.52);
+	vec3 col = mix(grass, grass * vec3(0.74, 0.84, 0.8), s.b);
+	col = mix(col, col * vec3(1.06, 0.98, 0.76), worn * 0.75);
+	col = mix(col, mud, mud_m);
+	col = mix(col, dirt, dirt_m);
+	ALBEDO = col;
+	ROUGHNESS = mix(0.95, 0.55, mud_m * (1.0 - dirt_m));
+	SPECULAR = 0.25;
+}
+"""
+
+const WATER_SHADER := """
+shader_type spatial;
+render_mode diffuse_lambert, specular_schlick_ggx, cull_disabled;
+uniform sampler2D ripple : hint_normal, filter_linear_mipmap, repeat_enable;
+uniform vec3 deep = vec3(0.14, 0.42, 0.62);
+uniform vec3 shallow = vec3(0.45, 0.74, 0.84);
+uniform int shape = 0;
+uniform vec4 area = vec4(0.0, 0.0, 1.0, 1.0);
+uniform vec2 flow = vec2(0.035, 0.0);
+uniform float foam_amt = 0.7;
+varying vec3 wp;
+void vertex() {
+	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+void fragment() {
+	float edge = 1.0;
+	if (shape == 0) {
+		edge = 1.0 - abs(UV.y * 2.0 - 1.0);
+	} else if (shape == 1) {
+		edge = 1.0 - length((wp.xz - area.xy) / area.zw);
+	} else {
+		vec2 q = abs(wp.xz - area.xy) / area.zw;
+		edge = 1.0 - max(q.x, q.y);
+	}
+	edge = clamp(edge, 0.0, 1.0);
+	vec3 n1 = texture(ripple, wp.xz * 0.16 + TIME * flow).rgb;
+	vec3 n2 = texture(ripple, wp.xz * 0.29 + vec2(TIME * 0.013, -TIME * 0.019) - TIME * flow * 0.6).rgb;
+	NORMAL_MAP = normalize((n1 + n2) * 0.5);
+	NORMAL_MAP_DEPTH = 0.7;
+	vec3 col = mix(shallow, deep, smoothstep(0.0, 0.55, edge));
+	float wave = 0.6 + 0.4 * sin(TIME * 1.6 + wp.x * 1.7 + wp.z * 1.3);
+	float foam = smoothstep(0.14, 0.0, edge) * wave * foam_amt;
+	col = mix(col, vec3(0.94, 0.98, 1.0), foam);
+	ALBEDO = col;
+	ROUGHNESS = 0.07;
+	SPECULAR = 0.75;
+}
+"""
+
+var ground_mat: ShaderMaterial
+var ripple_tex: NoiseTexture2D
+
+func make_ground_mat() -> void:
+	var sh := Shader.new()
+	sh.code = GROUND_SHADER
+	ground_mat = ShaderMaterial.new()
+	ground_mat.shader = sh
+	for k in ["grass", "dirt", "macro"]:
+		var path := "res://textures/%s.png" % k
+		if ResourceLoader.exists(path):
+			ground_mat.set_shader_parameter(k + "_tex", load(path))
+
+func water_material(shape: int, area: Vector4, deep: Color, shallow: Color, flow: Vector2 = Vector2(0.0, 0.0), foam: float = 0.7) -> ShaderMaterial:
+	if ripple_tex == null:
+		var n := FastNoiseLite.new()
+		n.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		n.frequency = 0.04
+		n.fractal_octaves = 3
+		ripple_tex = NoiseTexture2D.new()
+		ripple_tex.width = 256
+		ripple_tex.height = 256
+		ripple_tex.seamless = true
+		ripple_tex.as_normal_map = true
+		ripple_tex.bump_strength = 6.0
+		ripple_tex.noise = n
+	var sh := Shader.new()
+	sh.code = WATER_SHADER
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("ripple", ripple_tex)
+	m.set_shader_parameter("shape", shape)
+	m.set_shader_parameter("area", area)
+	m.set_shader_parameter("deep", Vector3(deep.r, deep.g, deep.b))
+	m.set_shader_parameter("shallow", Vector3(shallow.r, shallow.g, shallow.b))
+	m.set_shader_parameter("flow", flow)
+	m.set_shader_parameter("foam_amt", foam)
+	return m
+
+# 흙길·진흙·숲 바닥 자리를 그림 한 장(512x512 = 100m)에 칠해서 땅 셰이더에 넘겨요
+const SPLAT_N := 512
+const SPLAT_SIZE := 100.0
+var splat_r: PackedFloat32Array
+var splat_g: PackedFloat32Array
+
+func splat_stamp(ch: PackedFloat32Array, cx: float, cz: float, r_in: float, r_out: float, strength: float = 1.0) -> void:
+	var k := SPLAT_N / SPLAT_SIZE
+	var px := (cx + SPLAT_SIZE / 2.0) * k
+	var pz := (cz + SPLAT_SIZE / 2.0) * k
+	var ro := r_out * k
+	var x0 := maxi(1, int(px - ro))
+	var x1 := mini(SPLAT_N - 2, int(px + ro) + 1)
+	var z0 := maxi(1, int(pz - ro))
+	var z1 := mini(SPLAT_N - 2, int(pz + ro) + 1)
+	for z in range(z0, z1 + 1):
+		var dz := (z + 0.5 - pz) / k
+		for x in range(x0, x1 + 1):
+			var dx := (x + 0.5 - px) / k
+			var d := sqrt(dx * dx + dz * dz)
+			if d >= r_out:
+				continue
+			var v := (1.0 - smoothstep(r_in, r_out, d)) * strength
+			var i := z * SPLAT_N + x
+			if v > ch[i]:
+				ch[i] = v
+
+func apply_ground_splat() -> void:
+	splat_r = PackedFloat32Array()
+	splat_r.resize(SPLAT_N * SPLAT_N)
+	splat_g = PackedFloat32Array()
+	splat_g.resize(SPLAT_N * SPLAT_N)
+	# 흙길
+	for pl in path_lines:
+		var line: Array = pl[0]
+		var w: float = pl[1]
+		for i in line.size():
+			var p: Vector2 = line[i]
+			splat_stamp(splat_r, p.x, p.y, w * 0.2, w * 0.72)
+	# 집 마당 (흥부네, 놀부네)은 흙이 드러나요
+	for yard in [Rect2(-17.5, -5.2, 9.0, 8.0), Rect2(7.0, -3.0, 14.0, 9.5)]:
+		var y := 0.0
+		while y <= yard.size.y:
+			var x := 0.0
+			while x <= yard.size.x:
+				splat_stamp(splat_r, yard.position.x + x, yard.position.y + y, 0.6, 2.2, 0.62)
+				x += 1.2
+			y += 1.2
+	# 개울가 진흙
+	var cx := -50.0
+	while cx <= 50.0:
+		splat_stamp(splat_g, cx, creek_z(cx), creek_half(cx) + 0.2, creek_half(cx) + 1.4)
+		cx += 0.6
+	# 연못 둘레
+	for i in 48:
+		var a := TAU * i / 48.0
+		splat_stamp(splat_g, POND_C.x + cos(a) * 5.4, POND_C.z + sin(a) * 3.9, 0.4, 1.6)
+	# 논두렁 둘레
+	for fc in [[FARM_C, 9.0, 7.0], [Vector3(-34.5, 0, -3), 6.0, 6.0]]:
+		var c: Vector3 = fc[0]
+		var w2: float = fc[1] / 2.0 + 0.5
+		var d2: float = fc[2] / 2.0 + 0.5
+		var t := -1.0
+		while t <= 1.0:
+			splat_stamp(splat_g, c.x + t * w2, c.z - d2, 0.3, 1.1, 0.8)
+			splat_stamp(splat_g, c.x + t * w2, c.z + d2, 0.3, 1.1, 0.8)
+			splat_stamp(splat_g, c.x - w2, c.z + t * d2, 0.3, 1.1, 0.8)
+			splat_stamp(splat_g, c.x + w2, c.z + t * d2, 0.3, 1.1, 0.8)
+			t += 0.12
+	var bytes := PackedByteArray()
+	bytes.resize(SPLAT_N * SPLAT_N * 4)
+	for z in SPLAT_N:
+		var wz := z * SPLAT_SIZE / SPLAT_N - SPLAT_SIZE / 2.0
+		var forest := clampf((-17.5 - wz) / 4.0, 0.0, 1.0)
+		for x in SPLAT_N:
+			var i := z * SPLAT_N + x
+			bytes[i * 4] = int(splat_r[i] * 255.0)
+			bytes[i * 4 + 1] = int(splat_g[i] * 255.0)
+			bytes[i * 4 + 2] = int(forest * 255.0)
+			bytes[i * 4 + 3] = 255
+	var img := Image.create_from_data(SPLAT_N, SPLAT_N, false, Image.FORMAT_RGBA8, bytes)
+	ground_mat.set_shader_parameter("splat_tex", ImageTexture.create_from_image(img))
 
 # ---------- 땅, 풀, 물 질감 ----------
 
@@ -2147,6 +2346,7 @@ func make_surface_materials() -> void:
 	water_mat.roughness = 0.22
 	water_mat.metallic_specular = 0.7
 	make_village_materials()
+	make_ground_mat()
 
 # 바람에 살랑이는 풀 더미 (뾰족한 잎 세 개)
 func make_tuft_mesh() -> ArrayMesh:
@@ -2804,14 +3004,16 @@ func make_gourd_at(pos: Vector3, c: Color, radius: float) -> Node3D:
 func make_world() -> void:
 	make_surface_materials()
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-42, 38, 0)
-	sun.light_color = Color(1.0, 0.93, 0.8)
-	sun.light_energy = 0.66
+	sun.rotation_degrees = Vector3(-46, 36, 0)
+	# 늦은 오후 같은 따뜻한 햇빛
+	sun.light_color = Color(1.0, 0.9, 0.74)
+	sun.light_energy = 0.82
 	# 부드러운 그림자 (가까운 곳만 그려서 가볍게)
 	sun.shadow_enabled = SHADOWS_ON
-	sun.shadow_blur = 1.6
+	sun.shadow_blur = 2.2
 	sun.shadow_bias = 0.04
 	sun.shadow_normal_bias = 1.0
+	sun.shadow_opacity = 0.85
 	if light_mode:
 		# 가까운 곳만 한 장으로 그림자 그리기
 		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
@@ -2827,34 +3029,40 @@ func make_world() -> void:
 	e.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.36, 0.62, 0.92)
-	sky_mat.sky_horizon_color = Color(0.78, 0.9, 0.97)
-	sky_mat.ground_horizon_color = Color(0.6, 0.78, 0.55)
-	sky_mat.ground_bottom_color = Color(0.45, 0.68, 0.42)
+	# 위는 맑은 파랑, 지평선은 따뜻한 크림빛
+	sky_mat.sky_top_color = Color(0.33, 0.58, 0.9)
+	sky_mat.sky_horizon_color = Color(0.93, 0.9, 0.82)
+	sky_mat.sky_curve = 0.12
+	sky_mat.ground_horizon_color = Color(0.8, 0.84, 0.72)
+	sky_mat.ground_bottom_color = Color(0.5, 0.62, 0.45)
+	sky_mat.sun_angle_max = 20.0
 	sky.sky_material = sky_mat
 	e.sky = sky
-	# 따뜻하고 포근한 빛: 하늘 대신 부드러운 크림색으로 전체를 밝혀요
-	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(1.0, 0.96, 0.88)
-	e.ambient_light_energy = 0.56
-	# 멀리는 살짝 뿌옇게 (공기감) + 색을 조금 선명하게
+	# 하늘빛으로 은은하게 밝혀서, 그늘은 살짝 푸르고 해 드는 곳은 따뜻해요
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	e.ambient_light_sky_contribution = 0.55
+	e.ambient_light_color = Color(1.0, 0.95, 0.86)
+	e.ambient_light_energy = 0.62
+	# 멀리는 따뜻하게 뿌옇게 (공기감)
 	e.fog_enabled = true
-	e.fog_light_color = Color(0.72, 0.84, 0.92)
-	e.fog_density = 0.0018
+	e.fog_light_color = Color(0.86, 0.88, 0.86)
+	e.fog_light_energy = 1.0
+	e.fog_sun_scatter = 0.18
+	e.fog_density = 0.0024
 	e.fog_sky_affect = 0.0
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 1.02
+	e.tonemap_exposure = 1.04
 	e.tonemap_white = 5.0
 	e.adjustment_enabled = true
-	e.adjustment_saturation = 1.12
-	e.adjustment_contrast = 1.02
+	e.adjustment_saturation = 1.1
+	e.adjustment_contrast = 1.04
 	env.environment = e
 	add_child(env)
 
 	var full := MAP_HALF * 2.0
 	var none := Color(0, 0, 0, 0)
 	var ground_col := add_solid(Vector3(0, -0.5, 0), Vector3(full, 1, full), Color(0.45, 0.7, 0.35))
-	(ground_col.get_parent().get_child(0) as MeshInstance3D).material_override = grass_mat
+	(ground_col.get_parent().get_child(0) as MeshInstance3D).material_override = ground_mat
 	add_solid(Vector3(0, 2, -MAP_HALF), Vector3(full, 8, 1), none)
 	add_solid(Vector3(0, 2, MAP_HALF), Vector3(full, 8, 1), none)
 	add_solid(Vector3(-MAP_HALF, 2, 0), Vector3(1, 8, full), none)
@@ -3693,9 +3901,7 @@ func make_fishing_pond() -> void:
 	var r := RandomNumberGenerator.new()
 	r.seed = 33
 	var none := Color(0, 0, 0, 0)
-	flat_ellipse(c, rx + 0.55, rz + 0.55, 0.02, make_tex_material(Color(0.52, 0.44, 0.31), plaster_tex, 0.4))
-	flat_ellipse(c, rx, rz, 0.06, water_mat)
-	flat_ellipse(c, rx * 0.55, rz * 0.5, 0.065, make_color(Color(0.3, 0.52, 0.7, 1.0)))
+	flat_ellipse(c, rx, rz, 0.06, water_material(1, Vector4(c.x, c.z, rx, rz), Color(0.12, 0.36, 0.52), Color(0.42, 0.68, 0.72)))
 	# 물가 돌 (나루터 쪽은 비워요)
 	var stones := []
 	var a := 0.0
@@ -3775,11 +3981,7 @@ func make_farm() -> void:
 	add_mbox(self, earth, Vector3(0.5, 0.25, d), c + Vector3(-w / 2.0, 0.12, 0))
 	add_mbox(self, earth, Vector3(0.4, 0.2, d), c + Vector3(0, 0.1, 0))
 	add_mbox(self, make_color(Color(0.42, 0.34, 0.24)), Vector3(w - 0.4, 0.04, d - 0.4), c + Vector3(0, 0.02, 0))
-	var mud_water := StandardMaterial3D.new()
-	mud_water.albedo_color = Color(0.5, 0.62, 0.56)
-	mud_water.roughness = 0.15
-	mud_water.metallic_specular = 0.8
-	var wtr := add_mbox(self, mud_water, Vector3(w - 0.4, 0.02, d - 0.4), c + Vector3(0, 0.08, 0))
+	var wtr := add_mbox(self, water_material(2, Vector4(c.x, c.z, w / 2.0 - 0.2, d / 2.0 - 0.2), Color(0.36, 0.44, 0.36), Color(0.52, 0.6, 0.48), Vector2.ZERO, 0.25), Vector3(w - 0.4, 0.02, d - 0.4), c + Vector3(0, 0.08, 0))
 	wtr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# 자라는 단계마다 벼 모양을 따로 만들어 두고 바꿔 보여 줘요
 	var young := []
@@ -4727,7 +4929,7 @@ func make_decor() -> void:
 	make_butterflies(r)
 	make_clouds(r)
 	make_grass(r)
-	add_box(self, Color(0.42, 0.66, 0.38), Vector3(600, 1, 600), Vector3(0, -0.502, 0)).material_override = grass_mat
+	add_box(self, Color(0.42, 0.66, 0.38), Vector3(600, 1, 600), Vector3(0, -0.502, 0)).material_override = ground_mat
 	make_border(r)
 	var hills := []
 	for i in 28:
@@ -4891,7 +5093,7 @@ func make_forest() -> void:
 	disc.bottom_radius = 3.2
 	disc.height = 0.08
 	pond.mesh = disc
-	pond.material_override = water_mat
+	pond.material_override = water_material(1, Vector4(33.5, -35.5, 3.2, 3.2), Color(0.12, 0.36, 0.52), Color(0.42, 0.68, 0.72))
 	pond.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	pond.position = Vector3(33.5, 0.05, -35.5)
 	add_child(pond)
