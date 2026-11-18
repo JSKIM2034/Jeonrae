@@ -4911,7 +4911,7 @@ func scene_setup(scene: String) -> void:
 			w["depth"] = cam_depth_of(stand + Vector3(0, 2.4, 0), wp + Vector3(0.0, 2.3, 7.4))
 		"plant":
 			var stand := FARM_C + Vector3(-3.0, 0, 1.2)
-			world_game_begin(stand, stand + Vector3(1, 0, 0), stand + Vector3(-2.2, 2.6, 2.6), stand + Vector3(1.6, 0.2, -0.4))
+			world_game_begin(stand, stand + Vector3(1, 0, -0.9), stand + Vector3(5.6, 3.4, -0.9), stand + Vector3(1.2, 0.3, -0.9))
 			var line := MeshInstance3D.new()
 			var lb := BoxMesh.new()
 			lb.size = Vector3(0.02, 0.02, 2.6)
@@ -4926,9 +4926,26 @@ func scene_setup(scene: String) -> void:
 			w["marks"] = marks
 			var bundle := blob_node([[Vector3(0, 0.15, 0), Vector3(0.12, 0.35, 0.12), Color(0.45, 0.72, 0.3)], [Vector3(0, 0.0, 0), Vector3(0.1, 0.1, 0.1), Color(0.99, 0.83, 0.69)]])
 			w["bundle"] = bundle
+			var ring := MeshInstance3D.new()
+			var tm := TorusMesh.new()
+			tm.inner_radius = 0.2
+			tm.outer_radius = 0.3
+			tm.rings = 32
+			ring.mesh = tm
+			var rmat := StandardMaterial3D.new()
+			rmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			rmat.albedo_color = Color(1.0, 0.85, 0.15)
+			rmat.no_depth_test = true
+			rmat.render_priority = 5
+			ring.material_override = rmat
+			ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			world_node(ring)
+			w["ring"] = ring
 			w["planted"] = []
 			w["base"] = stand + Vector3(0.9, 0, -1.0)
 			farm_stages_hidden_for_plant()
+			if has_node("Scarecrow"):
+				world_hide(get_node("Scarecrow"))
 
 func farm_stages_hidden_for_plant() -> void:
 	for st in farm_stages:
@@ -4939,7 +4956,7 @@ func cam_depth_of(target: Vector3, cam_pos: Vector3) -> float:
 
 func plant_world_pos(row: int, col: int) -> Vector3:
 	var base: Vector3 = w["base"]
-	return base + Vector3(row * 0.75, 0.12, (col - 1.5) * 0.55)
+	return base + Vector3(row * 0.75, 0.12, (1.5 - col) * 0.55)
 
 # 3D 물체를 화면 위치로 바꿔 보이지 않는 버튼을 거기 놓아요
 func pin_button(b: Control, at: Vector3) -> void:
@@ -5253,6 +5270,14 @@ func scene_update(delta: float) -> void:
 				var target := plant_slot(row, mg_count % 4)
 				var near := absf(plant_cursor_x() - target.x) < wsz * 0.05
 				bundle.scale = Vector3.ONE * (1.25 if near else 1.0)
+				var ring: MeshInstance3D = w["ring"]
+				ring.visible = true
+				ring.global_position = plant_world_pos(row, mg_count % 4) + Vector3(0, 0.06, 0)
+				var pulse := 1.0 + sin(Time.get_ticks_msec() * 0.008) * 0.1
+				ring.scale = Vector3.ONE * (1.35 if near else pulse)
+				(ring.material_override as StandardMaterial3D).albedo_color = Color(1.0, 0.95, 0.4) if near else Color(1.0, 0.8, 0.1)
+			elif w.has("ring"):
+				(w["ring"] as Node3D).visible = false
 
 func scene_pose() -> bool:
 	if not w.has("scene"):
@@ -5449,6 +5474,7 @@ func make_farm() -> void:
 	farm_stages = [add_blobs(self, young), add_blobs(self, green), add_blobs(self, gold)]
 	# 허수아비
 	var sc := Node3D.new()
+	sc.name = "Scarecrow"
 	sc.position = c + Vector3(1.5, 0, 0)
 	sc.rotation.y = -0.4
 	add_child(sc)
