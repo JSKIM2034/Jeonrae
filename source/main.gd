@@ -91,6 +91,7 @@ var flash_rect: ColorRect
 var shake_amt := 0.0
 var shown_coins := 0
 var walk_phase := 0.0
+var gait_run := 0.0
 var step_count := 0
 var was_on_floor := true
 var idle_time := 0.0
@@ -2900,33 +2901,88 @@ func turn_bone(skel: Skeleton3D, bones: Dictionary, bn: String, turns: Array) ->
 			q = q * Quaternion((inv * (tr[0] as Vector3)).normalized(), ang)
 	skel.set_bone_pose_rotation(b[0], q)
 
+# ---------- 사람 걸음 자료로 만든 걷기·달리기 ----------
+# 한 걸음 주기(0~1, 0 = 발뒤꿈치가 닿는 순간)마다 엉덩이·무릎·발목이 몇 도인지 (보행 분석 자료를 단순하게)
+const GAIT_WALK := {
+	"hip": [[0.0, 30.0], [0.1, 26.0], [0.2, 17.0], [0.3, 8.0], [0.4, 0.0], [0.5, -8.0], [0.55, -10.0], [0.62, -2.0], [0.7, 12.0], [0.8, 26.0], [0.88, 31.0], [1.0, 30.0]],
+	"knee": [[0.0, 5.0], [0.08, 15.0], [0.15, 19.0], [0.25, 12.0], [0.4, 5.0], [0.5, 8.0], [0.58, 30.0], [0.65, 52.0], [0.72, 61.0], [0.8, 50.0], [0.88, 25.0], [0.95, 8.0], [1.0, 5.0]],
+	"ankle": [[0.0, 0.0], [0.06, -6.0], [0.12, -3.0], [0.3, 6.0], [0.45, 10.0], [0.52, 6.0], [0.58, -8.0], [0.63, -18.0], [0.7, -8.0], [0.78, 0.0], [1.0, 0.0]],
+}
+const GAIT_RUN := {
+	"hip": [[0.0, 32.0], [0.15, 18.0], [0.3, 0.0], [0.4, -10.0], [0.5, 0.0], [0.6, 22.0], [0.72, 42.0], [0.85, 40.0], [1.0, 32.0]],
+	"knee": [[0.0, 22.0], [0.15, 40.0], [0.3, 25.0], [0.4, 15.0], [0.5, 45.0], [0.6, 85.0], [0.7, 100.0], [0.8, 75.0], [0.9, 35.0], [1.0, 22.0]],
+	"ankle": [[0.0, 2.0], [0.15, 14.0], [0.3, 6.0], [0.4, -20.0], [0.5, -12.0], [0.65, 2.0], [0.85, 4.0], [1.0, 2.0]],
+}
+
+# 표에서 부드럽게 값을 읽어요 (캣멀-롬 곡선)
+func gait_at(tab: Array, p: float) -> float:
+	p = fposmod(p, 1.0)
+	var n := tab.size()
+	for i in n - 1:
+		var a: Array = tab[i]
+		var b: Array = tab[i + 1]
+		if p >= a[0] and p <= b[0]:
+			var t: float = (p - a[0]) / maxf(b[0] - a[0], 0.0001)
+			var a0: float = (tab[i - 1] as Array)[1] if i > 0 else (tab[n - 2] as Array)[1]
+			var b1: float = (tab[i + 2] as Array)[1] if i + 2 < n else (tab[1] as Array)[1]
+			var y0: float = a[1]
+			var y1: float = b[1]
+			var t2 := t * t
+			var t3 := t2 * t
+			return 0.5 * ((2.0 * y0) + (-a0 + y1) * t + (2.0 * a0 - 5.0 * y0 + 4.0 * y1 - b1) * t2 + (-a0 + 3.0 * y0 - 3.0 * y1 + b1) * t3)
+	return (tab[0] as Array)[1]
+
+func gait_angle(key: String, p: float, run: float) -> float:
+	return lerpf(gait_at(GAIT_WALK[key], p), gait_at(GAIT_RUN[key], p), run)
+
 func pose_rig(body: Node3D, swing: float, arm_up: float) -> void:
 	var skel: Skeleton3D = body.get_meta("skel")
 	var bones: Dictionary = body.get_meta("bones")
 	var a := arm_up
+	# 걸음 정보: [주기 위치, 얼마나 걷는지 0~1, 달리기 정도 0~1]
+	var gait: Array = body.get_meta("gait", [0.0, absf(swing), 0.0])
+	var phase: float = gait[0]
+	var amt: float = gait[1]
+	var run: float = gait[2]
+	var hips_deg := {}
+	for side in ["R", "L"]:
+		var p := phase + (0.0 if side == "R" else 0.5)
+		hips_deg[side] = gait_angle("hip", p, run)
 	for side in ["L", "R"]:
 		var sx := -1.0 if side == "L" else 1.0
 		var lead: bool = side == "L"
-		# 다리: 보폭은 작게. 점프하면 무릎을 살짝 당겨요
-		var leg := swing * 0.42 * sx
-		# 무릎은 늘 살짝 굽혀 앞으로 나와 있어요 (허벅지 앞으로, 정강이 뒤로, 발은 땅과 나란히)
-		var thigh := leg - 0.14
+		var p := phase + (0.0 if side == "R" else 0.5)
+		# 다리: 서 있을 땐 무릎을 살짝 굽힌 자세, 걸으면 자료대로
+		var hip_r := deg_to_rad(hips_deg[side])
+		var knee_r := deg_to_rad(gait_angle("knee", p, run))
+		var ank_r := deg_to_rad(gait_angle("ankle", p, run))
+		var thigh := lerpf(-0.14, -hip_r, amt)
+		var knee := lerpf(0.26, knee_r, amt)
+		var foot := lerpf(-(thigh + knee) * 0.9 - 0.02, -ank_r, amt)
 		turn_bone(skel, bones, "thigh" + side, [[Vector3.RIGHT, lerpf(thigh, -0.5 if lead else -0.2, a)]])
-		var knee := clampf(leg * 1.4, 0.0, 0.6) + absf(swing) * 0.12 + 0.26
 		turn_bone(skel, bones, "shin" + side, [[Vector3.RIGHT, lerpf(knee, 0.85 if lead else 0.5, a)]])
-		turn_bone(skel, bones, "foot" + side, [[Vector3.RIGHT, lerpf(-(thigh + knee) * 0.9 - 0.02, 0.3, a)]])
-		# 팔: 몸에서 살짝 떨어뜨려 내리고, 다리와 반대로 크게 흔들어요 (앞으로 갈 때 팔꿈치가 굽어요)
-		var fwd := maxf(0.0, swing * sx)
-		var down := -sx * lerpf(0.44, 0.25, a)
-		# 앞으로 갈 때 위팔(이두)이 더 올라와요
-		var arm_swing := lerpf(-swing * sx * (0.75 if swing * sx > 0.0 else 0.42) - 0.08, -0.35, a)
+		turn_bone(skel, bones, "foot" + side, [[Vector3.RIGHT, lerpf(foot, 0.3, a)]])
+		# 팔: 반대쪽 다리와 함께 앞뒤로. 앞으로 갈 땐 위팔이 더 올라오고 팔꿈치가 굽어요. 달리면 팔꿈치를 직각으로
+		var opp: float = hips_deg["L" if side == "R" else "R"]
+		var fwd := clampf((opp - 10.0) / 20.0, -1.0, 1.0) * amt
+		var amp := lerpf(0.42, 0.5, run)
+		var arm_swing := -fwd * amp * lerpf(1.35, 1.1, run) * (1.0 if fwd > 0.0 else 0.6) - 0.06 - run * 0.08 * amt
+		var down := -sx * lerpf(lerpf(0.44, 0.52, run * amt), 0.25, a)
 		var twist: Vector3 = (bones["arm" + side] as Array)[3] if bones.has("arm" + side) else Vector3.UP
-		# 순서: 비틀기 → 내리기 → 앞뒤 흔들기 (뒤에 적힌 것부터 적용돼요)
-		turn_bone(skel, bones, "arm" + side, [[Vector3.RIGHT, arm_swing], [Vector3.BACK, down], [twist, sx * 0.9]])
-		var elbow := -0.3 - fwd * 0.6
+		turn_bone(skel, bones, "arm" + side, [[Vector3.RIGHT, lerpf(arm_swing, -0.35, a)], [Vector3.BACK, down], [twist, sx * 0.9]])
+		var elbow := lerpf(-0.3 - maxf(fwd, 0.0) * 0.5, -1.35 + maxf(fwd, 0.0) * 0.2, run * amt)
 		turn_bone(skel, bones, "fore" + side, [[Vector3.RIGHT, lerpf(elbow, -0.9, a)]])
-	turn_bone(skel, bones, "spine", [[Vector3.UP, swing * 0.08], [Vector3.RIGHT, a * 0.06]])
-	turn_bone(skel, bones, "head", [[Vector3.UP, -swing * 0.05], [Vector3.RIGHT, -a * 0.1]])
+	# 골반은 앞으로 나간 다리 쪽으로 살짝 돌고, 어깨(가슴)는 반대로 비틀어요. 달리면 몸을 앞으로 기울여요
+	var yaw: float = (hips_deg["R"] - hips_deg["L"]) / 40.0 * lerpf(0.07, 0.11, run) * amt
+	turn_bone(skel, bones, "hips", [[Vector3.UP, yaw]])
+	turn_bone(skel, bones, "spine", [[Vector3.UP, -yaw * 1.8], [Vector3.RIGHT, a * 0.06 + run * amt * 0.14]])
+	turn_bone(skel, bones, "head", [[Vector3.UP, yaw * 0.8], [Vector3.RIGHT, -a * 0.1 - run * amt * 0.08]])
+
+# 몸이 위아래로 오르내리는 높이 (걷기: 한 발로 설 때 높고, 달리기: 공중에 뜰 때 높아요)
+func gait_bob(phase: float, run: float) -> float:
+	var walk_b := -cos(phase * TAU * 2.0) * 0.022
+	var run_b := cos((phase - 0.45) * TAU * 2.0) * 0.05
+	return lerpf(walk_b, run_b, run)
 
 func make_person_model(parent: Node3D, kind: String, c: Color) -> Node3D:
 	if kind == "hero":
@@ -7141,8 +7197,14 @@ func _physics_process(delta: float) -> void:
 	was_on_floor = on_floor
 	if on_floor and dir.length() > 0.1:
 		# 걸을 때 통통 튀고 발소리 내기
-		walk_phase += delta * 11.0 * dir.length()
-		player_body.position.y = 1.0 + absf(sin(walk_phase)) * 0.12
+		# 살짝 밀면 걷고, 끝까지 밀면 달려요. 빠를수록 걸음 박자도 빨라져요
+		var push := dir.length()
+		gait_run = lerpf(gait_run, clampf((push - 0.45) / 0.45, 0.0, 1.0), 0.15)
+		walk_phase += delta * lerpf(6.5, 12.5, gait_run) * maxf(push, 0.35)
+		if player_body.has_meta("skel"):
+			player_body.position.y = 1.0 + gait_bob(fposmod(walk_phase / TAU, 1.0), gait_run) * limb_amt
+		else:
+			player_body.position.y = 1.0 + absf(sin(walk_phase)) * 0.12
 		limb_amt = lerpf(limb_amt, 1.0, 0.3)
 		var steps := int(walk_phase / PI)
 		if steps != step_count:
@@ -7152,9 +7214,10 @@ func _physics_process(delta: float) -> void:
 		player_body.position.y = lerpf(player_body.position.y, 1.0, 0.3)
 		limb_amt = lerpf(limb_amt, 0.0, 0.25)
 	arm_up_amt = lerpf(arm_up_amt, 0.0 if on_floor else 1.0, 0.3)
+	player_body.set_meta("gait", [fposmod(walk_phase / TAU, 1.0), limb_amt, gait_run])
 	pose_person(player_body, sin(walk_phase) * limb_amt, arm_up_amt)
 	if dir.length() > 0.1 and on_floor:
-		player_body.rotation.x = lerpf(player_body.rotation.x, 0.12, 0.2)
+		player_body.rotation.x = lerpf(player_body.rotation.x, 0.04 if player_body.has_meta("skel") else 0.12, 0.2)
 	else:
 		player_body.rotation.x = lerpf(player_body.rotation.x, 0.0, 0.2)
 	if player.position.y < -10.0:
