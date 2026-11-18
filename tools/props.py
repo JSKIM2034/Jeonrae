@@ -167,9 +167,7 @@ disc(0.47, 0.7, "EndGrain", steps=22)
 for k in range(5):   # 뿌리
     a = k * 2 * math.pi / 5 + 0.3
     cyl(0.14, 0.04, 0.6, (math.cos(a) * 0.55, math.sin(a) * 0.55, 0.06), "Bark", rot=(math.pi / 2 - 0.25, 0, a + math.pi / 2), verts=8)
-# 도끼: 자루 + 쇠날 (그루터기에 비스듬히 꽂혀 있어요)
-cyl(0.035, 0.03, 0.8, (0.08, 0.0, 1.02), "Wood", rot=(0, -0.35, 0), verts=8)
-box((0.26, 0.04, 0.17), (-0.04, 0.0, 0.76), "Iron", rot=(0, -0.35, 0), bevel=0.01)
+# (도끼는 게임에서 따로 꽂아요: 나무하기 할 때 손에 들 수 있게)
 # 장작 더미 (반으로 쪼갠 통나무)
 random.seed(8)
 for row, z in enumerate((0.12, 0.33)):
