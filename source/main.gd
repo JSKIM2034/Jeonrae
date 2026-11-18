@@ -2506,25 +2506,36 @@ func load_trees() -> void:
 	var sh := Shader.new()
 	sh.code = """shader_type spatial;
 render_mode cull_disabled;
+uniform sampler2D leaf_tex : source_color, filter_linear_mipmap;
+uniform float has_tex = 1.0;
 void vertex() {
 	float h = max(VERTEX.y - 1.6, 0.0);
 	vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	float ph = wp.x * 0.35 + wp.z * 0.27;
 	VERTEX.x += sin(TIME * 1.3 + ph) * 0.05 * h;
 	VERTEX.z += cos(TIME * 1.05 + ph * 1.3) * 0.035 * h;
+	// 잎 하나하나도 살랑살랑
+	VERTEX.y += sin(TIME * 3.1 + wp.x * 2.3 + wp.z * 1.7) * 0.025 * min(h, 1.0);
 }
 void fragment() {
-	ALBEDO = COLOR.rgb * vec3(0.72, 0.8, 0.82);
-	ROUGHNESS = 0.85;
-	SPECULAR = 0.25;
+	vec4 t = has_tex > 0.5 ? texture(leaf_tex, UV) : vec4(1.0);
+	if (t.a < 0.45) {
+		discard;
+	}
+	ALBEDO = t.rgb * COLOR.rgb * (has_tex > 0.5 ? 1.05 : 0.75);
+	ROUGHNESS = 0.8;
+	SPECULAR = 0.2;
 }
 """
 	leaf_mat = ShaderMaterial.new()
 	leaf_mat.shader = sh
+	var lt: Texture2D = tex_or("leaves", null)
+	leaf_mat.set_shader_parameter("leaf_tex", lt)
+	leaf_mat.set_shader_parameter("has_tex", 1.0 if lt != null else 0.0)
 	bark_mat = make_tex_material(Color(0.5, 0.35, 0.22), wood_mat.albedo_texture, 1.6)
 	bark_red_mat = make_tex_material(Color(0.66, 0.38, 0.24), wood_mat.albedo_texture, 1.6)
 
-func make_tree(pos: Vector3) -> void:
+func make_tree(pos: Vector3, kind: String = "") -> void:
 	if not tree_tried:
 		load_trees()
 	var tree := StaticBody3D.new()
@@ -2540,6 +2551,8 @@ func make_tree(pos: Vector3) -> void:
 	if tree_meshes.size() >= 4:
 		var pine := rng.randf() < 0.4
 		var key := ("Pine" if pine else "Broad") + str(rng.randi() % 2)
+		if kind != "" and tree_meshes.has(kind):
+			key = kind
 		var mi := MeshInstance3D.new()
 		mi.mesh = tree_meshes[key]
 		for i in mi.mesh.get_surface_count():
@@ -4004,8 +4017,8 @@ func make_fishing_pond() -> void:
 	spot.visible = true
 	make_basket(Vector3(c.x + rx + 0.9, 0, c.z - 1.3), 0.9, Color(0.62, 0.68, 0.74))
 	make_npc("fisher", "강태공", Color(0.5, 0.6, 0.66), Vector3(c.x + rx + 1.6, 0, c.z + 2.0), 1.0, true)
-	make_tree(Vector3(c.x - 5.8, 0, c.z - 4.8))
-	make_tree(Vector3(c.x - 6.3, 0, c.z + 4.6))
+	make_tree(Vector3(c.x - 5.8, 0, c.z - 4.8), "Willow0")
+	make_tree(Vector3(c.x - 6.3, 0, c.z + 4.6), "Willow0")
 	house_rects.append(Rect2(c.x - rx - 0.4, c.z - rz - 0.4, rx * 2.0 + 0.8, rz * 2.0 + 0.8))
 
 func make_farm() -> void:
@@ -4834,8 +4847,8 @@ func make_persimmon(pos: Vector3, r: RandomNumberGenerator) -> void:
 		mi.scale = Vector3(1.15, 1.1, 1.15)
 		root.add_child(mi)
 		var aabb := mi.mesh.get_aabb()
-		var ctr := (aabb.position + aabb.size * Vector3(0.5, 0.68, 0.5)) * mi.scale
-		var rad := aabb.size.x * 0.5 * mi.scale.x * 0.82
+		var ctr := (aabb.position + aabb.size * Vector3(0.5, 0.64, 0.5)) * mi.scale
+		var rad := aabb.size.x * 0.5 * mi.scale.x * 0.6
 		for i in 22:
 			var dir := Vector3(r.randf_range(-1, 1), r.randf_range(-0.55, 0.7), r.randf_range(-1, 1)).normalized()
 			items.append([ctr + dir * rad * Vector3(1, 0.62, 1), Vector3(0.4, 0.36, 0.4), Color(0.95, 0.34 + 0.1 * r.randf(), 0.04)])
