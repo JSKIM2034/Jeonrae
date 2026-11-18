@@ -1,5 +1,5 @@
 # 효과음과 배경음을 코드로 만들어요 (악기 소리도 직접 합성)
-# - 발자국: 기분 좋은 기계식 키보드처럼 "도각" 하는 소리 4가지
+# - 발자국: 잔디를 밟는 "사각/샤락" 소리에 작은 "찰칵" 4가지
 # - 배경음: 가야금(뜯는 현) + 대금(숨 섞인 피리) + 장구, 평화로운 5음 음계, 끊김 없이 반복
 import numpy as np, sys, subprocess, os
 from scipy.signal import butter, sosfilt
@@ -53,15 +53,31 @@ def save_ogg(name, x, q=4):
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", tmp, "-c:a", "libvorbis", "-q:a", str(q), f"{OUT}/{name}.ogg"], check=True)
     os.remove(tmp)
 
-# ---------- 발자국: 키보드처럼 "도각" ----------
-for i, body_f in enumerate((310, 350, 285, 330)):
-    d = 0.13
+# ---------- 발자국: 잔디를 밟는 "사각/샤락" + 살짝 "찰칵" ----------
+def grass_step(seed, d=0.16, bright=1.0):
+    g = np.random.default_rng(seed)
     n = int(d * SR)
-    click = bp(noise(d), 2500, 7000) * env(n, 0.0004, 0.004) * 0.55
-    body = (sine(body_f, d) + 0.35 * sine(body_f * 2.02, d)) * env(n, 0.0012, 0.028)
-    thump = sine(np.linspace(150, 95, n), d) * env(n, 0.002, 0.04) * 0.7
-    x = lp(click + body * 0.8 + thump, 7000)
-    save_wav(f"step{i + 1}", norm(x, 0.55))
+    x = np.zeros(n)
+    # 풀잎이 꺾이는 작은 알갱이 소리를 여러 개 흩뿌려요
+    grains = g.integers(14, 22)
+    for _ in range(grains):
+        at = int(abs(g.normal(0.035, 0.03)) * SR)
+        ln = int(g.uniform(0.004, 0.012) * SR)
+        if at + ln >= n:
+            continue
+        gr = g.uniform(-1, 1, ln) * np.exp(-np.arange(ln) / (ln * 0.35))
+        x[at:at + ln] += gr * g.uniform(0.3, 1.0)
+    x = bp(x, 1800 * bright, 9000, 2) * 0.9
+    # 바스락 하는 부드러운 숨결
+    hiss = bp(g.uniform(-1, 1, n), 2500, 8000) * env(n, 0.006, 0.035) * 0.35
+    # 아주 작은 "찰칵" (키보드처럼 기분 좋은 클릭)
+    click = bp(g.uniform(-1, 1, n), 3500, 7500) * env(n, 0.0003, 0.0025) * 0.7
+    # 땅에 닿는 낮고 둥근 톡
+    thump = sine(np.linspace(130, 80, n), d) * env(n, 0.002, 0.022) * 0.35
+    return x + hiss + click + thump
+
+for i, (seed, br) in enumerate(((11, 1.0), (23, 1.15), (37, 0.9), (41, 1.05))):
+    save_wav(f"step{i + 1}", norm(grass_step(seed, bright=br), 0.5))
 
 # ---------- 작은 효과음 ----------
 def marimba(f, d=0.35, bright=0.4):
