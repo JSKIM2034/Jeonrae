@@ -6468,27 +6468,81 @@ func make_garden(pos: Vector3, w: float, d: float, r: RandomNumberGenerator) -> 
 				items.append([Vector3(x, 0.55, z), Vector3(0.22, 0.14, 0.22), Color(0.9, 0.94, 0.68)])
 	add_blobs(root, items)
 
+var flower_meshes := {}
+var flower_mat: StandardMaterial3D = null
+
 func make_flowers(pos: Vector3, r: RandomNumberGenerator) -> void:
-	var root := Node3D.new()
-	root.position = pos
-	add_child(root)
 	var petals := [Color(0.95, 0.4, 0.6), Color(0.98, 0.98, 0.95), Color(0.98, 0.78, 0.12), Color(0.72, 0.45, 0.92)]
-	var pc: Color = petals[r.randi() % petals.size()]
-	var items := []
-	# 작은 잎 뭉치들이 모인 낮은 덤불 + 줄기 끝의 작은 꽃
-	var base_g := Color(0.3 + 0.08 * r.randf(), 0.55 + 0.08 * r.randf(), 0.26)
-	for i in 11:
-		var a := r.randf() * TAU
-		var d := r.randf_range(0.0, 0.42)
-		var y := r.randf_range(0.12, 0.42) * (1.0 - d * 0.8)
-		var sz := r.randf_range(0.2, 0.34)
-		items.append([Vector3(cos(a) * d, y, sin(a) * d), Vector3(sz, sz * 0.8, sz), base_g.lightened(r.randf() * 0.2 + y * 0.3)])
-	for i in 8:
-		var a := r.randf() * TAU
-		var d := r.randf_range(0.05, 0.42)
-		items.append([Vector3(cos(a) * d, r.randf_range(0.38, 0.55) - d * 0.3, sin(a) * d), Vector3(0.1, 0.07, 0.1), pc if i % 4 != 0 else Color(1.0, 0.95, 0.6)])
-	add_blobs(root, items)
-	sway_items.append([root, Vector3.ZERO, 1, pos.x * 1.1 + pos.z, 0.05])
+	var k := r.randi() % petals.size()
+	if not flower_meshes.has(k):
+		flower_meshes[k] = flower_clump_mesh(petals[k], 30 + k)
+	if flower_mat == null:
+		flower_mat = StandardMaterial3D.new()
+		flower_mat.vertex_color_use_as_albedo = true
+		flower_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		flower_mat.roughness = 0.9
+	var mi := MeshInstance3D.new()
+	mi.mesh = flower_meshes[k]
+	mi.material_override = flower_mat
+	mi.position = pos
+	mi.rotation.y = r.randf() * TAU
+	mi.scale = Vector3.ONE * r.randf_range(0.85, 1.15)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	sway_items.append([mi, Vector3.ZERO, 1, pos.x * 1.1 + pos.z, 0.05])
+
+# 길쭉한 잎 포기 사이로 가는 줄기가 올라와 다섯 잎 꽃이 핀 들꽃 한 무더기
+func flower_clump_mesh(pc: Color, seed_v: int) -> ArrayMesh:
+	var r := RandomNumberGenerator.new()
+	r.seed = seed_v
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var up := Vector3.UP
+	# 잎
+	for i in 9:
+		var ang := i * TAU / 9.0 + r.randf_range(-0.3, 0.3)
+		var dir := Vector3(cos(ang), 0, sin(ang))
+		var side := Vector3(-dir.z, 0, dir.x)
+		var h := r.randf_range(0.18, 0.32)
+		var lean := r.randf_range(0.5, 0.9)
+		var w := r.randf_range(0.035, 0.05)
+		var prev := []
+		for s2 in 4:
+			var t := s2 / 3.0
+			var c := dir * lean * h * t * (0.6 + t * 0.4) + Vector3(0, h * t - h * 0.35 * t * t, 0) + dir * 0.03
+			var hw := w * sin(minf(1.0, t + 0.15) * PI) + 0.004
+			var col := Color(0.24, 0.42, 0.18).lerp(Color(0.5, 0.72, 0.3), t)
+			var cur := [c - side * hw, c + side * hw, col]
+			if s2 > 0:
+				for v in [[prev[0], prev[2]], [prev[1], prev[2]], [cur[1], cur[2]], [prev[0], prev[2]], [cur[1], cur[2]], [cur[0], cur[2]]]:
+					st.set_color(v[1]); st.set_normal(up); st.add_vertex(v[0])
+			prev = cur
+	# 줄기와 꽃
+	for i in 6:
+		var ang2 := r.randf() * TAU
+		var d := r.randf_range(0.02, 0.2)
+		var base := Vector3(cos(ang2) * d, 0, sin(ang2) * d)
+		var top := base + Vector3(r.randf_range(-0.06, 0.06), r.randf_range(0.3, 0.46), r.randf_range(-0.06, 0.06))
+		var sd := (top - base).cross(Vector3(1, 0, 0)).normalized() * 0.008
+		var stem_c := Color(0.32, 0.52, 0.22)
+		for v in [base - sd, base + sd, top + sd, base - sd, top + sd, top - sd]:
+			st.set_color(stem_c); st.set_normal(up); st.add_vertex(v)
+		var fr := r.randf_range(0.045, 0.06)
+		var tilt := Basis(Vector3(r.randf_range(-1, 1), 0, r.randf_range(-1, 1)).normalized(), r.randf_range(0.2, 0.5))
+		var col_p := pc.lightened(r.randf() * 0.15)
+		for pidx in 5:
+			var a0 := pidx * TAU / 5.0
+			var tip := tilt * Vector3(cos(a0) * fr, 0.01, sin(a0) * fr)
+			var l := tilt * Vector3(cos(a0 - 0.5) * fr * 0.55, 0.0, sin(a0 - 0.5) * fr * 0.55)
+			var rr := tilt * Vector3(cos(a0 + 0.5) * fr * 0.55, 0.0, sin(a0 + 0.5) * fr * 0.55)
+			for v in [[Vector3.ZERO, col_p.darkened(0.15)], [l, col_p], [tip, col_p.lightened(0.2)], [Vector3.ZERO, col_p.darkened(0.15)], [tip, col_p.lightened(0.2)], [rr, col_p]]:
+				st.set_color(v[1]); st.set_normal(up); st.add_vertex(top + v[0])
+		var cc := Color(1.0, 0.86, 0.3)
+		for q in 3:
+			var a1 := q * TAU / 3.0
+			for v in [Vector3.ZERO, Vector3(cos(a1), 0.4, sin(a1)) * 0.016, Vector3(cos(a1 + TAU / 3.0), 0.4, sin(a1 + TAU / 3.0)) * 0.016]:
+				st.set_color(cc); st.set_normal(up); st.add_vertex(top + tilt * v + Vector3(0, 0.012, 0))
+	return st.commit()
 
 func make_firewood(pos: Vector3) -> void:
 	var root := Node3D.new()
@@ -6584,6 +6638,29 @@ func make_decor() -> void:
 
 # ---------- 살아있는 느낌 (바람, 물결, 나비, 구름, 낙엽) ----------
 
+# 끝이 뾰족한 감잎 모양 (떨어지는 낙엽용, 가운데 잎맥이 보여요)
+func leaf_card_mesh() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 10
+	var pts := []
+	for i in n + 1:
+		var t := float(i) / n
+		var y := lerpf(-0.1, 0.11, t)
+		var wd := sin(t * PI) * 0.065 * (1.0 - t * 0.25)
+		pts.append([Vector3(-wd, y, 0), Vector3(wd, y, 0), Vector3(0, y, 0)])
+	var edge := Color(1, 1, 1)
+	var vein := Color(0.8, 0.72, 0.6)
+	for i in n:
+		var a: Array = pts[i]
+		var b: Array = pts[i + 1]
+		for tri in [[a[0], a[2], b[2]], [a[0], b[2], b[0]], [a[2], a[1], b[1]], [a[2], b[1], b[2]]]:
+			for v in tri:
+				st.set_color(vein if absf((v as Vector3).x) < 0.001 else edge)
+				st.set_normal(Vector3(0, 0, 1))
+				st.add_vertex(v)
+	return st.commit()
+
 func make_falling_leaves(parent: Node3D) -> void:
 	var p := CPUParticles3D.new()
 	p.position = Vector3(0, 3.8, 0)
@@ -6596,14 +6673,25 @@ func make_falling_leaves(parent: Node3D) -> void:
 	p.gravity = Vector3(0.25, -0.55, 0.1)
 	p.initial_velocity_min = 0.05
 	p.initial_velocity_max = 0.25
-	var q := QuadMesh.new()
-	q.size = Vector2(0.2, 0.2)
-	var mat := make_color(Color(0.98, 0.62, 0.22))
+	p.angle_min = 0.0
+	p.angle_max = 360.0
+	p.angular_velocity_min = -90.0
+	p.angular_velocity_max = 90.0
+	p.scale_amount_min = 0.7
+	p.scale_amount_max = 1.2
+	var q := leaf_card_mesh()
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	q.material = mat
+	q.surface_set_material(0, mat)
 	p.mesh = q
+	p.color_ramp = null
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	grad.colors = PackedColorArray([Color(1.0, 0.75, 0.3), Color(0.98, 0.5, 0.18), Color(0.85, 0.35, 0.15)])
+	p.color_initial_ramp = grad
 	parent.add_child(p)
 
 func make_butterflies(r: RandomNumberGenerator) -> void:
@@ -8382,7 +8470,7 @@ func start_gam3d() -> void:
 		var f := blob_node([[Vector3.ZERO, Vector3(0.44, 0.38, 0.44), Color(0.45, 0.65, 0.2)], [Vector3(0, 0.19, 0), Vector3(0.2, 0.06, 0.2), Color(0.25, 0.4, 0.15)]])
 		f.global_position = p
 		f.visible = false
-		fruits.append({"node": f, "pos": p, "state": "empty", "t": r.randf_range(0.0, 2.5), "dur": 0.0})
+		fruits.append({"node": f, "pos": p, "state": "empty", "t": r.randf_range(0.3, 6.0), "dur": 0.0})
 	w["fruits"] = fruits
 	# 꼭대기 까치밥 세 알과 까치
 	var top := c + Vector3(0.2, persimmon_rad * 0.75, 0.5)
@@ -8422,7 +8510,7 @@ func gam_ripe_color(k: float) -> Color:
 
 func update_gam(delta: float) -> void:
 	var fruits: Array = w["fruits"]
-	var speed := 1.0 + mg_count * 0.06
+	var speed := 1.0 + mg_count * 0.04
 	var growing := 0
 	for f in fruits:
 		if f["state"] != "empty":
@@ -8432,10 +8520,10 @@ func update_gam(delta: float) -> void:
 		f["t"] = float(f["t"]) - delta * speed
 		match f["state"]:
 			"empty":
-				if float(f["t"]) <= 0.0 and growing < 5:
+				if float(f["t"]) <= 0.0 and growing < 4:
 					f["state"] = "green"
 					f["dur"] = 0.0
-					f["t"] = rng.randf_range(1.6, 2.6)
+					f["t"] = rng.randf_range(3.2, 5.0)
 					n.visible = true
 					n.scale = Vector3.ONE * 0.01
 					n.global_position = f["pos"]
@@ -8449,12 +8537,12 @@ func update_gam(delta: float) -> void:
 				n.global_position = (f["pos"] as Vector3) + Vector3(0, sin(anim_t * 2.0 + n.position.x) * 0.02, 0)
 				if float(f["t"]) <= 0.0:
 					f["state"] = "ripe"
-					f["t"] = rng.randf_range(2.2, 2.8)
+					f["t"] = 3.0
 					gam_color(n, 1.0)
 					add_target_marker(n)
 					pop3d(n)
 			"ripe":
-				var left := clampf(float(f["t"]) / 2.5, 0, 1)
+				var left := clampf(float(f["t"]) / 3.0, 0, 1)
 				n.scale = Vector3.ONE * (1.0 + sin(anim_t * 9.0) * 0.06)
 				update_target_marker(n, f["pos"], 1.0 - left)
 				if float(f["t"]) <= 0.0:
@@ -8506,7 +8594,7 @@ func gam_reset(f: Dictionary) -> void:
 	n.visible = false
 	n.rotation = Vector3.ZERO
 	f["state"] = "empty"
-	f["t"] = rng.randf_range(0.4, 1.6)
+	f["t"] = rng.randf_range(1.5, 3.0)
 
 func splash_gam(at: Vector3) -> void:
 	burst3d(at, Color(0.95, 0.4, 0.1), 12)
