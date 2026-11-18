@@ -131,9 +131,61 @@ body {
 	};
 })();
 </script>
+<script>
+// 소리 켜기: 아이폰은 무음(진동) 스위치가 켜져 있으면 웹 게임 소리를 막아요.
+// 처음 화면을 누를 때 "재생" 모드로 바꾸고, 조용한 소리를 계속 틀어 두면 무음 모드에서도 소리가 나요.
+(function () {
+	var contexts = [];
+	var AC = window.AudioContext || window.webkitAudioContext;
+	if (AC) {
+		var Wrapped = function (opts) {
+			var ctx = new AC(opts);
+			contexts.push(ctx);
+			return ctx;
+		};
+		Wrapped.prototype = AC.prototype;
+		window.AudioContext = Wrapped;
+		if (window.webkitAudioContext) { window.webkitAudioContext = Wrapped; }
+	}
+	try { if (navigator.audioSession) { navigator.audioSession.type = 'playback'; } } catch (e) {}
+	function silentWav() {
+		var rate = 8000, n = 4000;
+		var buf = new ArrayBuffer(44 + n);
+		var v = new DataView(buf);
+		function str(o, t) { for (var i = 0; i < t.length; i++) { v.setUint8(o + i, t.charCodeAt(i)); } }
+		str(0, 'RIFF'); v.setUint32(4, 36 + n, true); str(8, 'WAVE'); str(12, 'fmt ');
+		v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+		v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+		str(36, 'data'); v.setUint32(40, n, true);
+		for (var i = 0; i < n; i++) { v.setUint8(44 + i, 128); }
+		return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+	}
+	var tag = null;
+	function unlock() {
+		try { if (navigator.audioSession) { navigator.audioSession.type = 'playback'; } } catch (e) {}
+		if (!tag) {
+			tag = document.createElement('audio');
+			tag.setAttribute('playsinline', '');
+			tag.setAttribute('x-webkit-airplay', 'deny');
+			tag.loop = true;
+			tag.preload = 'auto';
+			tag.src = silentWav();
+		}
+		var p = tag.play();
+		if (p && p.catch) { p.catch(function () {}); }
+		contexts.forEach(function (c) { if (c.state !== 'running' && c.resume) { c.resume(); } });
+	}
+	['touchstart', 'touchend', 'mousedown', 'keydown', 'click'].forEach(function (ev) {
+		window.addEventListener(ev, unlock, { capture: true, passive: true });
+	});
+	document.addEventListener('visibilitychange', function () {
+		if (!document.hidden) { contexts.forEach(function (c) { if (c.resume) { c.resume(); } }); }
+	});
+})();
+</script>
 <script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":13977360,"index.wasm":43699190},"focusCanvas":true,"gdextensionLibs":[]};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":14000320,"index.wasm":43699190},"focusCanvas":true,"gdextensionLibs":[]};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
