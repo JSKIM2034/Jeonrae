@@ -724,6 +724,7 @@ func _ready() -> void:
 	make_player()
 	make_ui()
 	make_book_ui()
+	scatter_items()
 	make_game_ui()
 	make_fx_ui()
 	card_overlay = make_overlay(1.0)
@@ -2988,6 +2989,8 @@ func update_wild(delta: float) -> void:
 			continue
 		ws[2] = float(ws[2]) - delta
 		if float(ws[2]) <= 0.0:
+			if node.has_meta("anchor"):
+				node.position = random_near(node.get_meta("anchor"), SCATTER_HERB)
 			node.visible = true
 			pop3d(node, true)
 
@@ -3205,6 +3208,64 @@ func draw_book() -> void:
 			ci.draw_circle(cc + Vector2(cw * 0.36, -ch * 0.34), 14, Color(0.95, 0.4, 0.3))
 		ci.draw_string(font, Vector2(cc.x - cw / 2.0, cc.y + ch * 0.26), name_t, HORIZONTAL_ALIGNMENT_CENTER, cw, fs, INK)
 		ci.draw_string(font, Vector2(cc.x - cw / 2.0, cc.y + ch * 0.4), sub, HORIZONTAL_ALIGNMENT_CENTER, cw, small, Color(0.45, 0.35, 0.25))
+
+# ---------- 랜덤 위치 (원래 자리 근처에서 매번 조금씩 다른 곳에 나타나요) ----------
+
+const SCATTER_PIECE := 6.0
+const SCATTER_HERB := 4.0
+
+func ground_ok(p: Vector3) -> bool:
+	if absf(p.x) > 37.0 or absf(p.z) > 37.0:
+		return false
+	for rc in house_rects:
+		if (rc as Rect2).grow(0.6).has_point(Vector2(p.x, p.z)):
+			return false
+	if absf(p.z - creek_z(p.x)) < creek_half(p.x) + 1.0:
+		return false
+	var q := (p - POND_C) / Vector3(6.8, 1, 5.2)
+	if Vector2(q.x, q.z).length() < 1.0:
+		return false
+	var space := get_world_3d().direct_space_state
+	var shape := SphereShape3D.new()
+	shape.radius = 0.75
+	var prm := PhysicsShapeQueryParameters3D.new()
+	prm.shape = shape
+	prm.transform = Transform3D(Basis(), p + Vector3(0, 0.9, 0))
+	if player != null:
+		prm.exclude = [player.get_rid()]
+	return space.intersect_shape(prm, 1).is_empty()
+
+func random_near(anchor: Vector3, radius: float) -> Vector3:
+	if radius <= 0.0:
+		return anchor
+	for i in 40:
+		var a := rng.randf() * TAU
+		var d := sqrt(rng.randf()) * radius
+		var p := anchor + Vector3(cos(a) * d, 0, sin(a) * d)
+		p.y = 0.0
+		if ground_ok(p):
+			return p
+	return anchor
+
+func scatter_items() -> void:
+	# 물리 세상이 준비될 때까지 잠깐 기다려요
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	rng.randomize()
+	for t in things:
+		var node: Node3D = t["node"]
+		var kind: String = t["kind"]
+		var radius := 0.0
+		if kind == "piece" and node.position.y < 0.5:
+			radius = SCATTER_PIECE
+		elif kind == "herb":
+			radius = SCATTER_HERB
+		elif kind == "wild" and node.position.x < 36.0:
+			radius = SCATTER_HERB
+		if radius > 0.0:
+			if not node.has_meta("anchor"):
+				node.set_meta("anchor", node.position)
+			node.position = random_near(node.get_meta("anchor"), radius)
 
 # ---------- 남쪽 들판: 연못 낚시터와 최 영감네 논 ----------
 
