@@ -6914,7 +6914,6 @@ func make_sounds() -> void:
 	setup_audio()
 	for i in 8:
 		var sp := AudioStreamPlayer.new()
-		sp.bus = "SFX"
 		add_child(sp)
 		sound_players.append(sp)
 
@@ -6926,28 +6925,20 @@ var amb_player: AudioStreamPlayer
 var creek_player: AudioStreamPlayer3D
 
 func setup_audio() -> void:
-	for bus_name in ["Music", "SFX"]:
-		if AudioServer.get_bus_index(bus_name) == -1:
-			AudioServer.add_bus()
-			var bi := AudioServer.bus_count - 1
-			AudioServer.set_bus_name(bi, bus_name)
-			AudioServer.set_bus_send(bi, "Master")
+	# 웹에서는 실행 중에 만든 오디오 버스가 소리를 막아서, 모두 기본(Master) 버스로 내보내요
 	var cf := ConfigFile.new()
 	if cf.load("user://save.cfg") == OK:
 		music_on = cf.get_value("ui", "music_on", true)
 		sfx_on = cf.get_value("ui", "sfx_on", true)
-	apply_audio_toggles()
 	if ResourceLoader.exists("res://sounds/bgm.ogg"):
 		bgm_player = AudioStreamPlayer.new()
 		bgm_player.stream = load("res://sounds/bgm.ogg")
-		bgm_player.bus = "Music"
 		bgm_player.volume_db = -11.0
 		add_child(bgm_player)
 		bgm_player.play()
 	if ResourceLoader.exists("res://sounds/ambience.ogg"):
 		amb_player = AudioStreamPlayer.new()
 		amb_player.stream = load("res://sounds/ambience.ogg")
-		amb_player.bus = "SFX"
 		amb_player.volume_db = -14.0
 		add_child(amb_player)
 		amb_player.play()
@@ -6955,16 +6946,19 @@ func setup_audio() -> void:
 		# 개울에서 가장 가까운 곳을 따라다니며 졸졸 소리가 나요
 		creek_player = AudioStreamPlayer3D.new()
 		creek_player.stream = load("res://sounds/creek.ogg")
-		creek_player.bus = "SFX"
 		creek_player.unit_size = 4.0
 		creek_player.max_distance = 22.0
 		creek_player.volume_db = -4.0
 		add_child(creek_player)
 		creek_player.play()
+	apply_audio_toggles()
 
 func apply_audio_toggles() -> void:
-	AudioServer.set_bus_mute(AudioServer.get_bus_index("Music"), not music_on)
-	AudioServer.set_bus_mute(AudioServer.get_bus_index("SFX"), not sfx_on)
+	if bgm_player != null:
+		bgm_player.stream_paused = not music_on
+	for ap in [amb_player, creek_player]:
+		if ap != null:
+			ap.stream_paused = not sfx_on
 
 func update_audio() -> void:
 	if creek_player != null and player != null:
@@ -7010,6 +7004,8 @@ func make_wave(parts: Array) -> AudioStreamWAV:
 	return wav
 
 func sfx(key: String, pitch: float = 1.0) -> void:
+	if not sfx_on:
+		return
 	if key == "step" and sounds.has("step1"):
 		key = "step%d" % (rng.randi() % 4 + 1)
 	if not sounds.has(key):

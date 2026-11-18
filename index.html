@@ -186,7 +186,26 @@ body {
 		console.error = function () { errs.push([].slice.call(arguments).join(' ').slice(0, 160)); oe.apply(console, arguments); };
 		var cnt = { src: 0, wk: 0, wkErr: 0 };
 		var os = AudioBufferSourceNode.prototype.start;
-		AudioBufferSourceNode.prototype.start = function () { cnt.src++; return os.apply(this, arguments); };
+		AudioBufferSourceNode.prototype.start = function () {
+			cnt.src++;
+			var bf = this.buffer;
+			cnt.last = (bf ? bf.duration.toFixed(1) + 's/' + bf.sampleRate + '/' + bf.numberOfChannels + 'ch' : 'nobuf') + ' rate ' + this.playbackRate.value.toFixed(2);
+			if (bf && bf.duration > 5) { cnt.longs = (cnt.longs || 0) + 1; }
+			return os.apply(this, arguments);
+		};
+		var gains = [];
+		var cg = BaseAudioContext.prototype.createGain;
+		BaseAudioContext.prototype.createGain = function () { var g = cg.apply(this, arguments); gains.push(g); if (gains.length > 400) { gains.shift(); } return g; };
+		var an = null, anBuf = null, peak = 0;
+		var oc = AudioNode.prototype.connect;
+		AudioNode.prototype.connect = function (dst) {
+			if (dst instanceof AudioDestinationNode && !(this instanceof AnalyserNode)) {
+				if (!an) { an = this.context.createAnalyser(); an.fftSize = 1024; anBuf = new Float32Array(1024); oc.call(an, this.context.destination); }
+				oc.call(this, dst);
+				return oc.call(this, an);
+			}
+			return oc.apply(this, arguments);
+		};
 		if (window.AudioWorkletNode) {
 			var W0 = window.AudioWorkletNode;
 			var W1 = function (c, n, o) { cnt.wk++; try { var x = new W0(c, n, o); x.onprocessorerror = function () { cnt.wkErr++; errs.push('worklet processor error'); }; return x; } catch (e) { cnt.wkErr++; errs.push('worklet: ' + e); throw e; } };
@@ -210,6 +229,9 @@ body {
 			box.textContent = 'ctx ' + contexts.length + ': ' + contexts.map(function (c) { return c.state + '/' + c.sampleRate; }).join(', ') +
 				' | tag ' + (tag ? (tag.paused ? 'paused' : 'play') : 'none') +
 				' | src ' + cnt.src + ' wk ' + cnt.wk + '/' + cnt.wkErr +
+				'\nlast ' + (cnt.last || '-') + ' long ' + (cnt.longs || 0) +
+				' | peak ' + (function () { if (!an) { return 'none'; } an.getFloatTimeDomainData(anBuf); var m = 0; for (var i = 0; i < anBuf.length; i++) { m = Math.max(m, Math.abs(anBuf[i])); } peak = Math.max(peak * 0.9, m); return peak.toFixed(3); })() +
+				' | gains ' + gains.length + ' zero ' + gains.filter(function (g) { return g.gain.value < 0.001; }).length +
 				(contexts[0] ? ' | ch ' + contexts[0].destination.channelCount + '/' + contexts[0].destination.maxChannelCount + ' t ' + contexts[0].currentTime.toFixed(1) + ' lat ' + contexts[0].baseLatency : '') + '\n' + errs.slice(-8).join('\n');
 		}, 500);
 	}
@@ -220,7 +242,7 @@ body {
 </script>
 <script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":14000960,"index.wasm":43699190},"focusCanvas":true,"gdextensionLibs":[]};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":14000320,"index.wasm":43699190},"focusCanvas":true,"gdextensionLibs":[]};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
