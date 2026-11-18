@@ -1325,6 +1325,73 @@ func make_choga_from_model(house: Node3D, size: Vector3, wall: Color, roof: Colo
 				mi.set_surface_override_material(i, use)
 	return true
 
+# 가난한 흥부네 초가: 바랜 나무, 기운 창호지, 금 간 벽, 군데군데 삭은 지붕, 받침대로 버틴 처마
+func make_hut_shabby(house: Node3D) -> void:
+	var weather := Color(0.8, 0.76, 0.7)
+	for mi in house.find_children("*", "MeshInstance3D", true, false):
+		var m3 := mi as MeshInstance3D
+		m3.rotation.z = 0.022
+		m3.rotation.x = -0.012
+		for i in m3.mesh.get_surface_count():
+			var cur := m3.get_surface_override_material(i)
+			if cur is StandardMaterial3D:
+				var d := (cur as StandardMaterial3D).duplicate() as StandardMaterial3D
+				var key := ""
+				var base_m := m3.mesh.surface_get_material(i)
+				if base_m != null:
+					key = base_m.resource_name
+				var tint := weather
+				if key == "Paper":
+					tint = Color(0.92, 0.86, 0.7)
+					d.emission_energy_multiplier = 0.03
+				# 볕과 비에 바래서 잿빛이 도는 나무와 짚
+				var greys := {"Wood": Color(0.5, 0.43, 0.37), "DarkWood": Color(0.36, 0.31, 0.27), "Plank": Color(0.56, 0.49, 0.42),
+					"Thatch": Color(0.64, 0.6, 0.56), "ThatchDark": Color(0.5, 0.46, 0.42), "Straw": Color(0.66, 0.6, 0.54)}
+				if greys.has(key):
+					d.albedo_color = greys[key]
+				else:
+					d.albedo_color = d.albedo_color * tint
+				m3.set_surface_override_material(i, d)
+	var dirt := Color(0.36, 0.3, 0.24)
+	# 창호지 기운 자국과 구멍
+	for pt in [[Vector2(-1.45, 1.55), Vector2(0.26, 0.2), Color(0.74, 0.64, 0.45)], [Vector2(-0.95, 0.95), Vector2(0.2, 0.24), Color(0.8, 0.72, 0.54)],
+			[Vector2(0.75, 1.7), Vector2(0.3, 0.18), Color(0.72, 0.62, 0.44)], [Vector2(1.15, 1.05), Vector2(0.18, 0.2), Color(0.78, 0.7, 0.52)],
+			[Vector2(-1.15, 1.85), Vector2(0.09, 0.07), Color(0.18, 0.14, 0.1)], [Vector2(0.95, 0.75), Vector2(0.07, 0.1), Color(0.18, 0.14, 0.1)]]:
+		var v: Vector2 = pt[0]
+		var sz: Vector2 = pt[1]
+		add_box(house, pt[2], Vector3(sz.x, sz.y, 0.012), Vector3(v.x, v.y, 1.8))
+	# 벽의 금 (지그재그)
+	for crack in [[Vector3(-0.05, 2.3, 1.76), [Vector2(0.06, -0.25), Vector2(-0.08, -0.22), Vector2(0.05, -0.3)]],
+			[Vector3(1.95, 1.9, 1.76), [Vector2(-0.1, -0.2), Vector2(0.07, -0.28), Vector2(-0.05, -0.2), Vector2(0.06, -0.25)]],
+			[Vector3(2.25, 2.2, 0.9), [Vector2(-0.12, -0.24), Vector2(0.1, -0.3), Vector2(-0.08, -0.26)]],
+			[Vector3(2.25, 1.3, -0.6), [Vector2(0.15, -0.22), Vector2(-0.1, -0.2)]]]:
+		var at: Vector3 = crack[0]
+		var side_wall := at.x > 2.2
+		for seg in crack[1]:
+			var dv: Vector2 = seg
+			var to := at + (Vector3(0, dv.y, dv.x) if side_wall else Vector3(dv.x, dv.y, 0))
+			add_beam(house, make_color(Color(0.3, 0.25, 0.2)), at, to, 0.018, 0.018)
+			at = to
+	# 흙으로 덕지덕지 메운 벽
+	add_blobs(house, [
+		[Vector3(1.55, 0.75, 1.75), Vector3(0.45, 0.32, 0.05), Color(0.62, 0.5, 0.36)],
+		[Vector3(2.25, 0.9, 0.2), Vector3(0.05, 0.4, 0.55), Color(0.6, 0.48, 0.34)],
+		[Vector3(-2.24, 1.4, 0.6), Vector3(0.05, 0.35, 0.45), Color(0.64, 0.52, 0.38)],
+	])
+	# 처마가 내려앉아 막대기로 받쳐 놨어요
+	var pole_mat := make_color(Color(0.45, 0.36, 0.26))
+	add_beam(house, pole_mat, Vector3(2.95, 0.0, 2.55), Vector3(2.85, 2.5, 2.45), 0.08, 0.08)
+	add_beam(house, make_color(Color(0.55, 0.45, 0.3)), Vector3(2.78, 1.5, 2.43), Vector3(2.98, 1.62, 2.55), 0.04, 0.1)
+	add_beam(house, pole_mat, Vector3(-3.0, 0.0, 2.5), Vector3(-2.9, 2.45, 2.42), 0.07, 0.07)
+	# 깨진 독과 낡은 지게
+	var jar := Node3D.new()
+	jar.position = Vector3(-2.75, 0, 1.2)
+	house.add_child(jar)
+	add_mcyl(jar, glossy_mat(Color(0.42, 0.3, 0.22)), 0.2, 0.17, 0.35, Vector3(0, 0.17, 0))
+	add_box(jar, Color(0.2, 0.15, 0.12), Vector3(0.12, 0.14, 0.03), Vector3(0.1, 0.25, 0.18))
+	var shard := add_mbox(jar, glossy_mat(Color(0.42, 0.3, 0.22)), Vector3(0.18, 0.03, 0.12), Vector3(0.38, 0.02, 0.1))
+	shard.rotation.y = 0.6
+
 func make_house(pos: Vector3, size: Vector3, wall: Color, roof: Color, style: String = "thatch") -> Node3D:
 	var house := StaticBody3D.new()
 	house.position = pos
@@ -3259,7 +3326,8 @@ func make_village() -> void:
 	make_npc("dokkaebi", "도깨비", Color(0.2, 0.55, 0.6), Vector3(19, 0, 8.5), 1.3, false).visible = false
 
 	# 흥부네
-	hut = make_house(Vector3(-13, 0, -2), Vector3(4.5, 2.8, 3.5), Color(0.93, 0.89, 0.8), Color(0.8, 0.66, 0.3), "thatch")
+	hut = make_house(Vector3(-13, 0, -2), Vector3(4.5, 2.8, 3.5), Color(0.8, 0.74, 0.64), Color(0.6, 0.53, 0.38), "thatch")
+	make_hut_shabby(hut)
 	make_npc("heungbu", "흥부", Color(0.85, 0.6, 0.35), Vector3(-12, 0, 2.5), 1.0, true)
 	make_npc("kid1", "첫째", Color(0.95, 0.75, 0.5), Vector3(-16.5, 0, 4), 0.7, true)
 	make_npc("kid2", "막내", Color(0.98, 0.82, 0.6), Vector3(-9, 0, 5), 0.55, true)
