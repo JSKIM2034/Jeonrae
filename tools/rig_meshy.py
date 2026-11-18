@@ -14,6 +14,38 @@ bpy.context.view_layer.objects.active = mesh
 mesh.select_set(True)
 bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
+# 손가락을 손바닥 쪽으로 말아 주먹을 쥐어요 (손가락 뼈가 없어서 모양 자체를 바꿔요)
+import numpy as np
+co = np.array([tuple(v.co) for v in mesh.data.vertices])
+H = co[:, 2].max() - co[:, 2].min()
+xm = np.abs(co[:, 0]).max()
+hand_info = {}
+for sx in (-1, 1):
+    pick = co[:, 0] * sx > 0.82 * xm
+    hc = co[pick].mean(0)
+    _, _, vt = np.linalg.svd(co[pick] - hc)
+    ax = vt[0] if vt[0][2] < 0 else -vt[0]          # 손끝 쪽(아래)
+    nrm = vt[2] if vt[2][1] < 0 else -vt[2]         # 손바닥 쪽(앞)
+    d = co - hc
+    t = d @ ax
+    tmax = t[pick].max()
+    t0 = tmax - 0.058 * H                            # 손가락 뿌리
+    R = (tmax - t0) / 3.5
+    perp = d - np.outer(t, ax)
+    r = np.linalg.norm(perp, axis=1)
+    sel = (co[:, 0] * sx > 0) & (t > t0) & (r < 0.05 * H)
+    for i in np.nonzero(sel)[0]:
+        u = t[i] - t0
+        v = perp[i] @ nrm
+        wv = perp[i] - nrm * v
+        ph = u / R
+        cpt = hc + ax * t0 + ax * R * np.sin(ph) + nrm * R * (1 - np.cos(ph))
+        nn = -ax * np.sin(ph) + nrm * np.cos(ph)
+        newp = cpt + nn * v + wv * (1.0 - 0.15 * min(1.0, u / (tmax - t0)))
+        mesh.data.vertices[int(i)].co = Vector(newp.tolist())
+    hand_info[sx] = (hc + ax * (tmax - 0.1 * H), hc + ax * (t0 + R))
+    print("FIST", sx, int(sel.sum()))
+
 # 키 2.0, 발바닥이 z=-1 (게임에서 몸 중심이 땅에서 1 위에 있어요)
 zs = [v.co.z for v in mesh.data.vertices]
 zmin, zmax = min(zs), max(zs)
@@ -31,8 +63,9 @@ J = {
 }
 for side, sx in (("L", -1), ("R", 1)):
     J["arm" + side] = ((0.17 * sx, 0.01, 0.19), (0.33 * sx, 0.02, 0.065), "spine")
-    J["fore" + side] = ((0.33 * sx, 0.02, 0.065), (0.45 * sx, 0.0, -0.075), "arm" + side)
-    J["hand" + side] = ((0.45 * sx, 0.0, -0.075), (0.57 * sx, 0.0, -0.17), "fore" + side)
+    wr, tip = hand_info[sx]
+    J["fore" + side] = ((0.33 * sx, 0.02, 0.065), tuple(wr), "arm" + side)
+    J["hand" + side] = (tuple(wr), tuple(tip), "fore" + side)
     J["thigh" + side] = ((0.1 * sx, 0.0, -0.25), (0.11 * sx, 0.0, -0.52), "hips")
     J["shin" + side] = ((0.11 * sx, 0.0, -0.52), (0.11 * sx, 0.0, -0.84), "thigh" + side)
     J["foot" + side] = ((0.11 * sx, 0.0, -0.84), (0.11 * sx, -0.16, -0.93), "shin" + side)
@@ -75,7 +108,12 @@ for v in mesh.data.vertices:
     side = "L" if p.x < 0 else "R"
     arm_d = min(seg_dist(p, W["arm" + side][0], W["arm" + side][1]), seg_dist(p, W["fore" + side][0], W["fore" + side][1]))
     hand_d = seg_dist(p, W["hand" + side][0], W["hand" + side][1])
-    if abs(p.x) > 0.2 * S and (arm_d < 0.1 * S or hand_d < 0.13 * S):
+    z_orig = (p.z + 1.0) / S + zmin
+    # 옆구리(몸통 옆면)는 팔에 붙지 않게: 겨드랑이 아래쪽은 더 바깥만 팔로 쳐요
+    side_ok = abs(p.x) > (0.2 if z_orig > 0.12 else 0.31) * S
+    # 몸통·가방보다 바깥은 모두 팔 (가방은 +x 쪽 허리 높이에만 있어요)
+    beyond = -0.3 < z_orig < 0.26 and (abs(p.x) > 0.30 * S or (abs(p.x) > 0.25 * S and (p.x < 0 or z_orig > 0.02)))
+    if beyond or (side_ok and (arm_d < 0.1 * S or hand_d < 0.13 * S)):
         # 팔: 가까운 뼈 두 개를 부드럽게 섞어요
         cands = {}
         for b in ("arm", "fore", "hand"):
@@ -85,7 +123,7 @@ for v in mesh.data.vertices:
         w = {k: c / tot for k, c in cands.items()}
         # 어깨 부근은 몸통과 섞어요
         sh = (p - W["arm" + side][0]).length / S
-        k = 1.0 - smooth(0.0, 0.09, sh)
+        k = 1.0 - smooth(0.0, 0.13, sh)
         if k > 0:
             w = {kk: vv * (1 - k * 0.5) for kk, vv in w.items()}
             w["spine"] = w.get("spine", 0) + k * 0.5

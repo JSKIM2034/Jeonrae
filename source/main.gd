@@ -2604,24 +2604,23 @@ func pose_rig(body: Node3D, swing: float, arm_up: float) -> void:
 	var a := arm_up
 	for side in ["L", "R"]:
 		var sx := -1.0 if side == "L" else 1.0
-		# 다리: 보폭은 작게, 뒤로 간 다리만 무릎이 살짝 접혀요. 점프하면 무릎을 당겨요
+		var lead: bool = side == "L"   # 점프할 때 (가방끈 없는 쪽) 주먹을 위로 "얍!"
+		# 다리: 보폭은 작게. 점프하면 왼쪽 무릎을 올리고 오른다리는 뒤로
 		var leg := swing * 0.42 * sx
-		var tuck := -0.75 if side == "L" else -0.35
-		turn_bone(skel, bones, "thigh" + side, [[Vector3.RIGHT, lerpf(leg, tuck, a)]])
+		turn_bone(skel, bones, "thigh" + side, [[Vector3.RIGHT, lerpf(leg, 0.25 if lead else -0.95, a)]])
 		var knee := clampf(leg * 1.4, 0.0, 0.6) + absf(swing) * 0.12
-		turn_bone(skel, bones, "shin" + side, [[Vector3.RIGHT, lerpf(knee, 1.1 if side == "L" else 0.6, a)]])
-		turn_bone(skel, bones, "foot" + side, [[Vector3.RIGHT, lerpf(-knee * 0.4, 0.3, a)]])
-		# 팔: 몸 옆으로 내리고 손바닥이 허벅지를 보게 돌린 다음, 다리와 반대로 흔들어요
+		turn_bone(skel, bones, "shin" + side, [[Vector3.RIGHT, lerpf(knee, 0.7 if lead else 1.35, a)]])
+		turn_bone(skel, bones, "foot" + side, [[Vector3.RIGHT, lerpf(-knee * 0.4, 0.35, a)]])
+		# 팔: 몸 옆으로 내리고 주먹이 허벅지를 보게 돌린 다음, 다리와 반대로 흔들어요
 		var fwd := maxf(0.0, swing * sx)
-		var down := -sx * lerpf(0.78, 0.5, a)
-		var arm_swing := lerpf(-swing * 0.5 * sx, -0.75, a)
+		var down := -sx * lerpf(0.78, -2.15 if lead else 0.7, a)
+		var arm_swing := lerpf(-swing * 0.5 * sx, -0.35 if lead else 0.55, a)
 		var twist: Vector3 = (bones["arm" + side] as Array)[3] if bones.has("arm" + side) else Vector3.UP
 		turn_bone(skel, bones, "arm" + side, [[Vector3.BACK, down], [Vector3.RIGHT, arm_swing], [twist, sx * 1.25]])
 		var elbow := -0.22 - fwd * 0.45
-		turn_bone(skel, bones, "fore" + side, [[Vector3.RIGHT, lerpf(elbow, -0.8, a)]])
-		turn_bone(skel, bones, "hand" + side, [[Vector3.RIGHT, -0.15]])
-	turn_bone(skel, bones, "spine", [[Vector3.UP, swing * 0.07], [Vector3.RIGHT, a * 0.12]])
-	turn_bone(skel, bones, "head", [[Vector3.UP, -swing * 0.04], [Vector3.RIGHT, -a * 0.08]])
+		turn_bone(skel, bones, "fore" + side, [[Vector3.RIGHT, lerpf(elbow, -0.15 if lead else -0.7, a)]])
+	turn_bone(skel, bones, "spine", [[Vector3.UP, swing * 0.07 + a * 0.12], [Vector3.RIGHT, a * 0.08]])
+	turn_bone(skel, bones, "head", [[Vector3.UP, -swing * 0.04], [Vector3.RIGHT, -a * 0.12]])
 
 func make_person_model(parent: Node3D, kind: String, c: Color) -> Node3D:
 	if kind == "hero":
