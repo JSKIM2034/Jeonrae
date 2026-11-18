@@ -3253,6 +3253,21 @@ func random_near(anchor: Vector3, radius: float) -> Vector3:
 			return p
 	return anchor
 
+# 빨래는 개울 양쪽 물가를 따라 세 구간에 하나씩 흩어져요
+var laundry_seg := 0
+func laundry_spot(seg: int) -> Vector3:
+	var ranges := [[-35.0, -15.0], [-13.0, 12.0], [14.0, 35.0]]
+	var rg: Array = ranges[seg % 3]
+	for i in 40:
+		var x := rng.randf_range(rg[0], rg[1])
+		if absf(x + 2.0) < 3.0:
+			continue
+		var side := -1.0 if rng.randf() < 0.5 else 1.0
+		var p := Vector3(x, 0, creek_z(x) + side * (creek_half(x) + rng.randf_range(1.2, 2.2)))
+		if ground_ok(p):
+			return p
+	return Vector3(rng.randf_range(rg[0], rg[1]), 0, -13.0)
+
 func scatter_items() -> void:
 	# 물리 세상이 준비될 때까지 잠깐 기다려요
 	await get_tree().physics_frame
@@ -3268,10 +3283,27 @@ func scatter_items() -> void:
 			radius = SCATTER_HERB
 		elif kind == "wild" and node.position.x < 36.0:
 			radius = SCATTER_HERB
+		if kind == "laundry":
+			node.position = laundry_spot(laundry_seg)
+			laundry_seg += 1
 		if radius > 0.0:
 			if not node.has_meta("anchor"):
 				node.set_meta("anchor", node.position)
 			node.position = random_near(node.get_meta("anchor"), radius)
+
+# 돌리기 버튼: 동그랗게 도는 화살표
+func draw_turn_icon(ci: Control) -> void:
+	var c := ci.size / 2.0
+	var r := minf(ci.size.x, ci.size.y) * 0.3
+	var col := INK
+	var a0 := -PI * 0.15
+	var a1 := PI * 1.45
+	ci.draw_arc(c, r, a0, a1, 32, col, r * 0.28, true)
+	var end := c + Vector2(cos(a1), sin(a1)) * r
+	var tangent := Vector2(-sin(a1), cos(a1))
+	var normal := Vector2(cos(a1), sin(a1))
+	var h := r * 0.55
+	ci.draw_colored_polygon(PackedVector2Array([end + tangent * h, end + normal * h * 0.75 - tangent * h * 0.15, end - normal * h * 0.75 - tangent * h * 0.15]), col)
 
 # ---------- 설정 (왼손잡이/오른손잡이), 처음 한 번 걷기 안내 ----------
 
@@ -4791,7 +4823,13 @@ func make_ui() -> void:
 	quest_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 
 	turn_button = add_hud_button("돌리기", 0.03, 0.25, on_turn)
-	place(turn_button, 0.03, 0.075, 0.25, 0.135)
+	place(turn_button, 0.03, 0.075, 0.16, 0.135)
+	turn_button.text = ""
+	var icon := Control.new()
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	turn_button.add_child(icon)
+	place(icon, 0, 0, 1, 1)
+	icon.draw.connect(func(): draw_turn_icon(icon))
 	action_button = add_hud_button("", 0.28, 0.72, on_action)
 	jump_button = add_hud_button("점프", 0.75, 0.97, on_jump)
 	action_button.visible = false
