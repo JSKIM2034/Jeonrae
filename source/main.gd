@@ -4360,6 +4360,9 @@ func job_spot(id: String) -> Node3D:
 	return self
 
 func wood_new_log() -> void:
+	# 게임이 끝난 뒤 늦게 불리면 아무것도 안 해요
+	if not mg_active or mg_type != "wood3d" or not w.has("stump"):
+		return
 	var s: Vector3 = w["stump"]
 	var lg := Node3D.new()
 	lg.position = s + Vector3(0, 0.72, 0)
