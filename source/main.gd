@@ -2557,7 +2557,70 @@ func toon_of(m: Material) -> Material:
 	toon_cache[m] = t
 	return t
 
+# Meshy로 만든 주인공: 뼈대(Skeleton3D)를 돌려서 걷고 뛰어요
+const RIG_BONES := ["hips", "spine", "head", "armL", "foreL", "handL", "armR", "foreR", "handR", "thighL", "shinL", "footL", "thighR", "shinR", "footR"]
+
+func make_rigged_model(parent: Node3D, file: String) -> Node3D:
+	var path := "res://models/%s.glb" % file
+	if not ResourceLoader.exists(path):
+		return null
+	var body := Node3D.new()
+	body.position.y = 1.0
+	parent.add_child(body)
+	var inst := (load(path) as PackedScene).instantiate()
+	body.add_child(inst)
+	var found := inst.find_children("*", "Skeleton3D", true, false)
+	if found.is_empty():
+		body.queue_free()
+		return null
+	var skel: Skeleton3D = found[0]
+	var bones := {}
+	for bn in RIG_BONES:
+		var i := skel.find_bone(bn)
+		if i >= 0:
+			bones[bn] = [i, skel.get_bone_rest(i).basis.get_rotation_quaternion(), skel.get_bone_global_rest(i).basis.orthonormalized().inverse()]
+	for mi in inst.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	body.set_meta("skel", skel)
+	body.set_meta("bones", bones)
+	return body
+
+# 뼈를 모델 기준 축으로 돌려요. turns = [[축, 각도], ...]
+func turn_bone(skel: Skeleton3D, bones: Dictionary, bn: String, turns: Array) -> void:
+	if not bones.has(bn):
+		return
+	var b: Array = bones[bn]
+	var q: Quaternion = b[1]
+	var inv: Basis = b[2]
+	for tr in turns:
+		var ang: float = tr[1]
+		if absf(ang) > 0.0001:
+			q = q * Quaternion((inv * (tr[0] as Vector3)).normalized(), ang)
+	skel.set_bone_pose_rotation(b[0], q)
+
+func pose_rig(body: Node3D, swing: float, arm_up: float) -> void:
+	var skel: Skeleton3D = body.get_meta("skel")
+	var bones: Dictionary = body.get_meta("bones")
+	for side in ["L", "R"]:
+		var sx := -1.0 if side == "L" else 1.0
+		var leg := swing * 0.65 * sx
+		turn_bone(skel, bones, "thigh" + side, [[Vector3.RIGHT, lerpf(leg, -0.55, arm_up)]])
+		var knee := clampf(leg * 1.3, 0.0, 1.1) + absf(swing) * 0.15
+		turn_bone(skel, bones, "shin" + side, [[Vector3.RIGHT, lerpf(knee, 1.0, arm_up)]])
+		# A자로 벌린 팔을 몸 옆으로 내리고, 걸을 때 앞뒤로 흔들어요
+		var down := -sx * 0.62 * (1.0 - arm_up * 0.6)
+		turn_bone(skel, bones, "arm" + side, [[Vector3.BACK, down], [Vector3.RIGHT, lerpf(-swing * 0.6 * sx, -2.4, arm_up)]])
+		var elbow := -0.25 - absf(swing) * 0.35 - maxf(0.0, -swing * sx) * 0.25
+		turn_bone(skel, bones, "fore" + side, [[Vector3.RIGHT, lerpf(elbow, -0.2, arm_up)]])
+	turn_bone(skel, bones, "spine", [[Vector3.UP, swing * 0.08]])
+
 func make_person_model(parent: Node3D, kind: String, c: Color) -> Node3D:
+	if kind == "hero":
+		var rigged := make_rigged_model(parent, "hero")
+		if rigged != null:
+			(rigged.get_child(0) as Node3D).scale = Vector3.ONE * 1.1
+			(rigged.get_child(0) as Node3D).position.y = 0.1
+			return rigged
 	if not char_tried:
 		load_chars()
 	var key := kind
@@ -2631,6 +2694,9 @@ func make_person(parent: Node3D, kind: String, c: Color, solid: bool) -> Node3D:
 
 # 팔다리 흔들기. swing: -1~1 (걷는 박자), arm_up: 0~1 (팔 번쩍)
 func pose_person(body: Node3D, swing: float, arm_up: float) -> void:
+	if body.has_meta("skel"):
+		pose_rig(body, swing, arm_up)
+		return
 	if body.has_meta("model_parts"):
 		var nodes: Dictionary = body.get_meta("model_parts")
 		for side in ["L", "R"]:
@@ -2664,6 +2730,8 @@ func pose_person(body: Node3D, swing: float, arm_up: float) -> void:
 
 # 눈 깜빡이기
 func blink_person(body: Node3D, closed: bool) -> void:
+	if body.has_meta("skel"):
+		return
 	if body.has_meta("model_parts"):
 		var nodes: Dictionary = body.get_meta("model_parts")
 		if nodes.has("Eyes"):
@@ -2682,6 +2750,8 @@ func blink_person(body: Node3D, closed: bool) -> void:
 
 # 옷 색 바꾸기 (한복을 사 입을 때)
 func recolor_outfit(body: Node3D, c: Color) -> void:
+	if body.has_meta("skel"):
+		return
 	if body.has_meta("model_parts"):
 		var mat := toon_of(make_color(c))
 		for mi in (body.get_meta("model_parts") as Dictionary).values():
