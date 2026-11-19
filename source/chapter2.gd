@@ -293,6 +293,11 @@ func make_feast_village() -> void:
 	add_mcyl(gate, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
 	add_tag(gate, "1장 마을로 가는 길", 2.6)
+	# 북쪽 끝 이정표 (3장 바닷가로)
+	var gate3 := make_spot(on_ground(-6.0, -117.0), "gate", "ch3", "", true)
+	add_mcyl(gate3, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
+	add_mbox(gate3, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
+	add_tag(gate3, "3장 바닷가로 가는 길", 2.6)
 
 # ---------- 고개 셋 (숲과 바위) ----------
 
@@ -1334,6 +1339,14 @@ func on_action() -> void:
 			sfx("tap")
 			make_sky_rope()
 			start_rope()
+		"gate":
+			sfx("tap")
+			if t["id"] == "ch3":
+				ask("", "“이 길을 따라가면 별주부전 이야기”\n3장은 아직 만드는 중이에요. 만드는 중인 바닷가를 미리 걸어 볼까요?\n(2장 이야기는 저장돼요.)", ["미리 걸어 보기", "다음에 올게요"], func(i: int):
+					if i == 0:
+						go_to_chapter("ch3"))
+			else:
+				on_gate()
 		_:
 			super()
 
