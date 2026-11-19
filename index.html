@@ -18,6 +18,15 @@ body {
 	touch-action: none;
 }
 
+/* 두 손가락 조작(확대·회전)을 브라우저가 가로채지 않게 */
+html, body, #canvas {
+	touch-action: none;
+	overscroll-behavior: none;
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+}
+
 #canvas {
 	display: block;
 }
@@ -93,7 +102,19 @@ body {
 		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
 <link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
 
-	</head>
+	<script>
+// 손가락 두 개 이상이 닿으면 브라우저 기본 동작(확대, 밝기·볼륨 제스처 등)을 막고 게임에만 전달해요
+(function () {
+	var stop = function (e) { if (e.touches && e.touches.length > 1) { e.preventDefault(); } };
+	document.addEventListener('touchstart', stop, { passive: false, capture: true });
+	document.addEventListener('touchmove', stop, { passive: false, capture: true });
+	['gesturestart', 'gesturechange', 'gestureend'].forEach(function (n) {
+		document.addEventListener(n, function (e) { e.preventDefault(); }, { passive: false });
+	});
+	document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+})();
+</script>
+</head>
 	<body>
 		<canvas id="canvas">
 			Your browser does not support the canvas tag.
@@ -242,7 +263,7 @@ body {
 </script>
 <script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":49582176,"index.wasm":43699190},"focusCanvas":true,"gdextensionLibs":[]};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":49607472,"index.wasm":43699190},"focusCanvas":true,"gdextensionLibs":[]};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 

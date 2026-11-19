@@ -1282,7 +1282,7 @@ func on_action() -> void:
 # ---------- 미니게임 ----------
 
 func start_clam() -> void:
-	start_game("tap", {"world": true, "scene": "clam", "art": "world", "title": "갯벌 숨구멍이 뽀글뽀글!\n조개가 숨기 전에 눌러 캐요", "goal": 10, "interval": 0.8, "life": 1.7, "target": "조개", "center": "갯벌", "color": Color(0.85, 0.78, 0.66)}, clam_done)
+	start_game("mash", {"world": true, "scene": "clam", "art": "world", "title": "갯벌 숨구멍이 뽀글뽀글!\n조개가 깊이 숨기 전에 빠르게 연타해 캐요", "goal": 6, "taps": 9, "round_time": 2.6, "decay": 0.25, "lose_text": "쏙 숨었어요!", "unit": "조개"}, clam_done)
 
 func clam_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -1297,7 +1297,7 @@ func clam_done(ok: bool, _good: bool) -> void:
 	], func(): save_progress())
 
 func start_drum() -> void:
-	start_game("tap", {"world": true, "scene": "drum", "art": "world", "title": "둥둥! 용궁 잔치 북을 쳐요\n빛나는 자리를 북채로 눌러요", "goal": 12, "interval": 0.62, "life": 1.4, "target": "북", "center": "용궁 북", "color": Color(0.85, 0.25, 0.22)}, drum_done)
+	start_game("rhythm", {"world": true, "scene": "drum", "art": "world", "title": "둥둥! 용궁 잔치 북을 박자에 맞춰 톡!\n꽃게 집게(빨간 ✕)가 올 땐 멈춰요", "goal": 16, "bpm": 112, "bad_ratio": 0.18, "note": "둥", "bad_text": "앗, 꽃게 집게!", "unit": "북"}, drum_done)
 
 func drum_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -1338,7 +1338,7 @@ func scene_setup(scene: String) -> void:
 		"drum":
 			var d := Vector3(DRUM_POS.x, PALACE_Y + 0.25, DRUM_POS.z)
 			var stand := d + Vector3(-1.1, 0, 0.7)
-			world_game_begin(stand, d, d + Vector3(1.4, 1.9, 3.8), d + Vector3(-0.2, 1.2, 0))
+			world_game_begin(stand, d, d + Vector3(2.6, 2.4, 5.2), d + Vector3(-0.6, 1.1, 0))
 			hold_tool("stick")
 		"pearl":
 			var b := Vector3(BIGCLAM_POS.x, PALACE_Y + 0.25, BIGCLAM_POS.z)
@@ -1424,6 +1424,53 @@ func scene_target_miss(n: Node3D) -> void:
 			tw.tween_callback(n.queue_free)
 			return
 	super(n)
+
+# 새 미니게임의 3D 연출
+var clam_node: Node3D
+
+func cg_event(kind: String, info: Dictionary = {}) -> void:
+	match w.get("scene", ""):
+		"clam":
+			var c := on_ground(CLAM_POS.x, CLAM_POS.z)
+			if kind == "tap":
+				w["swing"] = 1.0
+				burst3d(c + Vector3(0.3, 0.15, 0), Color(0.42, 0.36, 0.3), 4)
+				if clam_node == null or not is_instance_valid(clam_node):
+					clam_node = blob_node([[Vector3.ZERO, Vector3(0.36, 0.16, 0.3), Color(0.85, 0.78, 0.66)], [Vector3(0, 0.07, 0), Vector3(0.3, 0.1, 0.26), Color(0.92, 0.86, 0.75)]])
+					clam_node.global_position = c + Vector3(0.3, -0.12, 0)
+				clam_node.global_position.y = minf(clam_node.global_position.y + 0.03, c.y + 0.12)
+			elif kind == "round":
+				w["swing"] = 1.0
+				cam_kick = 0.15
+				sfx("pop", 1.1)
+				burst3d(c + Vector3(0.3, 0.3, 0), Color(0.45, 0.38, 0.3), 14)
+				if clam_node != null and is_instance_valid(clam_node):
+					var cn := clam_node
+					clam_node = null
+					var tw := cn.create_tween()
+					tw.tween_property(cn, "global_position", cn.global_position + Vector3(-0.4, 1.4, 0.4), 0.3).set_ease(Tween.EASE_OUT)
+					tw.parallel().tween_property(cn, "rotation", Vector3(3, 2, 0), 0.3)
+					tw.tween_property(cn, "scale", Vector3.ONE * 0.01, 0.2)
+					tw.tween_callback(cn.queue_free)
+			elif kind == "escape":
+				if clam_node != null and is_instance_valid(clam_node):
+					clam_node.queue_free()
+					clam_node = null
+				burst3d(c + Vector3(0.3, 0.1, 0), Color(0.9, 0.95, 1.0), 10)
+		"drum":
+			var d := Vector3(DRUM_POS.x, PALACE_Y + 0.25, DRUM_POS.z)
+			if kind in ["perfect", "good"]:
+				w["swing"] = 1.0
+				cam_kick = 0.16 if kind == "perfect" else 0.08
+				sfx("drum", 0.85 if kind == "perfect" else 1.0)
+				burst3d(d + Vector3(0, 1.3, 0.5), Color(1, 0.85, 0.4), 16 if kind == "perfect" else 8)
+				var crab := npc("crab")
+				crab.create_tween().tween_property(crab, "position:y", crab.position.y + 0.3, 0.1).set_ease(Tween.EASE_OUT)
+				get_tree().create_timer(0.12).timeout.connect(func(): crab.position.y = PALACE_Y + 0.25)
+			elif kind == "bad":
+				w["swing"] = 1.0
+				flash(Color(1, 0.6, 0.5))
+				float_text("집게에 콕!", cam.unproject_position(d + Vector3(0.5, 1.8, 0.5)), Color(1, 0.6, 0.5), 1.3)
 
 func catch_item_node(bad: bool) -> Node3D:
 	if w.get("scene", "") != "pearl":

@@ -9,24 +9,24 @@ extends "res://core.gd"
 # 땅의 범위 (x: 왼쪽~오른쪽, z: 북쪽~남쪽)
 const C2_X0 := -50.0
 const C2_X1 := 50.0
-const C2_Z0 := -140.0
+const C2_Z0 := -84.0
 const C2_Z1 := 72.0
 const C2_STEP := 2.0
 
 const VILLAGE_C := Vector3(0, 0, 28)
-const COTTAGE_C := Vector3(6, 0, -108)
-const FIELD_C := Vector3(24, 0, -112)
+const COTTAGE_C := Vector3(6, 0, -62)
+const FIELD_C := Vector3(24, 0, -66)
 
 # 고개 셋: [능선 z, 고개(길이 넘는 낮은 곳) x, 높이]
-const RIDGES := [[-6.0, -10.0, 7.0], [-42.0, 12.0, 10.0], [-78.0, -8.0, 12.0]]
+const RIDGES := [[2.0, -10.0, 7.0], [-20.0, 12.0, 10.0], [-42.0, -8.0, 12.0]]
 
 # 길이 지나가는 점들 (마을 → 고개 셋 → 오두막 → 수수밭)
 const ROAD := [
-	Vector2(0, 54), Vector2(0, 40), Vector2(0, 28), Vector2(-3, 16), Vector2(-8, 4), Vector2(-10, -6),
-	Vector2(-7, -18), Vector2(2, -28), Vector2(10, -36), Vector2(12, -42), Vector2(9, -52), Vector2(1, -62),
-	Vector2(-6, -71), Vector2(-8, -78), Vector2(-5, -88), Vector2(0, -98), Vector2(5, -104),
+	Vector2(0, 54), Vector2(0, 40), Vector2(0, 28), Vector2(-3, 16), Vector2(-8, 8), Vector2(-10, 2),
+	Vector2(-7, -6), Vector2(2, -12), Vector2(10, -17), Vector2(12, -20.5), Vector2(9, -27), Vector2(1, -33),
+	Vector2(-6, -38.5), Vector2(-8, -42.5), Vector2(-5, -49), Vector2(0, -55), Vector2(5, -59),
 ]
-const FIELD_ROAD := [Vector2(5, -104), Vector2(12, -108), Vector2(18, -111)]
+const FIELD_ROAD := [Vector2(5, -59), Vector2(12, -62.5), Vector2(18, -64.5)]
 
 var height_noise := FastNoiseLite.new()
 var road_pts: PackedVector2Array
@@ -65,7 +65,7 @@ func build_chapter() -> void:
 	var r := RandomNumberGenerator.new()
 	r.seed = 5
 	make_clouds(r)
-	var mid := Vector3(0, 0, -42)
+	var mid := Vector3(0, 0, -20)
 	add_ridge_ring(150.0, 40.0, 14.0, 30.0, Color(0.28, 0.48, 0.24), Color(0.4, 0.58, 0.34), 31, mid)
 	add_ridge_ring(200.0, 50.0, 28.0, 56.0, Color(0.34, 0.48, 0.5), Color(0.46, 0.58, 0.64), 37, mid)
 
@@ -114,7 +114,7 @@ func height_at(x: float, z: float) -> float:
 	# 양옆과 남북 끝은 산으로 막혀 있어요
 	h += 22.0 * smoothstep(30.0, 46.0, absf(x))
 	h += 18.0 * smoothstep(58.0, 70.0, z)
-	h += 18.0 * smoothstep(-126.0, -138.0, z)
+	h += 18.0 * smoothstep(-72.0, -82.0, z)
 	# 잔잔한 굴곡
 	h += height_noise.get_noise_2d(x, z) * 1.2
 	# 마을과 오두막 마당은 평평하게
@@ -204,8 +204,8 @@ func make_terrain() -> void:
 	var none := Color(0, 0, 0, 0)
 	add_solid(Vector3(0, 10, 52), Vector3(100, 40, 1), none)
 	add_solid(Vector3(0, 10, C2_Z0 + 10), Vector3(100, 40, 1), none)
-	add_solid(Vector3(-36, 10, -42), Vector3(1, 40, 220), none)
-	add_solid(Vector3(36, 10, -42), Vector3(1, 40, 220), none)
+	add_solid(Vector3(-36, 10, -10), Vector3(1, 40, 160), none)
+	add_solid(Vector3(36, 10, -10), Vector3(1, 40, 160), none)
 
 func paint_ground_splat() -> void:
 	for i in road_pts.size() - 1:
@@ -294,7 +294,7 @@ func make_feast_village() -> void:
 	add_mbox(gate, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
 	add_tag(gate, "1장 마을로 가는 길", 2.6)
 	# 북쪽 끝 이정표 (3장 바닷가로)
-	var gate3 := make_spot(on_ground(-6.0, -117.0), "gate", "ch3", "", true)
+	var gate3 := make_spot(on_ground(-6.0, -71.0), "gate", "ch3", "", true)
 	add_mcyl(gate3, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate3, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
 	add_tag(gate3, "3장 바닷가로 가는 길", 2.6)
@@ -309,7 +309,7 @@ func make_passes() -> void:
 	while placed < 120 and tries < 4000:
 		tries += 1
 		var x := r.randf_range(-32, 32)
-		var z := r.randf_range(-96, 14)
+		var z := r.randf_range(-50, 14)
 		var p := Vector2(x, z)
 		if road_distance(p) < 4.5:
 			continue
@@ -328,7 +328,7 @@ func make_passes() -> void:
 		var dir := (road_pts[idx + 1] - a).normalized()
 		var side := Vector2(-dir.y, dir.x) * (r.randf_range(2.6, 5.0) * (1.0 if r.randf() < 0.5 else -1.0))
 		var p2 := a + side
-		if p2.y > 14.0 or p2.y < -96.0:
+		if p2.y > 14.0 or p2.y < -50.0:
 			continue
 		var sz := Vector3(r.randf_range(0.5, 1.4), r.randf_range(0.35, 0.8), r.randf_range(0.5, 1.2))
 		rocks.append([on_ground(p2.x, p2.y, sz.y * 0.3), sz, stone_color(r)])
@@ -444,7 +444,7 @@ func make_terrain_grass() -> void:
 	while items.size() < 2600 and tries < 9000:
 		tries += 1
 		var x := r.randf_range(-34, 34)
-		var z := r.randf_range(-124, 52)
+		var z := r.randf_range(-80, 52)
 		var p := Vector2(x, z)
 		if road_distance(p) < 1.4:
 			continue
@@ -488,8 +488,8 @@ const ANBAN_POS := Vector3(3.4, 0, 25.0)
 const GUEST_POS := {"guest1": Vector3(4.8, 0, 32.4), "guest2": Vector3(9.4, 0, 31.6), "guest3": Vector3(6.4, 0, 19.4)}
 const GUEST_NAME := {"guest1": "김 서방", "guest2": "새댁", "guest3": "윤 영감"}
 # 고개마다 호랑이가 나타나는 자리와, 그 일이 생기는 높이(z)
-const TIGER_SPOTS := [Vector3(-9.4, 0, -10.5), Vector3(11.4, 0, -46.5), Vector3(-7.2, 0, -82.5)]
-const TRIGGER_Z := [3.0, -35.0, -71.0]
+const TIGER_SPOTS := [Vector3(-9.6, 0, -1.5), Vector3(11.6, 0, -24.0), Vector3(-7.4, 0, -46.0)]
+const TRIGGER_Z := [7.0, -15.5, -38.5]
 
 var feast := {"pound": false, "tteok": false}
 var delivered: Array = []
@@ -695,9 +695,9 @@ func story_time(z: float) -> float:
 		return 1.0
 	var t := 0.0
 	if z < 14.0:
-		t = remap(z, 14.0, -50.0, 0.0, 0.68)
-	if z < -50.0:
-		t = remap(z, -50.0, -96.0, 0.68, 1.0)
+		t = remap(z, 14.0, -26.0, 0.0, 0.68)
+	if z < -26.0:
+		t = remap(z, -26.0, -55.0, 0.68, 1.0)
 	if quest < S_LEAVE:
 		t = minf(t, 0.12)
 	return clampf(t, 0.0, 1.0)
@@ -745,6 +745,7 @@ func update_quest_text() -> void:
 func update_story(delta: float) -> void:
 	update_mom(delta)
 	update_tiger(delta)
+	update_rocks(delta)
 	if is_busy() or event_lock:
 		return
 	var z := player.position.z
@@ -824,6 +825,80 @@ func pose_tiger(delta: float, speed: float) -> void:
 		if (mdl as Node3D).is_visible_in_tree():
 			mdl.set_meta("gait", [fposmod(tiger_phase, 1.0), tiger_amt, clampf((speed - 3.5) / 3.0, 0.0, 1.0)])
 			pose_person(mdl, 0.0, 0.0)
+
+# ---------- 고갯길: 위에서 굴러 내려오는 돌 (옆으로 피하거나 점프!) ----------
+var rolling: Array = []      # [노드, 길 점들, 지금 칸, 옆으로 비킨 정도]
+var rock_t := 2.0
+var rock_hits := 0
+
+func nearest_road_i(p: Vector3) -> int:
+	var best := 0
+	var bd := 1e9
+	for k in road_pts.size():
+		var d := road_pts[k].distance_squared_to(Vector2(p.x, p.z))
+		if d < bd:
+			bd = d
+			best = k
+	return best
+
+func update_rocks(delta: float) -> void:
+	var on := mom_follow and quest >= S_LEAVE and quest <= S_PASS3 and not event_lock and not is_busy() and player.position.z < 16.0
+	if on:
+		rock_t -= delta
+		if rock_t <= 0.0:
+			rock_t = rng.randf_range(1.6, 2.8)
+			var i0 := nearest_road_i(player.position)
+			if i0 + 10 < road_pts.size():
+				var n := blob_node([[Vector3.ZERO, Vector3(0.9, 0.8, 0.9), Color(0.55, 0.52, 0.48)], [Vector3(0.15, 0.15, 0.1), Vector3(0.5, 0.4, 0.5), Color(0.62, 0.6, 0.56)]], stone_blob_mat)
+				mg_nodes.erase(n)
+				var side := rng.randf_range(-1.3, 1.3)
+				rolling.append([n, i0 + 10, maxi(0, i0 - 8), side, 0.0])
+				var sp := road_pts[i0 + 10]
+				n.global_position = on_ground(sp.x, sp.y, 0.45)
+				pop3d(n, true)
+				sfx("crack", 0.55)
+	for r in rolling.duplicate():
+		var n: Node3D = r[0]
+		if not is_instance_valid(n):
+			rolling.erase(r)
+			continue
+		var idx: int = r[1]
+		var stop_i: int = r[2]
+		r[4] = float(r[4]) + delta
+		if idx <= stop_i or float(r[4]) > 8.0 or not on:
+			var tw := n.create_tween()
+			tw.tween_property(n, "scale", Vector3.ONE * 0.01, 0.25)
+			tw.tween_callback(n.queue_free)
+			rolling.erase(r)
+			continue
+		var tgt := road_pts[idx - 1]
+		var cur := Vector2(n.global_position.x, n.global_position.z)
+		var dirv := road_pts[idx - 1] - road_pts[idx]
+		var perp := Vector2(-dirv.y, dirv.x).normalized() * float(r[3])
+		tgt += perp
+		var step := 6.5 * delta
+		var to := tgt - cur
+		if to.length() <= step:
+			r[1] = idx - 1
+		var nv := cur + to.normalized() * minf(step, to.length())
+		n.global_position = on_ground(nv.x, nv.y, 0.45)
+		if to.length() > 0.01:
+			n.rotate(Vector3(to.y, 0, -to.x).normalized(), -step / 0.45)
+		# 부딪히면 아야!
+		var pd := Vector2(player.position.x - nv.x, player.position.z - nv.y).length()
+		var low := player.position.y - height_at(player.position.x, player.position.z) < 0.7
+		if pd < 1.0 and low:
+			rock_hits += 1
+			var back := Vector3(player.position.x - nv.x, 0, player.position.z - nv.y).normalized()
+			player.velocity = back * 6.0 + Vector3(0, 4.0, 0)
+			sfx("crack", 0.8)
+			shake(12)
+			hit_stop(0.05)
+			burst3d(player.position + Vector3(0, 1.0, 0), Color(0.75, 0.7, 0.6), 12)
+			float_text("아야!", cam.unproject_position(player.position + Vector3(0, 2.2, 0)), Color(1, 0.6, 0.5), 1.2)
+			if rock_hits % 2 == 1:
+				float_text("엄마: 얘야, 조심하렴! 돌이 굴러온다!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.3), Color(1, 0.95, 0.85), 1.0)
+			r[2] = idx
 
 # ---------- 말 걸기 ----------
 
@@ -940,7 +1015,7 @@ func talk_kids(id: String) -> void:
 # ---------- 잔치 일: 떡메치기, 떡 받기 ----------
 
 func start_pound() -> void:
-	start_game("tap", {"world": true, "scene": "pound", "art": "world", "title": "쿵덕쿵덕 떡메치기!\n반짝이는 자리를 떡메로 내리쳐요", "goal": 10, "interval": 0.8, "life": 1.8, "target": "떡", "center": "안반", "color": Color(0.96, 0.95, 0.9)}, pound_done)
+	start_game("rhythm", {"world": true, "scene": "pound", "art": "world", "title": "쿵덕쿵덕 떡메치기! 박자에 맞춰 톡!\n영감님이 떡을 뒤집을 땐(빨간 ✕) 멈춰요", "goal": 14, "bpm": 100, "bad_ratio": 0.2, "note": "쿵", "bad_text": "앗, 영감님 손!", "unit": "떡메"}, pound_done)
 
 func pound_done(ok: bool, good: bool) -> void:
 	if not ok:
@@ -1009,7 +1084,7 @@ func pass1_choice(i: int) -> void:
 		set_quest(S_PASS2))
 
 func start_paws() -> void:
-	start_game("tap", {"world": true, "scene": "paws", "art": "world", "title": "호랑이 앞발이 광주리로 쑥!\n앞발을 눌러 떡을 던져 주세요", "goal": 10, "interval": 0.85, "life": 1.8, "target": "앞발", "center": "광주리", "color": Color(0.96, 0.56, 0.18)}, paws_done)
+	start_game("swipe", {"world": true, "scene": "paws", "art": "world", "title": "호랑이 앞발이 광주리로 쑥!\n앞발 쪽으로 손가락을 휙 쳐내 막아요", "goal": 10, "tele": 0.85, "window": 0.55, "gap": 0.8, "feint_ratio": 0.22, "hit_text": "떡을 빼앗겼어요!", "unit": "막기"}, paws_done)
 
 func paws_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -1147,7 +1222,7 @@ func after_door() -> void:
 	set_quest(S_TREE)
 
 func start_climb() -> void:
-	start_game("tap", {"world": true, "scene": "climb", "art": "world", "title": "오누이가 나무에 올라요!\n반짝이는 가지를 눌러 붙잡게 해 주세요", "goal": 10, "interval": 0.8, "life": 1.9, "target": "가지", "center": "나무", "color": Color(0.5, 0.36, 0.22)}, climb_done)
+	start_game("alternate", {"world": true, "scene": "climb", "art": "world", "title": "오누이가 나무에 올라요! 가지 있는 쪽을 눌러요\n나무가 흔들리면 꾹 누르고 버텨요", "goal": 12, "step_time": 1.5, "shake_every": 4.5, "unit": "가지"}, climb_done)
 
 func climb_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -1205,7 +1280,7 @@ func make_sky_rope() -> void:
 	tw.tween_property(sky_rope, "position:y", height_at(tree_pos.x, tree_pos.z), 2.0).set_ease(Tween.EASE_OUT)
 
 func start_rope() -> void:
-	start_game("tap", {"world": true, "scene": "rope", "art": "world", "title": "하늘에서 동아줄이 내려왔어요!\n빛나는 매듭을 눌러 오누이가 붙잡게 해요", "goal": 8, "interval": 0.75, "life": 1.7, "target": "매듭", "center": "동아줄", "color": Color(1.0, 0.92, 0.6)}, rope_done)
+	start_game("mash", {"world": true, "scene": "rope", "art": "world", "title": "동아줄을 영차영차 당겨요! 빠르게 연타\n줄이 기울면 반대쪽을 눌러 균형을 잡아요", "goal": 10, "balance": true, "per": 3, "sway": 0.9, "unit": "당기기"}, rope_done)
 
 func rope_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -1565,9 +1640,72 @@ func scene_update(delta: float) -> void:
 				kid.position = kid.position.lerp(p, minf(1.0, delta * 6.0))
 		"rope":
 			var sw: float = w.get("swing", 0.0)
+			var tilt: float = cg.get("tilt", 0.0)
 			for k in ["oppa", "nui"]:
 				var kid := npc(k)
 				kid.rotation.y = sin(anim_t * 2.0) * 0.1 + sw * 0.2
+				kid.rotation.z = lerpf(kid.rotation.z, -tilt * 0.35, 0.2)
+			if sky_rope != null:
+				sky_rope.rotation.z = lerpf(sky_rope.rotation.z, -tilt * 0.06, 0.2)
+
+# 새 미니게임의 3D 연출
+func cg_event(kind: String, info: Dictionary = {}) -> void:
+	match w.get("scene", ""):
+		"pound":
+			if kind in ["perfect", "good"]:
+				w["swing"] = 1.0
+				cam_kick = 0.2 if kind == "perfect" else 0.1
+				sfx("land", 0.7 if kind == "perfect" else 0.85)
+				var at := ANBAN_POS + Vector3(rng.randf_range(-0.3, 0.3), 0.7, rng.randf_range(-0.12, 0.12))
+				burst3d(at, Color(1, 1, 0.97), 18 if kind == "perfect" else 9)
+				if anban_dough != null:
+					var sq := 0.62 if kind == "perfect" else 0.8
+					anban_dough.scale = Vector3(1.18, sq, 1.1)
+					anban_dough.create_tween().tween_property(anban_dough, "scale", Vector3.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			elif kind == "bad":
+				w["swing"] = 1.0
+				flash(Color(1, 0.6, 0.5))
+				float_text("아야야!", cam.unproject_position(ANBAN_POS + Vector3(0.6, 1.2, 0)), Color(1, 0.6, 0.5), 1.3)
+			elif kind == "whiff":
+				w["swing"] = 0.6
+		"paws":
+			var bk: Vector3 = w.get("basket", Vector3.ZERO)
+			if kind == "block":
+				w["swing"] = 1.0
+				cam_kick = 0.18
+				burst3d(bk + Vector3(0, 0.4, 0) + (w["fwd"] as Vector3) * 1.0, Color(1.0, 0.8, 0.4), 14)
+				var tw := tiger.create_tween()
+				tiger.scale = Vector3(1.08, 0.92, 1.08)
+				tw.tween_property(tiger, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_BACK)
+			elif kind == "hit":
+				var tk := blob_node([[Vector3.ZERO, Vector3(0.22, 0.13, 0.22), [Color(0.98, 0.97, 0.92), Color(0.45, 0.6, 0.32), Color(0.95, 0.78, 0.4)][rng.randi() % 3]]])
+				tk.global_position = bk + Vector3(0, 0.3, 0)
+				var tw2 := tk.create_tween()
+				tw2.tween_property(tk, "global_position", tiger.position + Vector3(0, 2.0, 0), 0.35).set_ease(Tween.EASE_OUT)
+				tw2.tween_callback(tk.queue_free)
+			elif kind in ["feint", "fooled"]:
+				float_text("히히, 속았지?", cam.unproject_position(tiger.position + Vector3(0, 3.2, 0)), Color(1, 0.8, 0.5), 1.2)
+		"climb":
+			if kind == "climb":
+				w["swing"] = 1.0
+				burst3d(tree_pos + Vector3(-0.4, 1.0 + float(mg_count) / 12.0 * 3.0, 0.4), Color(0.5, 0.7, 0.35), 8)
+			elif kind == "shake" or kind == "warn":
+				burst3d(tree_pos + Vector3(0, 4.5, 0), Color(0.4, 0.62, 0.3), 20)
+			elif kind == "slip":
+				for k in ["oppa", "nui"]:
+					var kid := npc(k)
+					kid.create_tween().tween_property(kid, "position:y", kid.position.y - 0.4, 0.15)
+		"rope":
+			if kind == "pull":
+				w["swing"] = 1.0
+				burst3d(tree_pos + Vector3(-0.3, 4.2, 0.3), Color(1, 0.92, 0.6), 8)
+				for k in ["oppa", "nui"]:
+					var kid := npc(k)
+					kid.position.y += 0.08
+			elif kind == "fall":
+				for k in ["oppa", "nui"]:
+					var kid2 := npc(k)
+					kid2.position.y -= 0.3
 
 func catch_item_node(bad: bool) -> Node3D:
 	if w.get("scene", "") != "tteok":

@@ -41,8 +41,19 @@ func game(name: String) -> void:
 		g += 1
 		await get_tree().process_frame
 	m.mg_lives = 99
-	print("GAME ", name, " active=", m.mg_active, " scene=", m.w.get("scene", ""))
-	await wait(2.4)
+	print("GAME ", name, " active=", m.mg_active, " type=", m.mg_type, " scene=", m.w.get("scene", ""))
+	for k in 14:
+		await wait(0.18)
+		var ev := InputEventScreenTouch.new()
+		ev.pressed = true
+		ev.position = Vector2(120 + (k % 2) * 300, 500)
+		m.on_mg_input(ev)
+		var ev2 := InputEventScreenTouch.new()
+		ev2.pressed = false
+		ev2.position = ev.position
+		m.on_mg_input(ev2)
+	m.mg_lives = 99
+	print("  count ", m.mg_count, " lives ", m.mg_lives)
 	await snap(name)
 	m.end_game(true)
 	await settle()
