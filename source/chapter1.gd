@@ -762,7 +762,10 @@ func bone_world(bn: String) -> Vector3:
 	if not player_body.has_meta("skel"):
 		return player.position + Vector3(0, 1.0, 0)
 	var skel: Skeleton3D = player_body.get_meta("skel")
-	var i := skel.find_bone(bn)
+	var bones: Dictionary = player_body.get_meta("bones")
+	if not bones.has(bn):
+		return player.position + Vector3(0, 1.0, 0)
+	var i: int = (bones[bn] as Array)[0]
 	return skel.global_transform * skel.get_bone_global_pose(i).origin
 
 # 도구는 손에 붙이고, 정해 준 방향(dir)으로 뻗게 해요
@@ -791,7 +794,8 @@ func pose_custom(arm_l: Vector3, arm_r: Vector3, lean: float, crouch: float) -> 
 		var sx := -1.0 if side == "L" else 1.0
 		var arm: Vector3 = arm_l if side == "L" else arm_r
 		var twist: Vector3 = (bones["arm" + side] as Array)[3] if bones.has("arm" + side) else Vector3.UP
-		turn_bone(skel, bones, "arm" + side, [[Vector3.RIGHT, arm.x], [Vector3.BACK, -sx * arm.y], [twist, sx * 0.9]])
+		var adj: float = player_body.get_meta("arm_adj", 0.0)
+		turn_bone(skel, bones, "arm" + side, [[Vector3.RIGHT, arm.x], [Vector3.BACK, -sx * (arm.y - adj)], [twist, sx * 0.9]])
 		turn_bone(skel, bones, "fore" + side, [[Vector3.RIGHT, arm.z]])
 		turn_bone(skel, bones, "thigh" + side, [[Vector3.RIGHT, -0.14 - crouch * 0.5]])
 		turn_bone(skel, bones, "shin" + side, [[Vector3.RIGHT, 0.26 + crouch]])

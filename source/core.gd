@@ -2974,6 +2974,14 @@ func toon_of(m: Material) -> Material:
 
 # Meshy로 만든 주인공: 뼈대(Skeleton3D)를 돌려서 걷고 뛰어요
 const RIG_BONES := ["hips", "spine", "head", "armL", "foreL", "handL", "armR", "foreR", "handR", "thighL", "shinL", "footL", "thighR", "shinR", "footR"]
+# Meshy 가 넣어 준 뼈대(믹사모 이름)를 우리 이름에 맞춰요. 우리 L 은 모델의 -x 쪽 = 믹사모의 Right 예요
+const MIXAMO_BONES := {
+	"hips": "mixamorig_Hips", "spine": "mixamorig_Spine1", "head": "mixamorig_Head",
+	"armL": "mixamorig_RightArm", "foreL": "mixamorig_RightForeArm", "handL": "mixamorig_RightHand",
+	"armR": "mixamorig_LeftArm", "foreR": "mixamorig_LeftForeArm", "handR": "mixamorig_LeftHand",
+	"thighL": "mixamorig_RightUpLeg", "shinL": "mixamorig_RightLeg", "footL": "mixamorig_RightFoot",
+	"thighR": "mixamorig_LeftUpLeg", "shinR": "mixamorig_LeftLeg", "footR": "mixamorig_LeftFoot",
+}
 
 func make_rigged_model(parent: Node3D, file: String) -> Node3D:
 	var path := "res://models/%s.glb" % file
@@ -2990,15 +2998,93 @@ func make_rigged_model(parent: Node3D, file: String) -> Node3D:
 		return null
 	var skel: Skeleton3D = found[0]
 	var bones := {}
+	var mixamo := skel.find_bone("mixamorig_Hips") >= 0
 	for bn in RIG_BONES:
-		var i := skel.find_bone(bn)
+		var i := skel.find_bone(MIXAMO_BONES[bn] if mixamo else bn)
 		if i >= 0:
 			bones[bn] = [i, skel.get_bone_rest(i).basis.get_rotation_quaternion(), skel.get_bone_global_rest(i).basis.orthonormalized().inverse(), skel.get_bone_global_rest(i).basis.y.normalized()]
 	for mi in inst.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	body.set_meta("skel", skel)
 	body.set_meta("bones", bones)
+	# Meshy 동작(걷기·뛰기)이 들어 있으면 틀 준비를 해요
+	var players := inst.find_children("*", "AnimationPlayer", true, false)
+	if not players.is_empty():
+		var ap: AnimationPlayer = players[0]
+		for an in ap.get_animation_list():
+			var a := ap.get_animation(an)
+			a.loop_mode = Animation.LOOP_LINEAR
+		ap.playback_default_blend_time = 0.25
+		body.set_meta("anim", ap)
 	return body
+
+# 가만히 서 있는 자세(코드로 만든 자세)를 동작 클립으로 만들어, 걷기와 부드럽게 섞이게 해요
+func make_idle_clip(body: Node3D) -> void:
+	if not body.has_meta("anim"):
+		return
+	var ap: AnimationPlayer = body.get_meta("anim")
+	var skel: Skeleton3D = body.get_meta("skel")
+	skel.reset_bone_poses()
+	body.set_meta("gait", [0.0, 0.0, 0.0])
+	pose_rig(body, 0.0, 0.0)
+	var root: Node = ap.get_node(ap.root_node)
+	var spath := str(root.get_path_to(skel))
+	var a := Animation.new()
+	a.length = 3.0
+	a.loop_mode = Animation.LOOP_LINEAR
+	var bones: Dictionary = body.get_meta("bones")
+	for bi in skel.get_bone_count():
+		var bname := skel.get_bone_name(bi)
+		if bname.contains("Hand") and not bname.ends_with("Hand"):
+			continue
+		var t := a.add_track(Animation.TYPE_ROTATION_3D)
+		a.track_set_path(t, NodePath(spath + ":" + bname))
+		var q := skel.get_bone_pose_rotation(bi)
+		a.rotation_track_insert_key(t, 0.0, q)
+		# 숨 쉬듯 가슴과 팔이 살짝 오르내려요
+		var breathe := Quaternion.IDENTITY
+		if bones.has("spine") and bi == (bones["spine"] as Array)[0]:
+			breathe = Quaternion(Vector3.RIGHT, -0.03)
+		a.rotation_track_insert_key(t, 1.5, q * breathe)
+		a.rotation_track_insert_key(t, 3.0, q)
+	var hip_i: int = (bones["hips"] as Array)[0]
+	var pt := a.add_track(Animation.TYPE_POSITION_3D)
+	a.track_set_path(pt, NodePath(spath + ":" + skel.get_bone_name(hip_i)))
+	a.position_track_insert_key(pt, 0.0, skel.get_bone_rest(hip_i).origin)
+	var lib: AnimationLibrary
+	if ap.has_animation_library(""):
+		lib = ap.get_animation_library("")
+	else:
+		lib = AnimationLibrary.new()
+		ap.add_animation_library("", lib)
+	lib.add_animation("Idle", a)
+	skel.reset_bone_poses()
+	ap.play("Idle")
+
+# 걷기·뛰기·서 있기를 동작 클립으로 틀어요. 동작 클립이 없거나 특별한 자세일 땐 false
+func drive_anim(body: Node3D, moving: float, run: float, speed_ratio: float) -> bool:
+	if not body.has_meta("anim"):
+		return false
+	var ap: AnimationPlayer = body.get_meta("anim")
+	var want := "Idle"
+	if moving > 0.35:
+		want = "Running" if run > 0.5 and ap.has_animation("Running") else "Walking"
+	if not ap.has_animation(want):
+		return false
+	if ap.current_animation != want or not ap.is_playing():
+		ap.play(want)
+	ap.speed_scale = 1.0 if want == "Idle" else clampf(speed_ratio, 0.6, 1.8)
+	body.set_meta("anim_on", true)
+	return true
+
+# 동작 클립을 멈추고 코드로 자세를 잡을 준비 (점프·미니게임)
+func stop_anim(body: Node3D) -> void:
+	if not body.has_meta("anim") or not body.get_meta("anim_on", false):
+		return
+	var ap: AnimationPlayer = body.get_meta("anim")
+	ap.stop()
+	(body.get_meta("skel") as Skeleton3D).reset_bone_poses()
+	body.set_meta("anim_on", false)
 
 # 뼈를 모델 기준 축으로 돌려요. turns = [[축, 각도], ...]
 func turn_bone(skel: Skeleton3D, bones: Dictionary, bn: String, turns: Array) -> void:
@@ -3080,7 +3166,8 @@ func pose_rig(body: Node3D, swing: float, arm_up: float) -> void:
 		var amp := lerpf(0.42, 0.5, run)
 		var arm_swing := -fwd * amp * lerpf(1.35, 1.1, run) * (1.0 if fwd > 0.0 else 0.6) - 0.06 - run * 0.08 * amt
 		var arm_down: float = body.get_meta("arm_down", 0.44)
-		var down := -sx * lerpf(lerpf(arm_down, arm_down + 0.08, run * amt), 0.25, a)
+		var arm_adj: float = body.get_meta("arm_adj", 0.0)
+		var down := -sx * (lerpf(lerpf(arm_down, arm_down + 0.08, run * amt), 0.25, a) - arm_adj)
 		var twist: Vector3 = (bones["arm" + side] as Array)[3] if bones.has("arm" + side) else Vector3.UP
 		turn_bone(skel, bones, "arm" + side, [[Vector3.RIGHT, lerpf(arm_swing, -0.35, a)], [Vector3.BACK, down], [twist, sx * 0.9]])
 		var elbow := lerpf(-0.3 - maxf(fwd, 0.0) * 0.5, -1.35 + maxf(fwd, 0.0) * 0.2, run * amt)
@@ -3099,6 +3186,7 @@ func gait_bob(phase: float, run: float) -> float:
 
 # 뼈대를 넣은 Meshy 인물 모델: 모델 크기, 팔을 얼마나 내리는지(A자 자세가 모델마다 달라요)
 const RIGGED_PEOPLE := {
+	"hero": {"scale": 1.27, "offset": -1.0, "arm_down": 0.44, "arm_adj": 0.31, "idle_clip": true},
 	"heungbu": {"scale": 1.25, "arm_down": 0.3},
 	"nolbu": {"scale": 1.0, "arm_down": 0.22},
 }
@@ -3109,10 +3197,13 @@ func make_person_model(parent: Node3D, kind: String, c: Color) -> Node3D:
 		var rb := make_rigged_model(parent, kind)
 		if rb != null:
 			(rb.get_child(0) as Node3D).scale = Vector3.ONE * float(rp["scale"])
-			(rb.get_child(0) as Node3D).position.y = float(rp["scale"]) - 1.0
+			(rb.get_child(0) as Node3D).position.y = float(rp.get("offset", float(rp["scale"]) - 1.0))
 			rb.set_meta("arm_down", rp["arm_down"])
+			rb.set_meta("arm_adj", rp.get("arm_adj", 0.0))
 			# 서 있는 사람: 걸음 없이 숨만 쉬어요
 			rb.set_meta("gait", [0.0, 0.0, 0.0])
+			if rp.get("idle_clip", false):
+				make_idle_clip(rb)
 			return rb
 	if kind == "hero":
 		var rigged := make_rigged_model(parent, "hero")
@@ -6473,10 +6564,16 @@ func _physics_process(delta: float) -> void:
 		limb_amt = lerpf(limb_amt, 0.0, 0.25)
 	arm_up_amt = lerpf(arm_up_amt, 0.0 if on_floor else 1.0, 0.3)
 	player_body.set_meta("gait", [fposmod(walk_phase / TAU, 1.0), limb_amt, gait_run])
-	if mg_active and mg_world:
-		world_pose(delta)
+	var cur_speed := Vector2(player.velocity.x, player.velocity.z).length()
+	if not (mg_active and mg_world) and on_floor and arm_up_amt < 0.15 and drive_anim(player_body, limb_amt, gait_run, cur_speed / lerpf(2.6, 6.5, gait_run)):
+		# 동작 클립이 몸의 오르내림까지 해 줘요
+		player_body.position.y = lerpf(player_body.position.y, 1.0, 0.3)
 	else:
-		pose_person(player_body, sin(walk_phase) * limb_amt, arm_up_amt)
+		stop_anim(player_body)
+		if mg_active and mg_world:
+			world_pose(delta)
+		else:
+			pose_person(player_body, sin(walk_phase) * limb_amt, arm_up_amt)
 	if dir.length() > 0.1 and on_floor:
 		player_body.rotation.x = lerpf(player_body.rotation.x, 0.04 if player_body.has_meta("skel") else 0.12, 0.2)
 	else:
