@@ -3016,6 +3016,8 @@ func make_rigged_model(parent: Node3D, file: String) -> Node3D:
 			a.loop_mode = Animation.LOOP_LINEAR
 		ap.playback_default_blend_time = 0.25
 		body.set_meta("anim", ap)
+		if file == "hero":
+			find_step_times(body)
 	return body
 
 # 가만히 서 있는 자세(코드로 만든 자세)를 동작 클립으로 만들어, 걷기와 부드럽게 섞이게 해요
@@ -3082,6 +3084,63 @@ func drive_anim(body: Node3D, moving: float, run: float, speed_ratio: float) -> 
 	ap.speed_scale = 1.0 if want == "Idle" else clampf(speed_ratio, 0.6, 1.8)
 	body.set_meta("anim_on", true)
 	return true
+
+# 걷기·뛰기 동작에서 발이 땅에 닿는 순간(0~1)을 미리 찾아 둬요. 발자국 소리를 그때 울려요
+func find_step_times(body: Node3D) -> void:
+	var ap: AnimationPlayer = body.get_meta("anim")
+	var skel: Skeleton3D = body.get_meta("skel")
+	var bones: Dictionary = body.get_meta("bones")
+	if not bones.has("footL") or not bones.has("footR"):
+		return
+	var out := {}
+	for clip in ["Walking", "Running"]:
+		if not ap.has_animation(clip):
+			continue
+		var length := ap.get_animation(clip).length
+		ap.play(clip)
+		var n := 48
+		var ys := {"footL": [], "footR": []}
+		for i in n:
+			ap.seek(length * i / n, true)
+			for f in ys:
+				var bi: int = (bones[f] as Array)[0]
+				(ys[f] as Array).append(skel.get_bone_global_pose(bi).origin.y)
+		var times := []
+		for f in ys:
+			var arr: Array = ys[f]
+			# 발이 가장 낮아지기 시작하는 때 = 땅을 딛는 순간
+			var lo: float = arr.min()
+			var hi: float = arr.max()
+			var th := lo + (hi - lo) * 0.12
+			for i in n:
+				var prev: float = arr[(i - 1 + n) % n]
+				if arr[i] <= th and prev > th:
+					times.append(float(i) / n)
+		out[clip] = times
+		ap.stop()
+	skel.reset_bone_poses()
+	body.set_meta("step_times", out)
+	body.set_meta("step_last", 0.0)
+
+func anim_footsteps(on_ground: bool) -> void:
+	if not player_body.has_meta("step_times"):
+		return
+	var ap: AnimationPlayer = player_body.get_meta("anim")
+	var st: Dictionary = player_body.get_meta("step_times")
+	var clip := String(ap.current_animation)
+	if not st.has(clip) or not on_ground:
+		player_body.set_meta("step_last", -1.0)
+		return
+	var length := ap.current_animation_length
+	var now := fposmod(ap.current_animation_position / maxf(length, 0.001), 1.0)
+	var last: float = player_body.get_meta("step_last", -1.0)
+	player_body.set_meta("step_last", now)
+	if last < 0.0:
+		return
+	for t in st[clip]:
+		var hit: bool = (last < now and t > last and t <= now) or (last > now and (t > last or t <= now))
+		if hit:
+			sfx("step", rng.randf_range(0.85, 1.15) * (1.08 if clip == "Running" else 1.0))
 
 # 동작 클립을 멈추고 코드로 자세를 잡을 준비 (점프·미니게임)
 func stop_anim(body: Node3D) -> void:
@@ -6923,7 +6982,9 @@ func _physics_process(delta: float) -> void:
 		var steps := int(walk_phase / PI)
 		if steps != step_count:
 			step_count = steps
-			sfx("step", rng.randf_range(0.85, 1.15))
+			# 동작 클립으로 걸을 땐 발이 땅에 닿는 순간에 맞춰 따로 울려요
+			if not player_body.get_meta("anim_on", false) or not player_body.has_meta("step_times"):
+				sfx("step", rng.randf_range(0.85, 1.15))
 	else:
 		player_body.position.y = lerpf(player_body.position.y, 1.0, 0.3)
 		limb_amt = lerpf(limb_amt, 0.0, 0.25)
@@ -6935,6 +6996,7 @@ func _physics_process(delta: float) -> void:
 	if not (mg_active and mg_world) and (on_floor or swimming) and arm_up_amt < 0.15 and drive_anim(player_body, limb_amt, gait_run, cur_speed / lerpf(2.6, 6.5, gait_run)):
 		# 동작 클립이 몸의 오르내림까지 해 줘요
 		player_body.position.y = lerpf(player_body.position.y, 1.0, 0.3)
+		anim_footsteps(on_floor and not swimming)
 	else:
 		stop_anim(player_body)
 		if mg_active and mg_world:
