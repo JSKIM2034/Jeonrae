@@ -316,7 +316,7 @@ func make_undersea() -> void:
 	r.seed = 77
 	# 산호 숲 (얕은 곳, 알록달록)
 	var coral := []
-	var coral_cols := [Color(1.0, 0.45, 0.5), Color(1.0, 0.65, 0.3), Color(0.75, 0.45, 0.95), Color(1.0, 0.85, 0.4), Color(0.4, 0.85, 0.85)]
+	var coral_cols := [Color(1.0, 0.52, 0.55), Color(1.0, 0.62, 0.58), Color(0.72, 0.58, 0.95), Color(1.0, 0.86, 0.35), Color(0.95, 0.6, 0.75)]
 	for i in 140:
 		var x := r.randf_range(-34, 34)
 		var z := r.randf_range(-46, -10)
@@ -324,12 +324,21 @@ func make_undersea() -> void:
 			continue
 		var base := on_ground(x, z)
 		var col: Color = coral_cols[r.randi() % coral_cols.size()]
-		var kind := r.randi() % 3
-		if kind == 0:
+		var kind := r.randi() % 4
+		if kind == 3:
+			# 노란 관 산호 (통통한 대롱 여러 개)
+			for k in 5:
+				var a2 := r.randf() * TAU
+				var rr2 := r.randf_range(0.0, 0.35)
+				coral.append([base + Vector3(cos(a2) * rr2, 0.3 + k * 0.05, sin(a2) * rr2), Vector3(0.22, 0.75, 0.22), Color(1.0, 0.85, 0.3).lerp(Color(1.0, 0.95, 0.55), r.randf())])
+		elif kind == 0:
 			# 가지 산호
-			for k in 4:
+			for k in 7:
 				var a := r.randf() * TAU
-				coral.append([base + Vector3(cos(a) * 0.2, 0.45 + k * 0.1, sin(a) * 0.2), Vector3(0.14, 0.9, 0.14), col, Vector3(r.randf_range(-25, 25), 0, r.randf_range(-25, 25))])
+				var tilt := r.randf_range(15, 40)
+				var hh := r.randf_range(0.7, 1.3)
+				coral.append([base + Vector3(cos(a) * 0.25, 0.35 + hh * 0.35, sin(a) * 0.25), Vector3(0.2, hh, 0.2), col, Vector3(sin(a) * tilt, 0, -cos(a) * tilt)])
+				coral.append([base + Vector3(cos(a) * (0.25 + hh * 0.3), 0.35 + hh * 0.7, sin(a) * (0.25 + hh * 0.3)), Vector3(0.24, 0.24, 0.24), col.lightened(0.12)])
 		elif kind == 1:
 			# 뇌산호 덩어리
 			coral.append([base + Vector3(0, 0.25, 0), Vector3(1.0, 0.6, 0.9) * r.randf_range(0.7, 1.4), col.darkened(0.15)])
@@ -347,6 +356,7 @@ func make_undersea() -> void:
 		var sz := Vector3(r.randf_range(1.0, 3.0), r.randf_range(0.6, 2.0), r.randf_range(1.0, 2.6))
 		rocks.append([on_ground(x2, z2, sz.y * 0.2), sz, stone_color(r).darkened(0.1)])
 	add_blobs(self, rocks, stone_blob_mat)
+	make_seabed()
 	make_kelp(r)
 	make_wreck()
 	make_fish_schools()
@@ -382,68 +392,123 @@ func make_undersea() -> void:
 
 var player_bubbles_pending := false
 
-# 해초: 길쭉한 띠가 물결 따라 하늘하늘
-func make_kelp(r: RandomNumberGenerator) -> void:
+# 바다 밑 모래: 물결빛이 일렁이는 모래 그림을 깔고, 반짝이는 빛 그물이 천천히 흘러요
+func make_seabed() -> void:
+	var z0 := C3_Z0 + 2.0
+	var z1 := SHORE_Z + 4.0
+	var step := 2.0
+	var nx := int((C3_X1 - C3_X0 - 8.0) / step) + 1
+	var nz := int((z1 - z0) / step) + 1
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for blade in 3:
-		var a := blade * TAU / 3.0
-		var off := Vector3(cos(a) * 0.15, 0, sin(a) * 0.15)
-		var side := Vector3(-sin(a), 0, cos(a)) * 0.16
-		var segs := 8
-		for k in segs:
-			var y0 := k * 0.7
-			var y1 := (k + 1) * 0.7
-			var w0 := 1.0 - 0.6 * k / segs
-			var w1 := 1.0 - 0.6 * (k + 1) / segs
-			var c0 := Color(0.25, 0.42, 0.18).lerp(Color(0.5, 0.62, 0.25), float(k) / segs)
-			var c1 := Color(0.25, 0.42, 0.18).lerp(Color(0.5, 0.62, 0.25), float(k + 1) / segs)
-			var pa := off + Vector3(0, y0, 0) - side * w0
-			var pb := off + Vector3(0, y0, 0) + side * w0
-			var pc := off + Vector3(0, y1, 0) + side * w1
-			var pd := off + Vector3(0, y1, 0) - side * w1
-			for v in [[pa, c0], [pb, c0], [pc, c1], [pa, c0], [pc, c1], [pd, c1]]:
-				st.set_color(v[1])
-				st.add_vertex(v[0])
+	for iz in nz - 1:
+		for ix in nx - 1:
+			var q := []
+			for c in [[ix, iz], [ix + 1, iz], [ix + 1, iz + 1], [ix, iz + 1]]:
+				var x: float = C3_X0 + 4.0 + c[0] * step
+				var z: float = z0 + c[1] * step
+				q.append(Vector3(x, height_at(x, z) + 0.04, z))
+			for idx in [0, 1, 2, 0, 2, 3]:
+				st.add_vertex(q[idx])
 	st.generate_normals()
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+uniform sampler2D tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform float shore_z = -6.0;
+varying vec3 wp;
+void vertex() { wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	vec2 uv = wp.xz / 7.0;
+	vec3 base = texture(tex, uv).rgb;
+	vec3 move = texture(tex, uv * 1.37 + vec2(TIME * 0.035, TIME * 0.022)).rgb;
+	float glint = max(dot(move, vec3(0.333)) - 0.86, 0.0) * 2.5;
+	float depth = clamp(-wp.y / 14.0, 0.0, 1.0);
+	vec3 col = base * 0.78 * mix(vec3(1.0), vec3(0.32, 0.38, 0.62), depth);
+	ALBEDO = col;
+	EMISSION = vec3(1.0, 0.97, 0.85) * glint * (1.0 - depth * 0.85);
+	ROUGHNESS = 0.95;
+	float edge = smoothstep(shore_z + 3.0, shore_z - 1.0, wp.z);
+	ALPHA = edge;
+	ALPHA_SCISSOR_THRESHOLD = 0.5;
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("tex", tex_or("sea_sand", null))
+	m.set_shader_parameter("shore_z", SHORE_Z)
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+
+# 해초: 그림(다시마 한 가닥)을 십자로 세운 판 두 장, 물결 따라 하늘하늘
+func make_kelp(r: RandomNumberGenerator) -> void:
+	var tex := tex_or("sea_kelp", null)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for card in 2:
+		var a := card * PI / 2.0 + 0.3
+		var side := Vector3(cos(a), 0, sin(a)) * 0.5
+		var segs := 6
+		for k in segs:
+			var y0 := float(k) / segs
+			var y1 := float(k + 1) / segs
+			var pa := Vector3(0, y0, 0) - side
+			var pb := Vector3(0, y0, 0) + side
+			var pc := Vector3(0, y1, 0) + side
+			var pd := Vector3(0, y1, 0) - side
+			for v in [[pa, Vector2(0, 1.0 - y0)], [pb, Vector2(1, 1.0 - y0)], [pc, Vector2(1, 1.0 - y1)], [pa, Vector2(0, 1.0 - y0)], [pc, Vector2(1, 1.0 - y1)], [pd, Vector2(0, 1.0 - y1)]]:
+				st.set_uv(v[1])
+				st.set_normal(Vector3(-side.z, 0.3, side.x).normalized())
+				st.add_vertex(v[0])
 	var mesh := st.commit()
 	var sh := Shader.new()
 	sh.code = """shader_type spatial;
-render_mode cull_disabled;
+render_mode cull_disabled, depth_prepass_alpha;
+uniform sampler2D tex : source_color, filter_linear_mipmap;
 void vertex() {
-	float h = max(VERTEX.y, 0.0);
+	float h = VERTEX.y;
 	float ph = MODEL_MATRIX[3].x * 0.7 + MODEL_MATRIX[3].z * 0.4;
-	VERTEX.x += sin(TIME * 0.9 + ph + h * 0.6) * 0.08 * h;
-	VERTEX.z += cos(TIME * 0.7 + ph + h * 0.5) * 0.06 * h;
+	VERTEX.x += sin(TIME * 0.9 + ph + h * 2.4) * 0.22 * h * h;
+	VERTEX.z += cos(TIME * 0.7 + ph + h * 2.0) * 0.16 * h * h;
 }
 void fragment() {
-	ALBEDO = COLOR.rgb;
-	ROUGHNESS = 0.9;
+	vec4 c = texture(tex, UV);
+	if (c.a < 0.45) { discard; }
+	ALBEDO = c.rgb * COLOR.rgb;
+	ROUGHNESS = 0.6;
+	BACKLIGHT = vec3(0.25, 0.35, 0.1);
 }
 """
 	var mat := ShaderMaterial.new()
 	mat.shader = sh
+	mat.set_shader_parameter("tex", tex)
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
 	mm.mesh = mesh
 	var xs := []
 	var tries := 0
-	while xs.size() < 260 and tries < 3000:
+	while xs.size() < 300 and tries < 4000:
 		tries += 1
 		var x := r.randf_range(-36, 36)
-		var z := r.randf_range(-68, -40)
+		var z := r.randf_range(-70, -38)
 		if absf(x) < 2.5:
 			continue
 		if Vector2(x - WRECK_C.x, z - WRECK_C.z).length() < 7.0:
 			continue
-		xs.append(Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(1, r.randf_range(0.7, 1.3), 1)), on_ground(x, z, -0.1)))
-	for i in 60:
+		var hgt := r.randf_range(3.5, 7.0)
+		xs.append([Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(hgt * 0.42, hgt, hgt * 0.42)), on_ground(x, z, -0.1)), Color(1, 1, 1).lerp(Color(0.75, 0.95, 0.6), r.randf())])
+	for i in 110:
 		var x2 := r.randf_range(-38, 38)
-		var z2 := r.randf_range(-96, -12)
-		xs.append(Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(0.8, r.randf_range(0.4, 0.8), 0.8)), on_ground(x2, z2, -0.1)))
+		var z2 := r.randf_range(-96, -10)
+		var h2 := r.randf_range(1.6, 3.2)
+		xs.append([Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(h2 * 0.42, h2, h2 * 0.42)), on_ground(x2, z2, -0.1)), Color(1, 1, 1).lerp(Color(0.85, 1.0, 0.7), r.randf())])
 	mm.instance_count = xs.size()
 	for i in xs.size():
-		mm.set_instance_transform(i, xs[i])
+		mm.set_instance_transform(i, xs[i][0])
+		mm.set_instance_color(i, xs[i][1])
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm
 	mi.material_override = mat
@@ -474,47 +539,49 @@ func make_wreck() -> void:
 			[Vector3(0, 0.26, 0.05), Vector3(0.2, 0.2, 0.2), Color(1.0, 0.98, 0.95)],
 		], blob_gloss())
 
-# 물고기 떼: 네 종류가 저마다 동그랗게 맴돌아요
+# 물고기 떼: 네 종류(그림 판)가 저마다 동그랗게 맴돌아요. 꼬리 쪽이 살랑살랑
 func make_fish_schools() -> void:
-	var body_mesh := SphereMesh.new()
-	body_mesh.radius = 0.5
-	body_mesh.height = 1.0
-	body_mesh.radial_segments = 10
-	body_mesh.rings = 5
-	var tail_mesh := PrismMesh.new()
-	tail_mesh.size = Vector3(1, 1, 0.1)
+	var quad := QuadMesh.new()
+	quad.size = Vector2(1.0, 0.75)
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+render_mode cull_disabled, depth_prepass_alpha;
+uniform sampler2D tex : source_color, filter_linear_mipmap;
+uniform float glow = 0.0;
+void vertex() {
+	float tail = clamp(0.55 - UV.x, 0.0, 1.0);
+	VERTEX.z += sin(TIME * 9.0 + float(INSTANCE_ID) * 1.7 - UV.x * 4.0) * 0.12 * tail;
+}
+void fragment() {
+	vec4 c = texture(tex, UV);
+	if (c.a < 0.5) { discard; }
+	ALBEDO = c.rgb;
+	EMISSION = c.rgb * glow;
+	ROUGHNESS = 0.45;
+}
+"""
 	for fk in FISH_KINDS.size():
 		var info: Dictionary = FISH_KINDS[fk]
 		var c: Vector3 = info["c"]
 		c.y = maxf(c.y, height_at(c.x, c.z) + 2.5)
-		var mats := []
-		for col in [info["col"], info["stripe"]]:
-			var m := StandardMaterial3D.new()
-			m.albedo_color = col
-			m.roughness = 0.4
-			if fk == 3:
-				m.emission_enabled = true
-				m.emission = col
-				m.emission_energy_multiplier = 1.4
-			mats.append(m)
-		var parts := []
-		for k in 2:
-			var mm := MultiMesh.new()
-			mm.transform_format = MultiMesh.TRANSFORM_3D
-			mm.mesh = body_mesh if k == 0 else tail_mesh
-			mm.instance_count = 10
-			var mi := MultiMeshInstance3D.new()
-			mi.multimesh = mm
-			mi.material_override = mats[k]
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			add_child(mi)
-			parts.append(mm)
-		schools.append([parts[0], parts[1], c, float(info["r"]), 0.35 + fk * 0.06, fk])
+		var m := ShaderMaterial.new()
+		m.shader = sh
+		m.set_shader_parameter("tex", tex_or("sea_fish%d" % fk, null))
+		m.set_shader_parameter("glow", 0.6 if fk == 3 else 0.0)
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = quad
+		mm.instance_count = 10
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
+		mi.material_override = m
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+		schools.append([mm, null, c, float(info["r"]), 0.35 + fk * 0.06, fk])
 
 func update_fish(t: float) -> void:
 	for sc in schools:
 		var bm: MultiMesh = sc[0]
-		var tm: MultiMesh = sc[1]
 		var c: Vector3 = sc[2]
 		var rad: float = sc[3]
 		var sp: float = sc[4]
@@ -524,11 +591,11 @@ func update_fish(t: float) -> void:
 			var rr := rad + sin(i * 2.1) * 0.9
 			var p := c + Vector3(cos(a) * rr, sin(a * 2.0 + i) * 0.6 + (i % 3) * 0.35, sin(a) * rr * 0.7)
 			var fwd := Vector3(-sin(a) * rr, 0, cos(a) * rr * 0.7).normalized()
-			var bas := Basis.looking_at(-fwd, Vector3.UP)
-			var wig := sin(t * 9.0 + i) * 0.35
-			bm.set_instance_transform(i, Transform3D(bas.scaled(Vector3(0.18, 0.28, 0.5)), p))
-			var tb := bas * Basis(Vector3.UP, wig) * Basis(Vector3.RIGHT, PI / 2.0)
-			tm.set_instance_transform(i, Transform3D(tb.scaled(Vector3(0.24, 0.24, 0.9)), p - fwd * 0.3))
+			# 그림 판의 오른쪽(+x)이 머리: 헤엄치는 쪽을 보게 돌려요
+			var side := fwd.cross(Vector3.UP).normalized()
+			var bas := Basis(fwd, Vector3.UP, side)
+			var sz := 0.9 + (i % 4) * 0.08
+			bm.set_instance_transform(i, Transform3D(bas.scaled(Vector3(sz, sz, sz)), p))
 		# 가까이 가면 도감에 올라요
 		if not fish_seen[fk] and player.position.distance_to(c) < rad + 3.5:
 			fish_seen[fk] = true
@@ -600,7 +667,7 @@ func update_jellies(t: float, delta: float) -> void:
 # 물 위에서 비쳐 드는 빛줄기
 func make_light_shafts(r: RandomNumberGenerator) -> void:
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.85, 0.97, 1.0, 0.07)
+	mat.albedo_color = Color(1.0, 0.95, 0.7, 0.09)
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -649,7 +716,7 @@ func make_palace() -> void:
 	var jade := make_color(Color(0.35, 0.72, 0.68))
 	var gold := glossy_mat(Color(0.95, 0.78, 0.3))
 	# 바닥 돌판
-	add_mbox(self, make_color(Color(0.78, 0.74, 0.68)), Vector3(26, 0.4, 30), Vector3(0, y + 0.05, -118))
+	add_mbox(self, make_color(Color(0.5, 0.58, 0.64)), Vector3(26, 0.4, 30), Vector3(0, y + 0.05, -118))
 	# 큰 전각
 	make_house(Vector3(0, y + 0.25, -123), Vector3(13, 5.5, 7), Color(0.95, 0.9, 0.82), Color(0.28, 0.55, 0.58), "tile")
 	for px in [-5.5, -2.0, 2.0, 5.5]:
@@ -875,7 +942,17 @@ func _process(delta: float) -> void:
 
 var shown_swim_tip := false
 
-# 카메라가 물속에 들어가면 푸른 안개로 바꿔요 (깊을수록 어둡게)
+# 카메라가 물속에 들어가면 바닷속 빛으로 바꿔요 (분위기 그림을 따라 구역마다 달라요)
+# [z, 안개 색, 안개 짙기, 주변 빛 색, 해 밝기]
+const SEA_ZONES := [
+	[-6.0, Color(0.32, 0.78, 0.82), 0.022, Color(0.75, 0.95, 0.95), 0.95],     # 얕은 산호 숲: 맑은 청록
+	[-40.0, Color(0.2, 0.6, 0.66), 0.026, Color(0.65, 0.9, 0.85), 0.8],
+	[-62.0, Color(0.1, 0.32, 0.5), 0.034, Color(0.45, 0.62, 0.85), 0.55],     # 해초 숲 끝: 짙은 바다빛
+	[-80.0, Color(0.07, 0.1, 0.32), 0.04, Color(0.55, 0.45, 0.95), 0.35],     # 깊은 골짜기: 남보랏빛
+	[-96.0, Color(0.08, 0.16, 0.38), 0.036, Color(0.55, 0.55, 0.95), 0.4],
+	[-104.0, Color(0.28, 0.7, 0.8), 0.024, Color(0.8, 0.95, 1.0), 0.85],      # 용궁: 밝은 물빛
+]
+
 func update_underwater_look() -> void:
 	if above_fog.is_empty() or cam == null:
 		return
@@ -883,18 +960,31 @@ func update_underwater_look() -> void:
 	var u := 0.0
 	if cp.z < SHORE_Z + 3.0 and cp.y < -0.05:
 		u = 1.0
-	var depth := clampf(-cp.y / 16.0, 0.0, 1.0) * u
-	var key := u + depth * 0.5
+	var key := u * 1000.0 + roundf(cp.z * 0.5)
 	if absf(key - under_amt) < 0.01:
 		return
 	under_amt = key
 	if u > 0.5:
-		env_ref.fog_density = lerpf(0.035, 0.05, depth)
-		env_ref.fog_light_color = Color(0.2, 0.55, 0.68).lerp(Color(0.05, 0.16, 0.3), depth)
+		var a: Array = SEA_ZONES[0]
+		var b: Array = SEA_ZONES[SEA_ZONES.size() - 1]
+		var k := 0.0
+		if cp.z >= float(SEA_ZONES[0][0]):
+			b = a
+		elif cp.z > float(b[0]):
+			for n in SEA_ZONES.size() - 1:
+				if cp.z <= float(SEA_ZONES[n][0]) and cp.z >= float(SEA_ZONES[n + 1][0]):
+					a = SEA_ZONES[n]
+					b = SEA_ZONES[n + 1]
+					k = (cp.z - float(a[0])) / (float(b[0]) - float(a[0]))
+					break
+		else:
+			a = b
+		env_ref.fog_light_color = (a[1] as Color).lerp(b[1], k)
+		env_ref.fog_density = lerpf(a[2], b[2], k)
 		env_ref.fog_sky_affect = 1.0
-		env_ref.ambient_light_color = Color(0.55, 0.85, 0.95).lerp(Color(0.35, 0.5, 0.8), depth)
-		sun_light.light_energy = lerpf(0.75, 0.35, depth)
-		sun_light.light_color = Color(0.75, 0.95, 1.0)
+		env_ref.ambient_light_color = (a[3] as Color).lerp(b[3], k)
+		sun_light.light_energy = lerpf(a[4], b[4], k)
+		sun_light.light_color = Color(1.0, 0.95, 0.8)
 	else:
 		env_ref.fog_density = above_fog[0]
 		env_ref.fog_light_color = above_fog[1]
