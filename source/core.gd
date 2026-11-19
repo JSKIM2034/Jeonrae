@@ -7297,11 +7297,17 @@ func on_turn() -> void:
 
 func on_jump() -> void:
 	jump_wanted = true
+	# 물속에서는 한 번 톡 눌러도 쑥 떠올라요 (꾹 누르면 계속 올라가요)
+	if swimming and player != null:
+		player.velocity.y = maxf(player.velocity.y, SWIM_UP * 1.15)
+		sfx("splash", 1.4)
 
 # ---------- 헤엄치기 (장마다 물속인지 알려 줘요) ----------
 const SWIM_UP := 3.2
 const SWIM_SINK := 0.9
 var swimming := false
+var cam_prev := Vector3.ZERO
+var cam_smooth_ok := false
 var jump_touch := -1
 var jump_mouse := false
 
@@ -7549,13 +7555,22 @@ func _physics_process(delta: float) -> void:
 			nk = nk * nk * (3.0 - 2.0 * nk)
 			offs = CAM_NEAR.lerp(CAM_OFFSET, nk)
 			look_y = lerpf(2.6, 1.3, nk)
+		if swimming:
+			# 물속: 뒤에서 낮게 따라가며 앞을 바라봐요 (물 위로 튀어나가지 않게)
+			offs = Vector3(0, 2.2, 7.0) * clampf(cam_zoom, 0.6, 1.4)
+			look_y = 0.6
 		cam.position = player.position + offs.rotated(Vector3.UP, cam_yaw)
 		var gh := cam_ground(cam.position.x, cam.position.z)
 		if cam.position.y < gh + 1.2:
 			cam.position.y = gh + 1.2
 		var ceil_y := cam_ceiling()
 		if cam.position.y > ceil_y:
-			cam.position.y = ceil_y
+			cam.position.y = maxf(ceil_y, gh + 0.5)
+		# 물속에서는 카메라가 부드럽게 따라와요 (출렁임 줄이기)
+		if swimming and cam_smooth_ok:
+			cam.position = cam_prev.lerp(cam.position, minf(1.0, delta * 6.0))
+		cam_prev = cam.position
+		cam_smooth_ok = true
 		cam.look_at(player.position + Vector3(0, look_y, 0))
 	if cam_kick > 0.01:
 		cam.position -= cam.global_transform.basis.z * cam_kick * 0.5

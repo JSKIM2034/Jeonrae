@@ -172,10 +172,29 @@ func splat_forest(_x: float, _z: float) -> float:
 # ---------- 바다 ----------
 
 func make_sea() -> void:
+	sea_uv_t = 0.0
 	var c := Vector3(0, 0, (SHORE_Z + C3_Z0) / 2.0)
 	var wd := C3_X1 - C3_X0
 	var dp := SHORE_Z - C3_Z0 + 4.0
-	add_mbox(self, water_material(2, Vector4(c.x, c.z, wd / 2.0, dp / 2.0), Color(0.08, 0.36, 0.55), Color(0.3, 0.68, 0.78), Vector2(0.0, 0.03), 0.9), Vector3(wd, 0.02, dp), c + Vector3(0, 0.05, 2.0))
+	sea_top = add_mbox(self, water_material(2, Vector4(c.x, c.z, wd / 2.0, dp / 2.0), Color(0.08, 0.36, 0.55), Color(0.3, 0.68, 0.78), Vector2(0.0, 0.03), 0.9), Vector3(wd, 0.02, dp), c + Vector3(0, 0.05, 2.0))
+	# 물속에서 올려다본 수면: 밝게 일렁이는 반투명 막
+	var under := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(wd, dp)
+	under.mesh = pm
+	under.rotation.x = PI
+	under.position = c + Vector3(0, 0.0, 2.0)
+	var um := StandardMaterial3D.new()
+	um.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	um.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	um.albedo_color = Color(0.75, 0.97, 1.0, 0.45)
+	um.albedo_texture = tex_or("sea_sand", null)
+	um.uv1_scale = Vector3(wd / 9.0, dp / 9.0, 1)
+	um.disable_fog = false
+	under.material_override = um
+	under.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(under)
+	sea_under = under
 
 
 # ======================================================================
@@ -199,7 +218,18 @@ const JARA_BEACH := Vector3(4, 0, -3.2)
 const HAENYEO_POS := Vector3(15, 0, 5)
 const CLAM_POS := Vector3(22, 0, -3.5)
 const GINSENG_POS := Vector3(-35, 0, 45)
-const RABBIT_SPOTS := [Vector3(-17, 0, 25), Vector3(-29, 0, 34), Vector3(-22, 0, 45), Vector3(-33, 0, 23)]
+# 토끼가 숨을 수 있는 덤불 자리 (할 때마다 이 중 넷을 골라 숨어요)
+const RABBIT_SPOTS := [Vector3(-17, 0, 25), Vector3(-29, 0, 34), Vector3(-22, 0, 45), Vector3(-33, 0, 23), Vector3(-12, 0, 40),
+	Vector3(-38, 0, 38), Vector3(-26, 0, 20), Vector3(14, 0, 40), Vector3(24, 0, 30), Vector3(30, 0, 44)]
+var rabbit_route: Array = []
+
+func pick_rabbit_route() -> void:
+	var idx := range(RABBIT_SPOTS.size())
+	idx.shuffle()
+	rabbit_route = []
+	for k in 4:
+		rabbit_route.append(RABBIT_SPOTS[idx[k]])
+	rabbit_hop = 0
 const GATE_Z := -101.0
 const YONGWANG_POS := Vector3(0, 0, -115.5)
 const OCTOPUS_POS := Vector3(-6, 0, -111)
@@ -217,6 +247,8 @@ var pearls := [false, false, false]
 var fish_seen := [false, false, false, false]
 var ending := ""
 var sea_wall: CollisionShape3D
+var sea_top: MeshInstance3D
+var sea_under: MeshInstance3D
 var above_fog: Array = []
 var under_amt := -1.0
 var rings: Array = []          # [노드, 지났는지]
@@ -237,6 +269,10 @@ var ink_t := 0.0
 var event_lock := false
 var swim_shown := false
 var gate_parts: Array = []     # 카메라가 지나갈 때 잠깐 숨겨요
+
+# 물살 고리: 산호 숲을 굽이굽이 지나 해초 숲 어귀까지
+const RING_PTS := [Vector3(2, -2.2, -12), Vector3(-6, -3.4, -19), Vector3(-12, -4.6, -26), Vector3(-7, -5.8, -33),
+	Vector3(3, -6.4, -39), Vector3(11, -7.0, -45), Vector3(7, -8.0, -52), Vector3(-2, -9.0, -59)]
 
 const FISH_KINDS := [
 	{"name": "줄돔", "col": Color(0.98, 0.85, 0.3), "stripe": Color(0.2, 0.2, 0.25), "c": Vector3(-9, -4.0, -20), "r": 4.5},
@@ -280,18 +316,17 @@ func make_shore_village() -> void:
 			continue
 		var near_spot := false
 		for sp in RABBIT_SPOTS:
-			if Vector2(p2.x - sp.x, p2.y - sp.z).length() < 3.0:
+			if Vector2(p2.x - sp.x, p2.y - sp.z).length() < 3.5:
 				near_spot = true
 		if near_spot:
 			continue
 		make_tree(on_ground(p2.x, p2.y, -0.1))
-	# 토끼가 숨는 덤불
-	var bushes := []
+	# 토끼가 숨는 덤불 (잎 그림을 엇갈려 꽂은 풍성한 덤불)
 	for sp in RABBIT_SPOTS:
-		for k in 4:
-			var a := k * TAU / 4.0 + 0.5
-			bushes.append([on_ground(sp.x + cos(a) * 1.4, sp.z + sin(a) * 1.2, 0.35), Vector3(1.3, 0.9, 1.2), Color(0.32, 0.55, 0.28).lerp(Color(0.45, 0.66, 0.32), r.randf())])
-	add_blobs(self, bushes)
+		for k in 3:
+			var a := k * TAU / 3.0 + r.randf_range(-0.4, 0.4)
+			var bp := on_ground(sp.x + cos(a) * 1.5, sp.z + sin(a) * 1.3)
+			make_leaf_bush(bp, Vector3(r.randf_range(1.5, 2.2), r.randf_range(1.0, 1.4), r.randf_range(1.4, 2.0)), Color(0.32, 0.55, 0.26).lerp(Color(0.42, 0.62, 0.3), r.randf()), int(sp.x * 13.0 + sp.z * 7.0) + k)
 	# 갯벌 (조개 캐기)
 	flat_ellipse(on_ground(CLAM_POS.x, CLAM_POS.z) + Vector3(0, 0.03, 0), 3.2, 2.2, 0.0, make_color(Color(0.42, 0.36, 0.3)))
 	make_spot(on_ground(CLAM_POS.x, CLAM_POS.z), "clam", "", "갯벌", true)
@@ -308,6 +343,17 @@ func make_shore_village() -> void:
 	add_mcyl(gate, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
 	add_tag(gate, "2장 고갯길로 가는 길", 2.6)
+
+func make_leaf_bush(pos: Vector3, size: Vector3, c: Color, seed_v: int) -> void:
+	if not tree_tried:
+		load_trees()
+	var r := RandomNumberGenerator.new()
+	r.seed = seed_v
+	var mi := MeshInstance3D.new()
+	mi.mesh = leaf_bush_mesh(size, c, int(maxf(size.x, size.z) * 7.0) + 6, r)
+	mi.material_override = leaf_mat
+	mi.position = pos + Vector3(0, size.y * 0.45, 0)
+	add_child(mi)
 
 # ---------- 바닷속 ----------
 
@@ -357,6 +403,7 @@ func make_undersea() -> void:
 		rocks.append([on_ground(x2, z2, sz.y * 0.2), sz, stone_color(r).darkened(0.1)])
 	add_blobs(self, rocks, stone_blob_mat)
 	make_seabed()
+	make_sea_decor(r)
 	make_kelp(r)
 	make_wreck()
 	make_fish_schools()
@@ -391,6 +438,58 @@ func make_undersea() -> void:
 	player_bubbles_pending = true
 
 var player_bubbles_pending := false
+
+# 바닷속 작은 꾸밈: 불가사리, 소라, 큰 진주조개, 바위 아치 (분위기 그림처럼)
+func make_sea_decor(r: RandomNumberGenerator) -> void:
+	var items := []
+	for i in 60:
+		var x := r.randf_range(-34, 34)
+		var z := r.randf_range(-130, -9)
+		var p := on_ground(x, z, 0.05)
+		if r.randf() < 0.5:
+			# 불가사리
+			var col := Color(1.0, 0.55, 0.3).lerp(Color(1.0, 0.75, 0.4), r.randf())
+			var yaw := r.randf() * 360.0
+			for k in 5:
+				var a := deg_to_rad(yaw + k * 72.0)
+				items.append([p + Vector3(cos(a) * 0.17, 0.03, sin(a) * 0.17), Vector3(0.12, 0.06, 0.34), col, Vector3(0, -rad_to_deg(a) + 90.0, 0)])
+			items.append([p + Vector3(0, 0.05, 0), Vector3(0.18, 0.08, 0.18), col.lightened(0.1)])
+		else:
+			# 소라 껍데기
+			var sc := Color(0.98, 0.94, 0.88).lerp(Color(0.95, 0.8, 0.85), r.randf())
+			for k in 3:
+				items.append([p + Vector3(0, 0.09 + k * 0.09, -k * 0.05), Vector3(0.3 - k * 0.08, 0.2 - k * 0.04, 0.36 - k * 0.09), sc, Vector3(-20, 0, 0)])
+	add_blobs(self, items, blob_gloss())
+	# 커다란 진주조개 (꾸밈)
+	var shine := StandardMaterial3D.new()
+	shine.albedo_color = Color(1.0, 0.97, 0.95)
+	shine.emission_enabled = true
+	shine.emission = Color(1.0, 0.9, 0.95)
+	shine.emission_energy_multiplier = 1.0
+	for cp in [Vector2(-8, -15), Vector2(13, -36), Vector2(-14, -112)]:
+		var c := on_ground(cp.x, cp.y)
+		add_blobs(self, [
+			[c + Vector3(0, 0.3, 0), Vector3(1.8, 0.45, 1.5), Color(0.98, 0.85, 0.85)],
+			[c + Vector3(0, 0.9, -0.5), Vector3(1.75, 0.3, 1.35), Color(0.95, 0.82, 0.9), Vector3(-50, 0, 0)],
+		], blob_gloss())
+		var pe := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.32
+		sm.height = 0.64
+		pe.mesh = sm
+		pe.material_override = shine
+		pe.position = c + Vector3(0, 0.75, 0.1)
+		add_child(pe)
+	# 바위 아치 (아래로 헤엄쳐 지나갈 수 있어요)
+	var ac := on_ground(-14, -30)
+	var arch := []
+	for k in 9:
+		var a := PI * k / 8.0
+		arch.append([ac + Vector3(cos(a) * 3.2, sin(a) * 3.4, 0), Vector3(1.8, 1.6, 1.8), Color(0.5, 0.55, 0.58).lerp(Color(0.42, 0.6, 0.45), (k % 3) * 0.3)])
+	add_blobs(self, arch, stone_blob_mat)
+	for k in [0, 8]:
+		var a2: float = PI * k / 8.0
+		add_solid(ac + Vector3(cos(a2) * 3.2, 1.0, 0), Vector3(1.6, 2.4, 1.6), Color(0, 0, 0, 0))
 
 # 바다 밑 모래: 물결빛이 일렁이는 모래 그림을 깔고, 반짝이는 빛 그물이 천천히 흘러요
 func make_seabed() -> void:
@@ -465,7 +564,7 @@ func make_kelp(r: RandomNumberGenerator) -> void:
 	var mesh := st.commit()
 	var sh := Shader.new()
 	sh.code = """shader_type spatial;
-render_mode cull_disabled, depth_prepass_alpha;
+render_mode cull_disabled;
 uniform sampler2D tex : source_color, filter_linear_mipmap;
 void vertex() {
 	float h = VERTEX.y;
@@ -490,7 +589,7 @@ void fragment() {
 	mm.mesh = mesh
 	var xs := []
 	var tries := 0
-	while xs.size() < 300 and tries < 4000:
+	while xs.size() < 190 and tries < 4000:
 		tries += 1
 		var x := r.randf_range(-36, 36)
 		var z := r.randf_range(-70, -38)
@@ -498,9 +597,15 @@ void fragment() {
 			continue
 		if Vector2(x - WRECK_C.x, z - WRECK_C.z).length() < 7.0:
 			continue
+		var near_ring := false
+		for rp in RING_PTS:
+			if Vector2(x - rp.x, z - rp.z).length() < 3.2:
+				near_ring = true
+		if near_ring:
+			continue
 		var hgt := r.randf_range(3.5, 7.0)
 		xs.append([Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(hgt * 0.42, hgt, hgt * 0.42)), on_ground(x, z, -0.1)), Color(1, 1, 1).lerp(Color(0.75, 0.95, 0.6), r.randf())])
-	for i in 110:
+	for i in 60:
 		var x2 := r.randf_range(-38, 38)
 		var z2 := r.randf_range(-96, -10)
 		var h2 := r.randf_range(1.6, 3.2)
@@ -545,7 +650,7 @@ func make_fish_schools() -> void:
 	quad.size = Vector2(1.0, 0.75)
 	var sh := Shader.new()
 	sh.code = """shader_type spatial;
-render_mode cull_disabled, depth_prepass_alpha;
+render_mode cull_disabled;
 uniform sampler2D tex : source_color, filter_linear_mipmap;
 uniform float glow = 0.0;
 void vertex() {
@@ -664,27 +769,50 @@ func update_jellies(t: float, delta: float) -> void:
 			flash(Color(0.85, 0.6, 1.0))
 			float_text("찌릿!", cam.unproject_position(body_c), Color(0.95, 0.7, 1.0), 1.0)
 
-# 물 위에서 비쳐 드는 빛줄기
+# 물 위에서 비쳐 드는 빛줄기: 가운데가 밝고 가장자리·아래로 갈수록 부드럽게 사라지는 판을 십자로
 func make_light_shafts(r: RandomNumberGenerator) -> void:
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1.0, 0.95, 0.7, 0.09)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.no_depth_test = false
-	for i in 16:
-		var x := r.randf_range(-24, 24)
-		var z := r.randf_range(-70, -10)
-		var h := -height_at(x, z)
-		var mi := add_mbox(self, mat, Vector3(r.randf_range(1.2, 2.6), h + 1.0, 0.02), Vector3(x, -h / 2.0, z))
-		mi.rotation = Vector3(0.0, r.randf() * PI, r.randf_range(0.18, 0.32))
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		shafts.append([mi, r.randf() * TAU])
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled;
+uniform float strength = 0.16;
+void fragment() {
+	float across = 1.0 - abs(UV.x * 2.0 - 1.0);
+	across = across * across * (3.0 - 2.0 * across);
+	float down = pow(1.0 - UV.y, 1.6) * smoothstep(0.0, 0.06, UV.y);
+	float shimmer = 0.75 + 0.25 * sin(TIME * 1.3 + NODE_POSITION_WORLD.x * 0.7 + UV.y * 3.0);
+	ALBEDO = vec3(1.0, 0.95, 0.75);
+	ALPHA = across * down * shimmer * strength;
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	for i in 18:
+		var x := r.randf_range(-26, 26)
+		var z := r.randf_range(-74, -10)
+		if z < -60.0:
+			z = r.randf_range(-118, -100)
+		var floor_y := height_at(x, z)
+		var h := -floor_y + 0.5
+		var root := Node3D.new()
+		root.position = Vector3(x, 0.2, z)
+		root.rotation = Vector3(r.randf_range(0.18, 0.3), r.randf() * PI, 0)
+		add_child(root)
+		var w := r.randf_range(1.6, 3.2)
+		for q in 2:
+			var mi := MeshInstance3D.new()
+			var qm := QuadMesh.new()
+			qm.size = Vector2(w, h)
+			qm.center_offset = Vector3(0, -h / 2.0, 0)
+			mi.mesh = qm
+			mi.material_override = mat
+			mi.rotation.y = q * PI / 2.0
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			root.add_child(mi)
+		shafts.append([root, r.randf() * TAU])
 
 # 자라를 따라가는 물살 고리
 func make_rings() -> void:
-	var pts := [Vector3(1.5, -2.0, -12), Vector3(-3, -3.2, -18), Vector3(3, -4.4, -24), Vector3(-2, -5.4, -30), Vector3(1, -6.0, -36)]
+	var pts := RING_PTS
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(1.0, 0.9, 0.4)
 	mat.emission_enabled = true
@@ -718,7 +846,42 @@ func make_palace() -> void:
 	# 바닥 돌판
 	add_mbox(self, make_color(Color(0.5, 0.58, 0.64)), Vector3(26, 0.4, 30), Vector3(0, y + 0.05, -118))
 	# 큰 전각
-	make_house(Vector3(0, y + 0.25, -123), Vector3(13, 5.5, 7), Color(0.95, 0.9, 0.82), Color(0.28, 0.55, 0.58), "tile")
+	make_house(Vector3(0, y + 0.25, -123), Vector3(13, 5.5, 7), Color(0.96, 0.9, 0.8), Color(0.2, 0.34, 0.7), "tile")
+	# 양옆 작은 전각
+	for sx in [-1.0, 1.0]:
+		make_house(Vector3(sx * 11.5, y + 0.25, -124), Vector3(6, 3.6, 4.4), Color(0.96, 0.9, 0.8), Color(0.2, 0.34, 0.7), "tile")
+	# 전각 앞 하얀 돌계단
+	var stone := make_color(Color(0.88, 0.9, 0.9))
+	for k in 4:
+		add_mbox(self, stone, Vector3(7.0 - k * 0.4, 0.25, 0.6), Vector3(0, y + 0.37 + k * 0.25, -117.6 - k * 0.55))
+	# 둘레 하얀 돌난간 (기둥마다 작은 진주)
+	var rail := []
+	var pearl_tops := []
+	for side in [-1.0, 1.0]:
+		var zz := -104.0
+		while zz > -131.0:
+			rail.append([Vector3(side * 12.6, y + 0.75, zz), Vector3(0.32, 1.1, 0.32), Color(0.9, 0.92, 0.92)])
+			pearl_tops.append(Vector3(side * 12.6, y + 1.42, zz))
+			zz -= 2.2
+		add_mbox(self, stone, Vector3(0.18, 0.16, 27.0), Vector3(side * 12.6, y + 1.05, -117.5))
+	for xx in [-11.0, -8.8, -6.6, -4.4, 4.4, 6.6, 8.8, 11.0]:
+		rail.append([Vector3(xx, y + 0.75, -103.4), Vector3(0.32, 1.1, 0.32), Color(0.9, 0.92, 0.92)])
+		pearl_tops.append(Vector3(xx, y + 1.42, -103.4))
+	add_blobs(self, rail)
+	var shine := StandardMaterial3D.new()
+	shine.albedo_color = Color(1.0, 0.97, 0.92)
+	shine.emission_enabled = true
+	shine.emission = Color(1.0, 0.92, 0.8)
+	shine.emission_energy_multiplier = 0.8
+	var small := SphereMesh.new()
+	small.radius = 0.16
+	small.height = 0.32
+	for pt in pearl_tops:
+		var o := MeshInstance3D.new()
+		o.mesh = small
+		o.material_override = shine
+		o.position = pt
+		add_child(o)
 	for px in [-5.5, -2.0, 2.0, 5.5]:
 		add_mcyl(self, red, 0.28, 0.3, 4.6, Vector3(px, y + 2.5, -119.2))
 	# 용궁 문 (붉은 기둥 두 개와 지붕)
@@ -734,18 +897,24 @@ func make_palace() -> void:
 	pearl.emission_enabled = true
 	pearl.emission = Color(1.0, 0.92, 0.75)
 	pearl.emission_energy_multiplier = 2.0
-	for k in 6:
-		var lx := -9.0 + (k % 2) * 18.0
-		var lz := -104.0 - (k / 2) * 7.0
-		add_mcyl(self, gold, 0.08, 0.1, 2.4, Vector3(lx, y + 1.2, lz))
+	# 길 양옆 진주 등불: 하얀 돌기둥 위 조개껍데기에 커다란 진주
+	var shell_items := []
+	for k in 8:
+		var lx := -3.6 + (k % 2) * 7.2
+		var lz := -105.0 - (k / 2) * 3.4
+		add_mbox(self, stone, Vector3(0.6, 1.3, 0.6), Vector3(lx, y + 0.85, lz))
+		for f in 5:
+			var fa := -1.0 + f * 0.5
+			shell_items.append([Vector3(lx + sin(fa) * 0.28, y + 1.62, lz - 0.1 + cos(fa) * 0.05), Vector3(0.22, 0.08, 0.5), Color(1.0, 0.82, 0.7), Vector3(-25, rad_to_deg(fa), 0)])
 		var orb := MeshInstance3D.new()
 		var sm := SphereMesh.new()
-		sm.radius = 0.4
-		sm.height = 0.8
+		sm.radius = 0.36
+		sm.height = 0.72
 		orb.mesh = sm
 		orb.material_override = pearl
-		orb.position = Vector3(lx, y + 2.7, lz)
+		orb.position = Vector3(lx, y + 1.95, lz)
 		add_child(orb)
+	add_blobs(self, shell_items, blob_gloss())
 	var lamp := OmniLight3D.new()
 	lamp.light_color = Color(0.9, 0.95, 1.0)
 	lamp.light_energy = 2.5
@@ -786,7 +955,8 @@ func add_tag_at(pos: Vector3, text: String) -> void:
 func make_story() -> void:
 	make_npc("jara", "자라", Color.WHITE, on_ground(JARA_BEACH.x, JARA_BEACH.z), 1.0, false)
 	make_npc("haenyeo", "해녀", Color.WHITE, on_ground(HAENYEO_POS.x, HAENYEO_POS.z), 1.0, true)
-	make_npc("rabbit", "토끼", Color.WHITE, on_ground(RABBIT_SPOTS[0].x, RABBIT_SPOTS[0].z), 0.85, false)
+	pick_rabbit_route()
+	make_npc("rabbit", "토끼", Color.WHITE, on_ground(rabbit_route[0].x, rabbit_route[0].z), 0.85, false)
 	make_npc("flatfish", "넙치 문지기", Color.WHITE, Vector3(FLATFISH_POS.x, PALACE_Y + 0.25, FLATFISH_POS.z), 1.0, true)
 	make_npc("yongwang", "용왕", Color.WHITE, Vector3(YONGWANG_POS.x, PALACE_Y + 0.25, YONGWANG_POS.z), 1.0, true)
 	make_npc("octopus", "문어 장군", Color.WHITE, Vector3(OCTOPUS_POS.x, PALACE_Y + 0.25, OCTOPUS_POS.z), 1.0, false)
@@ -812,7 +982,8 @@ func apply_story_state() -> void:
 			(rg[0] as Node3D).visible = true
 	follow_on = quest >= S_LURE and quest <= S_ESCAPE and quest != S_COURT and quest != S_FEAST
 	if quest == S_FIND:
-		rabbit.position = on_ground(RABBIT_SPOTS[rabbit_hop].x, RABBIT_SPOTS[rabbit_hop].z)
+		var rp0: Vector3 = rabbit_route[rabbit_hop]
+		rabbit.position = on_ground(rp0.x, rp0.z)
 	if follow_on:
 		jara.position = player.position + Vector3(1.6, 0, 1.4)
 		rabbit.position = player.position + Vector3(-1.6, 0, 1.4)
@@ -865,7 +1036,9 @@ func update_quest_text() -> void:
 func is_swimming() -> bool:
 	if player == null or quest < S_DIVE:
 		return false
-	return player.position.z < SHORE_Z + 1.0 and height_at(player.position.x, player.position.z) < -1.0
+	# 물가에서 걷기/헤엄치기가 번갈아 깜빡이지 않게, 나올 때는 더 얕아져야 걸어요
+	var limit := -0.6 if swimming else -1.0
+	return player.position.z < SHORE_Z + 1.0 and height_at(player.position.x, player.position.z) < limit
 
 func swim_ceiling() -> float:
 	return -1.1
@@ -922,8 +1095,10 @@ func _process(delta: float) -> void:
 	update_fish(t)
 	update_jellies(t, delta)
 	for sh in shafts:
-		(sh[0] as MeshInstance3D).transparency = 0.0
-		(sh[0] as Node3D).rotation.y += delta * 0.02
+		(sh[0] as Node3D).rotation.y += delta * 0.015
+	if sea_under != null and sea_under.visible:
+		sea_uv_t += delta
+		(sea_under.material_override as StandardMaterial3D).uv1_offset = Vector3(sea_uv_t * 0.01, sea_uv_t * 0.007, 0)
 	update_underwater_look()
 	if cam != null and not gate_parts.is_empty():
 		var near_gate := absf(cam.global_position.z - GATE_Z) < 2.6 and absf(cam.global_position.x) < 5.5
@@ -941,6 +1116,7 @@ func _process(delta: float) -> void:
 	update_story(delta)
 
 var shown_swim_tip := false
+var sea_uv_t := 0.0
 
 # 카메라가 물속에 들어가면 바닷속 빛으로 바꿔요 (분위기 그림을 따라 구역마다 달라요)
 # [z, 안개 색, 안개 짙기, 주변 빛 색, 해 밝기]
@@ -964,6 +1140,8 @@ func update_underwater_look() -> void:
 	if absf(key - under_amt) < 0.01:
 		return
 	under_amt = key
+	if sea_top != null:
+		sea_top.visible = u < 0.5
 	if u > 0.5:
 		var a: Array = SEA_ZONES[0]
 		var b: Array = SEA_ZONES[SEA_ZONES.size() - 1]
@@ -1059,10 +1237,10 @@ func update_rabbit_hide() -> void:
 		return
 	var rabbit := npc("rabbit")
 	var d := Vector2(player.position.x - rabbit.position.x, player.position.z - rabbit.position.z).length()
-	if d < 5.5 and rabbit_hop < RABBIT_SPOTS.size() - 1:
+	if d < 5.5 and rabbit_hop < rabbit_route.size() - 1:
 		rabbit_hop += 1
 		rabbit_busy = true
-		var to: Vector3 = RABBIT_SPOTS[rabbit_hop]
+		var to: Vector3 = rabbit_route[rabbit_hop]
 		var dest := on_ground(to.x, to.z)
 		rabbit.rotation.y = atan2(dest.x - rabbit.position.x, dest.z - rabbit.position.z)
 		sfx("jump", 1.3)
@@ -1130,8 +1308,9 @@ func talk_jara() -> void:
 				["자라", "(자라가 둘둘 만 그림을 펼쳐 보였다. 귀가 길쭉한 하얀 짐승이다.)"],
 				["자라", "그런데 내 다리가 짧아 뒷산까지 오르기가 힘들구려. 토끼를 좀 찾아 주겠소?"],
 			], func():
-				rabbit_hop = 0
-				npc("rabbit").position = on_ground(RABBIT_SPOTS[0].x, RABBIT_SPOTS[0].z)
+				pick_rabbit_route()
+				var rp: Vector3 = rabbit_route[0]
+				npc("rabbit").position = on_ground(rp.x, rp.z)
 				set_quest(S_FIND))
 		S_FIND:
 			say([["자라", "토끼는 뒷산 숲 덤불 사이에 산다 하오. 귀가 쫑긋하니 금방 알아볼 게요."]], Callable())
@@ -1163,7 +1342,7 @@ func start_dive() -> void:
 
 func talk_rabbit() -> void:
 	if quest == S_FIND:
-		if rabbit_hop < RABBIT_SPOTS.size() - 1:
+		if rabbit_hop < rabbit_route.size() - 1:
 			say([["토끼", "메롱~ 나 잡아 봐라!"]], Callable())
 			return
 		say([
@@ -1682,7 +1861,7 @@ func shore_ending() -> void:
 	l.append(["자라", "아아... 이를 어쩐단 말이오. 용왕님 뵐 낯이 없구려..."])
 	say(l, func():
 		var tw := rabbit.create_tween()
-		var dest := on_ground(RABBIT_SPOTS[2].x, RABBIT_SPOTS[2].z)
+		var dest := on_ground(RABBIT_SPOTS[1].x, RABBIT_SPOTS[1].z)
 		tw.tween_property(rabbit, "position", dest, 2.5)
 		tw.tween_callback(func(): rabbit.visible = false)
 		if has_ginseng:

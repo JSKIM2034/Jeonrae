@@ -76,7 +76,7 @@ func run() -> void:
 	m.talk_to("jara"); await settle()
 	print("Q find ", m.quest)
 	for k in 4:
-		var sp: Vector3 = m.RABBIT_SPOTS[k]
+		var sp: Vector3 = m.rabbit_route[k]
 		await go(m.on_ground(sp.x + 3.0, sp.z + 3.0, 0.3))
 		await wait(2.0)
 	await snap("rabbit")
@@ -96,13 +96,14 @@ func run() -> void:
 		await go((rg[0] as Node3D).position + Vector3(0, -0.7, 0))
 	await settle()
 	print("Q deep ", m.quest, " swimming ", m.swimming)
-	await go(Vector3(-4, -4, -18)); await wait(1.0); await snap("reef")
+	await go(Vector3(-4, -2, -14)); await wait(1.5); await snap("reef")
 	await go(Vector3(2, -7, -52)); await wait(1.0); await snap("kelp")
 	for i in 3:
 		var sp2: Vector3 = m.WRECK_C + [Vector3(2.4, 0, 2.2), Vector3(-2.6, 0, -1.4), Vector3(0.8, 0, -4.6)][i]
 		await act_at(m.on_ground(sp2.x + 0.6, sp2.z + 0.6, 0.6))
 	print("pearls ", m.pearls)
 	await go(Vector3(0, -9, -80)); await wait(1.0); await snap("valley")
+	await go(Vector3(0, m.PALACE_Y + 3.0, -100)); await wait(1.5); await snap("palace2")
 	await go(Vector3(0, m.PALACE_Y + 1.0, -97)); await wait(0.5); await settle()
 	print("Q gate ", m.quest)
 	m.talk_to("flatfish"); await settle()
