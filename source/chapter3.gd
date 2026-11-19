@@ -52,7 +52,8 @@ func build_chapter() -> void:
 	var r := RandomNumberGenerator.new()
 	r.seed = 7
 	make_clouds(r)
-	add_ridge_ring(170.0, 40.0, 10.0, 26.0, Color(0.3, 0.5, 0.28), Color(0.42, 0.6, 0.36), 41, Vector3(0, 0, 10))
+	# 먼 산은 뭍(남쪽) 뒤로만: 바다 쪽 수평선은 탁 트이게
+	add_ridge_ring(170.0, 40.0, 10.0, 26.0, Color(0.3, 0.5, 0.28), Color(0.42, 0.6, 0.36), 41, Vector3(0, 0, 10), Vector2(-0.15, PI + 0.15))
 
 func after_ui() -> void:
 	player.position = Vector3(0, height_at(0, 46) + 0.2, 46)
@@ -87,6 +88,8 @@ func height_at(x: float, z: float) -> float:
 		h = remap(clampf(z, SHORE_Z, 14.0), SHORE_Z, 14.0, 0.0, 1.0)
 		h += smoothstep(14.0, 40.0, z) * 0.8
 		h += height_noise.get_noise_2d(x, z) * 0.6 * smoothstep(10.0, 20.0, z)
+		# 양옆은 완만한 언덕 (뭍에서만)
+		h += 12.0 * smoothstep(30.0, 58.0, absf(x)) * smoothstep(SHORE_Z + 2.0, SHORE_Z + 18.0, z)
 	else:
 		# 바다 밑: 물가에서 깊어져 산호 숲(-8 m) → 골짜기(-14 m) → 용궁 터(-11 m)
 		var d := SHORE_Z - z
@@ -96,10 +99,13 @@ func height_at(x: float, z: float) -> float:
 		# 용궁 터는 평평한 너른 바닥
 		var pal := (1.0 - smoothstep(16.0, 24.0, absf(x))) * smoothstep(-94.0, -100.0, z) * smoothstep(-142.0, -136.0, z)
 		h = lerpf(h, PALACE_Y, pal)
-	# 양옆은 바위 절벽, 남쪽 끝은 뒷산
-	h += 26.0 * smoothstep(40.0, 56.0, absf(x))
-	h += 18.0 * smoothstep(48.0, 58.0, z)
-	h += 30.0 * smoothstep(-136.0, -148.0, z)
+	# 남쪽 끝은 뒷산 (완만하게)
+	h += 12.0 * smoothstep(44.0, 62.0, z)
+	if z <= SHORE_Z:
+		# 바다 양옆은 물속 바위 언덕 (수면 위로는 안 솟아요 → 탁 트인 바다)
+		var ridge := 7.0 * smoothstep(34.0, 58.0, absf(x))
+		var cap := -1.5 * smoothstep(SHORE_Z, SHORE_Z - 10.0, z)
+		h = maxf(h, minf(h + ridge, cap))
 	return h
 
 func on_ground(x: float, z: float, lift: float = 0.0) -> Vector3:
@@ -149,6 +155,7 @@ func make_terrain() -> void:
 	add_solid(Vector3(0, 10, 54), Vector3(120, 40, 1), none)
 	add_solid(Vector3(-44, 10, -40), Vector3(1, 40, 220), none)
 	add_solid(Vector3(44, 10, -40), Vector3(1, 40, 220), none)
+	add_solid(Vector3(0, 0, -142), Vector3(120, 60, 1), none)
 	# 바닷속은 아직 만드는 중: 물가에서 막아 둬요
 	sea_wall = add_solid(Vector3(0, 5, SHORE_Z - 3.0), Vector3(90, 20, 1), none)
 
@@ -173,9 +180,10 @@ func splat_forest(_x: float, _z: float) -> float:
 
 func make_sea() -> void:
 	sea_uv_t = 0.0
-	var c := Vector3(0, 0, (SHORE_Z + C3_Z0) / 2.0)
-	var wd := C3_X1 - C3_X0
-	var dp := SHORE_Z - C3_Z0 + 4.0
+	# 수면은 수평선까지 넓게
+	var wd := 900.0
+	var dp := 700.0
+	var c := Vector3(0, 0, SHORE_Z - dp / 2.0)
 	sea_top = add_mbox(self, water_material(2, Vector4(c.x, c.z, wd / 2.0, dp / 2.0), Color(0.08, 0.36, 0.55), Color(0.3, 0.68, 0.78), Vector2(0.0, 0.03), 0.9), Vector3(wd, 0.02, dp), c + Vector3(0, 0.05, 2.0))
 	# 물속에서 올려다본 수면: 밝게 일렁이는 반투명 막
 	var under := MeshInstance3D.new()
@@ -222,6 +230,13 @@ const GINSENG_POS := Vector3(-35, 0, 45)
 const RABBIT_SPOTS := [Vector3(-17, 0, 25), Vector3(-29, 0, 34), Vector3(-22, 0, 45), Vector3(-33, 0, 23), Vector3(-12, 0, 40),
 	Vector3(-38, 0, 38), Vector3(-26, 0, 20), Vector3(14, 0, 40), Vector3(24, 0, 30), Vector3(30, 0, 44)]
 var rabbit_route: Array = []
+var tree_spots: Array = []
+var rabbit_stam := 1.0
+var rabbit_rest := 0.0
+var rabbit_phase := 0.0
+var rabbit_caught := false
+var rabbit_taunt := 0.0
+var rabbit_dir := Vector3.FORWARD
 
 func pick_rabbit_route() -> void:
 	var idx := range(RABBIT_SPOTS.size())
@@ -321,6 +336,7 @@ func make_shore_village() -> void:
 		if near_spot:
 			continue
 		make_tree(on_ground(p2.x, p2.y, -0.1))
+		tree_spots.append(Vector2(p2.x, p2.y))
 	# 토끼가 숨는 덤불 (잎 그림을 엇갈려 꽂은 풍성한 덤불)
 	for sp in RABBIT_SPOTS:
 		for k in 3:
@@ -360,38 +376,15 @@ func make_leaf_bush(pos: Vector3, size: Vector3, c: Color, seed_v: int) -> void:
 func make_undersea() -> void:
 	var r := RandomNumberGenerator.new()
 	r.seed = 77
-	# 산호 숲 (얕은 곳, 알록달록)
-	var coral := []
-	var coral_cols := [Color(1.0, 0.52, 0.55), Color(1.0, 0.62, 0.58), Color(0.72, 0.58, 0.95), Color(1.0, 0.86, 0.35), Color(0.95, 0.6, 0.75)]
-	for i in 140:
+	# 산호 숲 (얕은 곳, 알록달록): 가지 산호, 관 산호, 부채 산호를 한 덩어리 메시로
+	var spots := []
+	for i in 150:
 		var x := r.randf_range(-34, 34)
-		var z := r.randf_range(-46, -10)
+		var z := r.randf_range(-48, -10)
 		if absf(x) < 3.0 and z > -40.0:
 			continue
-		var base := on_ground(x, z)
-		var col: Color = coral_cols[r.randi() % coral_cols.size()]
-		var kind := r.randi() % 4
-		if kind == 3:
-			# 노란 관 산호 (통통한 대롱 여러 개)
-			for k in 5:
-				var a2 := r.randf() * TAU
-				var rr2 := r.randf_range(0.0, 0.35)
-				coral.append([base + Vector3(cos(a2) * rr2, 0.3 + k * 0.05, sin(a2) * rr2), Vector3(0.22, 0.75, 0.22), Color(1.0, 0.85, 0.3).lerp(Color(1.0, 0.95, 0.55), r.randf())])
-		elif kind == 0:
-			# 가지 산호
-			for k in 7:
-				var a := r.randf() * TAU
-				var tilt := r.randf_range(15, 40)
-				var hh := r.randf_range(0.7, 1.3)
-				coral.append([base + Vector3(cos(a) * 0.25, 0.35 + hh * 0.35, sin(a) * 0.25), Vector3(0.2, hh, 0.2), col, Vector3(sin(a) * tilt, 0, -cos(a) * tilt)])
-				coral.append([base + Vector3(cos(a) * (0.25 + hh * 0.3), 0.35 + hh * 0.7, sin(a) * (0.25 + hh * 0.3)), Vector3(0.24, 0.24, 0.24), col.lightened(0.12)])
-		elif kind == 1:
-			# 뇌산호 덩어리
-			coral.append([base + Vector3(0, 0.25, 0), Vector3(1.0, 0.6, 0.9) * r.randf_range(0.7, 1.4), col.darkened(0.15)])
-		else:
-			# 부채 산호
-			coral.append([base + Vector3(0, 0.6, 0), Vector3(1.2, 1.1, 0.08), col, Vector3(0, r.randf() * 180.0, 0)])
-	add_blobs(self, coral, blob_gloss())
+		spots.append(on_ground(x, z, -0.05))
+	add_coral_field(spots, r)
 	# 바닷속 바위
 	var rocks := []
 	for i in 70:
@@ -438,6 +431,98 @@ func make_undersea() -> void:
 	player_bubbles_pending = true
 
 var player_bubbles_pending := false
+
+# ---------- 산호 만들기 (둥근 덩어리 대신 진짜 가지·대롱 모양) ----------
+const CORAL_COLS := [Color(1.0, 0.5, 0.55), Color(1.0, 0.62, 0.55), Color(0.7, 0.55, 0.95), Color(0.95, 0.55, 0.78), Color(1.0, 0.7, 0.45)]
+
+func coral_tube(st: SurfaceTool, a: Vector3, b: Vector3, r0: float, r1: float, c0: Color, c1: Color, sides: int = 6) -> void:
+	var axis := (b - a).normalized()
+	var ref := Vector3.UP if absf(axis.y) < 0.9 else Vector3.RIGHT
+	var u := axis.cross(ref).normalized()
+	var v := axis.cross(u)
+	for k in sides:
+		var a0 := TAU * k / sides
+		var a1 := TAU * (k + 1) / sides
+		var d0 := u * cos(a0) + v * sin(a0)
+		var d1 := u * cos(a1) + v * sin(a1)
+		var vs := [[a + d0 * r0, d0, c0], [b + d0 * r1, d0, c1], [b + d1 * r1, d1, c1], [a + d0 * r0, d0, c0], [b + d1 * r1, d1, c1], [a + d1 * r0, d1, c0]]
+		for vv in vs:
+			st.set_normal(vv[1])
+			st.set_color(vv[2])
+			st.add_vertex(vv[0])
+
+func coral_bulb(st: SurfaceTool, p: Vector3, dir: Vector3, r: float, c: Color) -> void:
+	coral_tube(st, p, p + dir * r * 0.7, r * 0.9, r * 1.05, c, c.lightened(0.1))
+	coral_tube(st, p + dir * r * 0.7, p + dir * r * 1.4, r * 1.05, r * 0.05, c.lightened(0.1), c.lightened(0.25))
+
+func coral_branch(st: SurfaceTool, r: RandomNumberGenerator, p: Vector3, dir: Vector3, length: float, rad: float, depth: int, c: Color) -> void:
+	var mid := p + dir * length * 0.5 + Vector3(r.randf_range(-1, 1), 0, r.randf_range(-1, 1)) * length * 0.08
+	var e := p + dir * length
+	coral_tube(st, p, mid, rad, rad * 0.9, c.darkened(0.12), c.darkened(0.05))
+	coral_tube(st, mid, e, rad * 0.9, rad * 0.8, c.darkened(0.05), c)
+	if depth <= 0:
+		coral_bulb(st, e, dir, rad * 0.95, c)
+		return
+	var n := 2 if r.randf() < 0.7 else 3
+	for k in n:
+		var side := Vector3(r.randf_range(-1, 1), 0, r.randf_range(-1, 1)).normalized()
+		var nd := (dir + side * r.randf_range(0.45, 0.8) + Vector3(0, 0.35, 0)).normalized()
+		coral_branch(st, r, e, nd, length * r.randf_range(0.62, 0.78), rad * 0.78, depth - 1, c)
+
+func coral_tubes(st: SurfaceTool, r: RandomNumberGenerator, base: Vector3) -> void:
+	var c := Color(1.0, 0.84, 0.3).lerp(Color(1.0, 0.94, 0.55), r.randf())
+	for k in r.randi_range(4, 7):
+		var a := r.randf() * TAU
+		var off := Vector3(cos(a), 0, sin(a)) * r.randf_range(0.0, 0.32)
+		var h := r.randf_range(0.35, 0.95)
+		var rad := r.randf_range(0.09, 0.14)
+		var tilt := Vector3(off.x, 1.0, off.z).normalized()
+		var top := base + off + tilt * h
+		coral_tube(st, base + off, top, rad * 0.85, rad, c.darkened(0.15), c)
+		# 위가 뻥 뚫린 대롱: 두툼한 테두리와 어두운 안쪽
+		coral_tube(st, top, top + tilt * 0.03, rad, rad * 0.72, c.lightened(0.15), c.lightened(0.1))
+		coral_tube(st, top + tilt * 0.03, top - tilt * h * 0.5, rad * 0.72, rad * 0.65, c.darkened(0.45), c.darkened(0.6))
+
+func coral_fan(st: SurfaceTool, r: RandomNumberGenerator, base: Vector3, c: Color) -> void:
+	var yaw := r.randf() * TAU
+	var right := Vector3(cos(yaw), 0, sin(yaw))
+	var stems := [[base, Vector3.UP, 0.5, 0.05, 3]]
+	while not stems.is_empty():
+		var sdat: Array = stems.pop_back()
+		var p: Vector3 = sdat[0]
+		var d: Vector3 = sdat[1]
+		var e: Vector3 = p + d * float(sdat[2])
+		coral_tube(st, p, e, sdat[3], float(sdat[3]) * 0.85, c.darkened(0.08), c, 5)
+		if int(sdat[4]) > 0:
+			for sgn in [-1.0, 1.0]:
+				var nd: Vector3 = (d + right * float(sgn) * r.randf_range(0.35, 0.7)).normalized()
+				stems.append([e, nd, float(sdat[2]) * 0.78, float(sdat[3]) * 0.8, int(sdat[4]) - 1])
+		else:
+			coral_bulb(st, e, d, float(sdat[3]) * 1.2, c)
+
+func add_coral_field(spots: Array, r: RandomNumberGenerator) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for base in spots:
+		var c: Color = CORAL_COLS[r.randi() % CORAL_COLS.size()]
+		var kind := r.randi() % 3
+		if kind == 0:
+			for k in r.randi_range(3, 5):
+				var d := (Vector3(r.randf_range(-0.5, 0.5), 1.0, r.randf_range(-0.5, 0.5))).normalized()
+				coral_branch(st, r, base, d, r.randf_range(0.4, 0.6), r.randf_range(0.07, 0.1), 2, c)
+		elif kind == 1:
+			coral_tubes(st, r, base)
+		else:
+			coral_fan(st, r, base, c)
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.roughness = 0.5
+	m.rim_enabled = true
+	m.rim = 0.25
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = m
+	add_child(mi)
 
 # 바닷속 작은 꾸밈: 불가사리, 소라, 큰 진주조개, 바위 아치 (분위기 그림처럼)
 func make_sea_decor(r: RandomNumberGenerator) -> void:
@@ -924,13 +1009,13 @@ func make_palace() -> void:
 	# 둘레 산호와 커다란 조개
 	var r := RandomNumberGenerator.new()
 	r.seed = 88
-	var coral := []
-	for i in 50:
+	var cspots := []
+	for i in 46:
 		var a := r.randf() * TAU
-		var rr := r.randf_range(13.0, 17.0)
+		var rr := r.randf_range(14.0, 18.0)
 		var p := Vector3(cos(a) * rr, 0, -116 + sin(a) * rr * 1.1)
-		coral.append([on_ground(p.x, p.z, 0.5), Vector3(0.9, 1.4, 0.9) * r.randf_range(0.6, 1.4), Color(1.0, 0.5, 0.55).lerp(Color(0.6, 0.45, 1.0), r.randf())])
-	add_blobs(self, coral, blob_gloss())
+		cspots.append(on_ground(p.x, p.z, -0.05))
+	add_coral_field(cspots, r)
 	# 북 (꽃게와 북 치기)
 	var drum := make_spot(Vector3(DRUM_POS.x, y, DRUM_POS.z), "drum", "", "용궁 북", true)
 	add_mcyl(drum, red, 0.65, 0.65, 0.9, Vector3(0, 1.3, 0)).rotation.x = PI / 2.0
@@ -1009,7 +1094,7 @@ func update_quest_text() -> void:
 		S_ARRIVE:
 			t = "모래사장 바위에 지쳐 있는 자라에게 말 걸기"
 		S_FIND:
-			t = "뒷산 숲에서 토끼 찾기 (덤불 사이로 숨어요)"
+			t = "뒷산 숲에서 토끼를 쫓아가 잡기! (바짝 붙거나 점프해서 덮쳐요)"
 		S_LURE:
 			t = "토끼를 데리고 바닷가 자라에게 가기"
 		S_DIVE:
@@ -1224,7 +1309,7 @@ func update_story(delta: float) -> void:
 		return
 	match quest:
 		S_FIND:
-			update_rabbit_hide()
+			update_rabbit_chase(delta)
 		S_DIVE:
 			update_rings()
 		S_DEEP:
@@ -1240,28 +1325,92 @@ func update_story(delta: float) -> void:
 		S_ESCAPE:
 			update_chase(delta)
 
-# 토끼 숨바꼭질: 가까이 가면 다음 덤불로 깡충깡충
-func update_rabbit_hide() -> void:
-	if rabbit_busy:
+# 토끼 잡기: 다가가면 깡충깡충 지그재그로 도망쳐요. 오래 뛰면 지쳐서 느려지고 숨을 골라요.
+# 바짝 붙거나, 점프해서 덮치면 잡혀요!
+const RABBIT_BOX := Rect2(-42, 16, 76, 34)
+
+func update_rabbit_chase(delta: float) -> void:
+	if rabbit_caught:
 		return
 	var rabbit := npc("rabbit")
-	var d := Vector2(player.position.x - rabbit.position.x, player.position.z - rabbit.position.z).length()
-	if d < 5.5 and rabbit_hop < rabbit_route.size() - 1:
-		rabbit_hop += 1
-		rabbit_busy = true
-		var to: Vector3 = rabbit_route[rabbit_hop]
-		var dest := on_ground(to.x, to.z)
-		rabbit.rotation.y = atan2(dest.x - rabbit.position.x, dest.z - rabbit.position.z)
-		sfx("jump", 1.3)
-		float_text("깡충!", cam.unproject_position(rabbit.position + Vector3(0, 2, 0)), Color(1, 1, 0.9), 1.0)
-		var tw := rabbit.create_tween()
-		var steps := 4
-		for k in steps:
-			var p := rabbit.position.lerp(dest, float(k + 1) / steps)
-			p.y = height_at(p.x, p.z)
-			tw.tween_property(rabbit, "position", p + Vector3(0, 1.2, 0), 0.18).set_ease(Tween.EASE_OUT)
-			tw.tween_property(rabbit, "position", p, 0.16).set_ease(Tween.EASE_IN)
-		tw.tween_callback(func(): rabbit_busy = false)
+	var body := body_of(rabbit)
+	var to_r := rabbit.position - player.position
+	to_r.y = 0.0
+	var d := to_r.length()
+	var airborne := not player.is_on_floor()
+	if d < (2.3 if airborne else 1.5):
+		rabbit_caught = true
+		sfx("win")
+		hit_stop(0.1)
+		shake(12)
+		burst3d(rabbit.position + Vector3(0, 1.0, 0), Color(1, 1, 0.95), 24)
+		float_text("잡았다!" if not airborne else "덮쳤다! 잡았다!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.9, 0.4), 1.8)
+		rabbit.rotation.y = atan2(-to_r.x, -to_r.z)
+		if body != null:
+			body.set_meta("gait", [0.0, 0.0, 0.0])
+		get_tree().create_timer(0.6).timeout.connect(on_rabbit_caught)
+		return
+	var speed := 0.0
+	rabbit_taunt -= delta
+	if rabbit_rest > 0.0:
+		rabbit_rest -= delta
+		rabbit_stam = minf(1.0, rabbit_stam + delta * 0.25)
+		if d < 2.8:
+			rabbit_rest = 0.0
+	elif d < 10.0:
+		# 도망: 반대쪽으로, 지그재그로, 숲 가장자리와 나무를 피해서
+		var away := to_r.normalized()
+		var zig := sin(anim_t * 2.6 + rabbit_phase * 0.1) * 0.75
+		var dir := away.rotated(Vector3.UP, zig)
+		var p := Vector2(rabbit.position.x, rabbit.position.z)
+		var box := RABBIT_BOX
+		var steer := Vector2.ZERO
+		if p.x < box.position.x + 4.0:
+			steer.x += 1.0
+		if p.x > box.end.x - 4.0:
+			steer.x -= 1.0
+		if p.y < box.position.y + 4.0:
+			steer.y += 1.0
+		if p.y > box.end.y - 4.0:
+			steer.y -= 1.0
+		for tp in tree_spots:
+			var off: Vector2 = p - tp
+			if off.length() < 1.8:
+				steer += off.normalized() * (1.8 - off.length()) * 1.5
+		dir = (dir + Vector3(steer.x, 0, steer.y) * 1.4).normalized()
+		# 구석에 몰리면 옆으로 쏙 빠져요
+		if steer.length() > 0.5 and d < 4.0:
+			dir = (dir + away.cross(Vector3.UP) * (1.0 if sin(anim_t) > 0.0 else -1.0)).normalized()
+		rabbit_dir = rabbit_dir.lerp(dir, minf(1.0, delta * 6.0)).normalized()
+		speed = lerpf(3.4, 6.4, rabbit_stam)
+		rabbit_stam = maxf(0.0, rabbit_stam - delta * 0.085)
+		if rabbit_stam < 0.3 and rng.randf() < delta * 0.6:
+			rabbit_rest = 0.7
+			float_text("헉헉...", cam.unproject_position(rabbit.position + Vector3(0, 2.2, 0)), Color(1, 1, 0.9), 0.9)
+		elif rabbit_taunt <= 0.0 and d < 6.0:
+			rabbit_taunt = rng.randf_range(2.5, 4.5)
+			float_text(["메롱~", "나 잡아 봐라!", "느림보~", "여기야 여기!"][rng.randi() % 4], cam.unproject_position(rabbit.position + Vector3(0, 2.2, 0)), Color(1, 1, 0.9), 1.0)
+	else:
+		rabbit_stam = minf(1.0, rabbit_stam + delta * 0.12)
+	if speed > 0.0:
+		var np := rabbit.position + rabbit_dir * speed * delta
+		np.x = clampf(np.x, RABBIT_BOX.position.x, RABBIT_BOX.end.x)
+		np.z = clampf(np.z, RABBIT_BOX.position.y, RABBIT_BOX.end.y)
+		rabbit.position = np
+		rabbit.rotation.y = lerp_angle(rabbit.rotation.y, atan2(rabbit_dir.x, rabbit_dir.z), minf(1.0, delta * 10.0))
+		rabbit_phase += delta * speed * 1.7
+	# 깡충깡충
+	var hop := absf(sin(rabbit_phase)) * (0.5 if speed > 0.0 else 0.0)
+	rabbit.position.y = height_at(rabbit.position.x, rabbit.position.z) + hop
+	if body != null:
+		body.set_meta("gait", [fposmod(rabbit_phase / PI, 1.0), clampf(speed / 3.0, 0.0, 1.0), 1.0 if speed > 4.5 else 0.0])
+
+func on_rabbit_caught() -> void:
+	say([
+		["토끼", "헉헉, 내가 졌다! 너 발 빠르구나. 그런데 무슨 일이야?"],
+		["", "(바닷가에서 자라가 토끼를 찾고 있다고 전했다.)"],
+		["토끼", "자라가 날? 왜?"],
+	], func(): ask("", "자라가 \"용궁 구경시켜 주고 벼슬도 준다\"고 했다고 전할까?", ["\"용궁 구경 가자! 벼슬도 준대\"", "\"...좀 이상하긴 한데, 조심해\""], on_lure))
 
 func update_rings() -> void:
 	if ring_next >= rings.size():
@@ -1351,14 +1500,10 @@ func start_dive() -> void:
 
 func talk_rabbit() -> void:
 	if quest == S_FIND:
-		if rabbit_hop < rabbit_route.size() - 1:
-			say([["토끼", "메롱~ 나 잡아 봐라!"]], Callable())
+		if not rabbit_caught:
+			say([["토끼", "메롱~ 말로는 안 잡히지! 나 잡아 봐라!"]], Callable())
 			return
-		say([
-			["토끼", "헉헉, 내가 졌다! 너 발 빠르구나. 그런데 무슨 일이야?"],
-			["", "(바닷가에서 자라가 토끼를 찾고 있다고 전했다.)"],
-			["토끼", "자라가 날? 왜?"],
-		], func(): ask("", "자라가 \"용궁 구경시켜 주고 벼슬도 준다\"고 했다고 전할까?", ["\"용궁 구경 가자! 벼슬도 준대\"", "\"...좀 이상하긴 한데, 조심해\""], on_lure))
+		on_rabbit_caught()
 	elif quest == S_END:
 		say([["토끼", "히히, 간을 빼놓고 다니는 짐승이 어디 있니? 그래도 너는 고마웠어!"]], Callable())
 	else:

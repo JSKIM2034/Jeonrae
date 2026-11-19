@@ -5082,7 +5082,7 @@ func make_firewood(pos: Vector3) -> void:
 		log_mi.position = Vector3(row[0], row[1], 0)
 		root.add_child(log_mi)
 
-func add_ridge_ring(r0: float, depth: float, hmin: float, hmax: float, low: Color, high: Color, seed_v: int, center: Vector3 = Vector3.ZERO) -> void:
+func add_ridge_ring(r0: float, depth: float, hmin: float, hmax: float, low: Color, high: Color, seed_v: int, center: Vector3 = Vector3.ZERO, arc: Vector2 = Vector2(0.0, TAU)) -> void:
 	var noise := FastNoiseLite.new()
 	noise.seed = seed_v
 	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -5094,7 +5094,7 @@ func add_ridge_ring(r0: float, depth: float, hmin: float, hmax: float, low: Colo
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var grid := []
 	for i in n + 1:
-		var ang := float(i) / n * TAU
+		var ang := lerpf(arc.x, arc.y, float(i) / n)
 		var nx := cos(ang) * 3.0
 		var nz := sin(ang) * 3.0
 		var hh := lerpf(hmin, hmax, clampf(noise.get_noise_2d(nx, nz) * 0.9 + 0.5, 0.0, 1.0))

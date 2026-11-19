@@ -75,12 +75,15 @@ func run() -> void:
 	await snap("beach")
 	m.talk_to("jara"); await settle()
 	print("Q find ", m.quest)
-	for k in 4:
-		var sp: Vector3 = m.rabbit_route[k]
-		await go(m.on_ground(sp.x + 3.0, sp.z + 3.0, 0.3))
-		await wait(2.0)
+	var rb: Vector3 = m.npc("rabbit").position
+	await go(m.on_ground(rb.x + 5.0, rb.z + 5.0, 0.3))
+	await wait(1.2)
 	await snap("rabbit")
-	m.talk_to("rabbit"); await settle()
+	var rb2: Vector3 = m.npc("rabbit").position
+	print("rabbit fled ", rb.distance_to(rb2))
+	m.player.position = rb2 + Vector3(0.5, 0.3, 0.5)
+	await wait(1.5)
+	await settle()
 	print("Q lure ", m.quest, " follow ", m.follow_on)
 	m.talk_to("haenyeo"); await settle()
 	m.start_clam(); await game("clam")
