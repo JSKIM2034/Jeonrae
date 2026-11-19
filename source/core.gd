@@ -1,5 +1,9 @@
 extends Node3D
 
+# 모든 장이 함께 쓰는 공통 부분: 주인공, 카메라, 화면, 대화, 미니게임 틀, 소리, 3D 부품.
+# 장마다 다른 맵과 이야기는 chapter1.gd, chapter2.gd ... 가 이 파일을 이어받아 만들어요.
+
+
 const SPEED := 6.0
 const JUMP := 8.0
 const GRAVITY := 20.0
@@ -706,13 +710,9 @@ func _ready() -> void:
 	ff.fallbacks = [sf]
 	font = ff
 
-	load_south()
 	load_controls()
 	make_sounds()
-	make_world()
-	make_village()
-	make_forest()
-	make_decor()
+	build_chapter()
 	apply_ground_splat()
 	apply_distance_culling(self)
 	if light_mode:
@@ -724,7 +724,7 @@ func _ready() -> void:
 	make_settings_ui()
 	make_walk_hint()
 	apply_hand()
-	scatter_items()
+	after_ui()
 	make_game_ui()
 	make_fx_ui()
 	card_overlay = make_overlay(1.0)
@@ -737,9 +737,7 @@ func _ready() -> void:
 	add_child(cam)
 	cam.make_current()
 	make_card_scroll()
-	show_card("흥부와 놀부, 해와 달이 된 오누이...\n\n점점 잊혀 가는 옛이야기들이\n이 책 속에 잠들어 있어요.\n\n우리 이야기를 다시 세상에 들려줄\n첫 장을 펼쳐 볼까요?", 1.0, 8.0, func():
-		if not walk_hint_seen:
-			show_walk_hint())
+	start_chapter()
 
 # ---------- 3D 부품 ----------
 
@@ -889,8 +887,8 @@ func add_door(parent: Node3D, pos: Vector3, w: float, h: float) -> void:
 	add_box(parent, wood, Vector3(w - 0.16, 0.06, 0.18), pos + Vector3(0, h * 0.18, 0))
 	add_box(parent, wood, Vector3(w - 0.16, 0.06, 0.18), pos + Vector3(0, -h * 0.18, 0))
 
-# 한옥. style: "thatch" 초가집 / "tile" 기와집. 앞쪽은 +z 방향
 # ---------- 고운 질감: 코드로 직접 그린 그림들 ----------
+# 한옥. style: "thatch" 초가집 / "tile" 기와집. 앞쪽은 +z 방향
 
 func tex_from(img: Image) -> ImageTexture:
 	img.generate_mipmaps()
@@ -1606,201 +1604,6 @@ func leaf_items(center: Vector3, count: int, size: float, r: RandomNumberGenerat
 		items.append([center + Vector3(cos(a) * d, 0.06 + r.randf() * 0.06, sin(a) * d), Vector3(size * 1.1, 0.06, size * 0.8), c.lightened(r.randf() * 0.12), Vector3(r.randf_range(-12, 12), -rad_to_deg(a), 0)])
 	return items
 
-# 박: 뽀얀 둥근 몸통에 은은한 골, 꼭지, 덩굴과 하얀 박꽃
-func make_gourd_visual(g: Node3D, c: Color, radius: float) -> void:
-	var r := RandomNumberGenerator.new()
-	r.seed = int(g.position.x * 10.0 + g.position.z)
-	var R := radius
-	var body := [[Vector3(0, R * 0.9, 0), Vector3(2.0 * R, 1.8 * R, 2.0 * R), c]]
-	for i in 8:
-		var a := i * TAU / 8.0
-		body.append([Vector3(cos(a) * R * 0.3, R * 0.9, sin(a) * R * 0.3), Vector3(R * 1.5, 1.74 * R, R * 1.5), c.lightened(0.07) if i % 2 == 0 else c.darkened(0.04)])
-	body.append([Vector3(-R * 0.35, R * 1.35, R * 0.55), Vector3(R * 0.5, R * 0.35, R * 0.3), c.lightened(0.3)])
-	add_blobs(g, body, blob_gloss())
-	var stem := make_color(Color(0.45, 0.4, 0.2))
-	var top := Vector3(0, R * 1.78, 0)
-	add_beam(g, stem, top, top + Vector3(0.05, R * 0.22, 0.02), R * 0.09, R * 0.09)
-	add_beam(g, stem, top + Vector3(0.05, R * 0.22, 0.02), top + Vector3(R * 0.22, R * 0.3, 0.06), R * 0.06, R * 0.06)
-	var leaves := leaf_items(Vector3.ZERO, 5, R * 0.95, r, Color(0.3, 0.56, 0.24))
-	for i in 2:
-		var a := r.randf() * TAU
-		leaves.append([Vector3(cos(a) * R * 1.4, 0.2, sin(a) * R * 1.4), Vector3(0.32, 0.08, 0.32) * R, Color(1, 1, 0.97)])
-		leaves.append([Vector3(cos(a) * R * 1.4, 0.24, sin(a) * R * 1.4), Vector3(0.1, 0.06, 0.1) * R, Color(1.0, 0.92, 0.5)])
-	add_blobs(g, leaves, null, true)
-	var vine := make_color(Color(0.28, 0.48, 0.2))
-	var prev := Vector3(0, 0.08, 0)
-	for k in 6:
-		var nxt := prev + Vector3(r.randf_range(0.2, 0.6), 0, r.randf_range(-0.5, 0.5)) * R
-		nxt.y = 0.08
-		add_beam(g, vine, prev, nxt, 0.06, 0.06)
-		prev = nxt
-
-# 처마 밑 제비 둥지: 진흙 사발 + 입 벌린 아기 제비 셋
-func make_nest_visual(n: Node3D) -> void:
-	var root := Node3D.new()
-	# 흥부네 처마 밑, 앞쪽 왼편 기둥에 붙어 있어요
-	root.position = Vector3(0.12, 1.98, -0.5)
-	root.scale = Vector3(1.45, 1.45, 1.45)
-	n.add_child(root)
-	add_mbox(root, dark_wood_mat, Vector3(0.7, 0.06, 0.45), Vector3(0, -0.2, 0))
-	var mud := []
-	var r := RandomNumberGenerator.new()
-	r.seed = 9
-	for i in 12:
-		var a := i * TAU / 12.0
-		mud.append([Vector3(cos(a) * 0.24, r.randf_range(-0.04, 0.04), sin(a) * 0.17), Vector3(0.2, 0.17, 0.17), Color(0.55, 0.42, 0.28).lightened(r.randf() * 0.15)])
-	mud.append([Vector3(0, -0.1, 0), Vector3(0.5, 0.18, 0.36), Color(0.5, 0.38, 0.25)])
-	for i in 6:
-		mud.append([Vector3(r.randf_range(-0.25, 0.25), 0.05, r.randf_range(-0.15, 0.15)), Vector3(0.3, 0.02, 0.02), Color(0.9, 0.78, 0.45), Vector3(0, r.randf_range(0, 180), r.randf_range(-20, 20))])
-	for i in 3:
-		var x := (i - 1) * 0.14
-		mud.append([Vector3(x, 0.12, 0.02), Vector3(0.13, 0.13, 0.13), Color(0.15, 0.17, 0.28)])
-		mud.append([Vector3(x, 0.09, 0.07), Vector3(0.08, 0.06, 0.04), Color(0.98, 0.95, 0.9)])
-		mud.append([Vector3(x, 0.17, 0.1), Vector3(0.09, 0.03, 0.08), Color(1.0, 0.75, 0.2), Vector3(-25, 0, 0)])
-		mud.append([Vector3(x, 0.14, 0.1), Vector3(0.08, 0.025, 0.07), Color(1.0, 0.6, 0.15), Vector3(20, 0, 0)])
-	add_blobs(root, mud)
-
-# 약초: 가는 줄기, 톱니 잎, 보랏빛 도라지꽃
-func make_herb_visual(h: Node3D) -> void:
-	var r := RandomNumberGenerator.new()
-	r.seed = int(h.position.x * 7.0 + h.position.z)
-	var items := leaf_items(Vector3.ZERO, 6, 0.28, r, Color(0.26, 0.52, 0.24))
-	var stem := make_color(Color(0.3, 0.5, 0.22))
-	for i in 4:
-		var a := i * TAU / 4.0 + r.randf() * 0.5
-		var top := Vector3(cos(a) * 0.18, r.randf_range(0.55, 0.85), sin(a) * 0.18)
-		add_beam(h, stem, Vector3(0, 0.02, 0), top, 0.035, 0.035)
-		items.append([top * 0.55, Vector3(0.18, 0.04, 0.1), Color(0.34, 0.6, 0.28), Vector3(0, -rad_to_deg(a), 25)])
-		var fc := Color(0.66, 0.45, 0.92) if i % 2 == 0 else Color(0.95, 0.5, 0.75)
-		for k in 5:
-			var b := k * TAU / 5.0
-			items.append([top + Vector3(cos(b) * 0.07, 0.02, sin(b) * 0.07), Vector3(0.09, 0.05, 0.09), fc])
-		items.append([top + Vector3(0, 0.04, 0), Vector3(0.05, 0.05, 0.05), Color(1.0, 0.95, 0.6)])
-	add_blobs(h, items)
-	# 뿌리 쪽 흙더미
-	add_blobs(h, [[Vector3(0, 0.02, 0), Vector3(0.6, 0.12, 0.6), Color(0.45, 0.33, 0.22)]], null, true)
-
-# 이야기 조각: 빛나는 두루마리가 둥실둥실 돌아요
-func make_piece_visual(p: Node3D) -> void:
-	var f := Node3D.new()
-	f.position.y = 0.6
-	p.add_child(f)
-	var paper := make_color(Color(1.0, 0.95, 0.78))
-	paper.emission_enabled = true
-	paper.emission = Color(1.0, 0.85, 0.45)
-	paper.emission_energy_multiplier = 0.45
-	add_mbox(f, paper, Vector3(0.5, 0.34, 0.02), Vector3.ZERO)
-	var ink := make_color(Color(0.35, 0.25, 0.2))
-	for i in 4:
-		add_mbox(f, ink, Vector3(0.025, 0.24, 0.025), Vector3(-0.14 + i * 0.09, 0, 0.012))
-	var roll := make_color(Color(0.75, 0.22, 0.2))
-	for sx in [-1.0, 1.0]:
-		add_mcyl(f, roll, 0.045, 0.045, 0.44, Vector3(sx * 0.27, 0, 0))
-		add_mcyl(f, glossy_mat(Color(0.95, 0.75, 0.25)), 0.03, 0.03, 0.54, Vector3(sx * 0.27, 0, 0))
-	var halo := MeshInstance3D.new()
-	var tor := TorusMesh.new()
-	tor.inner_radius = 0.42
-	tor.outer_radius = 0.46
-	halo.mesh = tor
-	var hm := make_color(Color(1.0, 0.9, 0.5))
-	hm.emission_enabled = true
-	hm.emission = Color(1.0, 0.85, 0.4)
-	hm.emission_energy_multiplier = 1.0
-	halo.material_override = hm
-	halo.rotation.x = PI / 2.0
-	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	f.add_child(halo)
-
-# 놀부가 흩뜨려 놓은 빨래: 구겨진 천 더미 + 저고리 한 벌
-func make_laundry_pile(n: Node3D) -> void:
-	var r := RandomNumberGenerator.new()
-	r.seed = int(n.position.x * 3.0 + n.position.z)
-	var cloth := [Color(0.98, 0.98, 0.96), Color(0.82, 0.9, 1.0), Color(1.0, 0.88, 0.86)]
-	var items := []
-	for i in 5:
-		items.append([Vector3(r.randf_range(-0.35, 0.35), 0.04 + i * 0.03, r.randf_range(-0.3, 0.3)), Vector3(r.randf_range(0.7, 1.0), 0.05, r.randf_range(0.5, 0.7)), cloth[i % 3], Vector3(r.randf_range(-5, 5), r.randf_range(0, 180), r.randf_range(-5, 5))])
-	items.append([Vector3(0.1, 0.2, 0.0), Vector3(0.5, 0.18, 0.35), cloth[0], Vector3(0, 30, 10)])
-	# 빨간 고름 하나
-	items.append([Vector3(0.25, 0.2, 0.1), Vector3(0.05, 0.03, 0.34), Color(0.85, 0.25, 0.3), Vector3(0, 35, 0)])
-	add_blobs(n, items, null, true)
-
-# 김 서방네 호박: 골 깊은 주황 호박 + 꼭지 + 잎
-func make_pumpkin(pos: Vector3, s: float, r: RandomNumberGenerator) -> void:
-	var root := Node3D.new()
-	root.position = pos
-	add_child(root)
-	var c := Color(0.9, 0.42, 0.06)
-	var items := []
-	for i in 8:
-		var a := i * TAU / 8.0
-		items.append([Vector3(cos(a) * 0.2 * s, 0.38 * s, sin(a) * 0.2 * s), Vector3(0.48, 0.66, 0.48) * s, c.lightened(0.06) if i % 2 == 0 else c.darkened(0.08)])
-	items.append([Vector3(0, 0.4 * s, 0), Vector3(0.8, 0.7, 0.8) * s, c])
-	add_blobs(root, items, blob_gloss())
-	add_beam(root, make_color(Color(0.42, 0.45, 0.2)), Vector3(0, 0.7 * s, 0), Vector3(0.05, 0.86 * s, 0.03), 0.07 * s, 0.07 * s)
-	add_blobs(root, leaf_items(Vector3.ZERO, 4, 0.55 * s, r, Color(0.3, 0.55, 0.24)), null, true)
-
-# 박 첨지네 논: 논두렁 + 찰랑이는 물 + 줄 맞춘 모
-func make_paddy(center: Vector3, w: float, d: float) -> void:
-	var earth := make_tex_material(Color(0.6, 0.5, 0.34), plaster_tex, 0.4)
-	add_mbox(self, earth, Vector3(w, 0.25, 0.4), center + Vector3(0, 0.12, d / 2.0))
-	add_mbox(self, earth, Vector3(w, 0.25, 0.4), center + Vector3(0, 0.12, -d / 2.0))
-	add_mbox(self, earth, Vector3(0.4, 0.25, d), center + Vector3(w / 2.0, 0.12, 0))
-	add_mbox(self, earth, Vector3(0.4, 0.25, d), center + Vector3(-w / 2.0, 0.12, 0))
-	add_mbox(self, make_color(Color(0.42, 0.34, 0.24)), Vector3(w - 0.4, 0.04, d - 0.4), center + Vector3(0, 0.02, 0))
-	var wtr := add_mbox(self, water_material(2, Vector4(center.x, center.z, w / 2.0 - 0.2, d / 2.0 - 0.2), Color(0.36, 0.44, 0.36), Color(0.52, 0.6, 0.48), Vector2.ZERO, 0.25), Vector3(w - 0.4, 0.02, d - 0.4), center + Vector3(0, 0.08, 0))
-	wtr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var rice := []
-	var nx := 9
-	for ix in nx:
-		for iz in nx:
-			var p := center + Vector3(-w / 2.0 + 0.55 + ix * (w - 1.1) / (nx - 1), 0.25, -d / 2.0 + 0.55 + iz * (d - 1.1) / (nx - 1))
-			rice.append([p, Vector3(0.18, 0.4, 0.18), Color(0.45, 0.7, 0.3)])
-			rice.append([p + Vector3(0.05, 0.08, 0), Vector3(0.08, 0.36, 0.08), Color(0.55, 0.78, 0.35), Vector3(0, 0, -20)])
-	add_blobs(self, rice)
-	house_rects.append(Rect2(center.x - w / 2.0 - 0.3, center.z - d / 2.0 - 0.3, w + 0.6, d + 0.6))
-
-func spawn_rice(pile: Node3D) -> void:
-	for i in 3:
-		var p := Vector3((i - 1) * 0.85, 0, rng.randf_range(-0.2, 0.2))
-		add_blobs(pile, [[p + Vector3(0, 0.5, 0), Vector3(0.75, 1.0, 0.6), Color(1, 0.95, 0.8)], [p + Vector3(0, 1.02, 0), Vector3(0.4, 0.2, 0.35), Color(0.95, 0.85, 0.6)]], thatch_blob_mat)
-		add_beam(pile, make_color(Color(0.55, 0.4, 0.2)), p + Vector3(-0.3, 0.9, 0), p + Vector3(0.3, 0.9, 0), 0.04, 0.04)
-	var heap := [[Vector3(0, 0.2, 0.75), Vector3(1.3, 0.4, 0.9), Color(0.98, 0.97, 0.92)]]
-	for i in 14:
-		heap.append([Vector3(rng.randf_range(-0.8, 0.8), 0.04, 0.75 + rng.randf_range(-0.6, 0.6)), Vector3(0.06, 0.04, 0.04), Color(1, 1, 0.96)])
-	add_blobs(pile, heap)
-
-func spawn_silk(pile: Node3D) -> void:
-	var silk := [Color(0.85, 0.2, 0.3), Color(0.2, 0.4, 0.8), Color(0.95, 0.75, 0.2), Color(0.3, 0.65, 0.4), Color(0.75, 0.45, 0.85)]
-	var y := 0.2
-	for i in 5:
-		var roll := add_mcyl(pile, glossy_mat(silk[i]), 0.2, 0.2, 1.3, Vector3(-0.42 + (i % 2) * 0.42 + (0.21 if i >= 2 else 0.0), y + (i / 2) * 0.38, 0))
-		roll.rotation.z = PI / 2.0
-		add_mcyl(pile, glossy_mat(Color(0.95, 0.8, 0.3)), 0.205, 0.205, 0.08, roll.position).rotation.z = PI / 2.0
-
-func spawn_gold(pile: Node3D) -> void:
-	var gold := glossy_mat(Color(1.0, 0.78, 0.2))
-	gold.metallic = 0.7
-	gold.roughness = 0.25
-	# 열린 궤짝
-	add_mbox(pile, dark_wood_mat, Vector3(1.2, 0.6, 0.8), Vector3(0, 0.3, 0))
-	var lid := add_mbox(pile, make_color(Color(0.65, 0.18, 0.15)), Vector3(1.2, 0.08, 0.8), Vector3(0, 0.85, -0.55))
-	lid.rotation.x = -1.1
-	for sx in [-0.55, 0.55]:
-		add_mbox(pile, gold, Vector3(0.06, 0.62, 0.82), Vector3(sx, 0.31, 0))
-	var heap := []
-	for i in 22:
-		heap.append([Vector3(rng.randf_range(-0.45, 0.45), 0.62 + rng.randf() * 0.15, rng.randf_range(-0.28, 0.28)), Vector3(0.16, 0.05, 0.16), Color(1, 0.82, 0.25)])
-	var jewels := [Color(0.9, 0.15, 0.25), Color(0.2, 0.75, 0.5), Color(0.3, 0.45, 0.95)]
-	for i in 4:
-		heap.append([Vector3(rng.randf_range(-0.35, 0.35), 0.75, rng.randf_range(-0.2, 0.2)), Vector3(0.12, 0.12, 0.12), jewels[i % 3]])
-	add_blobs(pile, heap, blob_gloss())
-	# 말굽 은덩이와 엽전 꾸러미
-	for i in 3:
-		add_mbox(pile, gold, Vector3(0.36, 0.16, 0.22), Vector3(-0.9 + i * 0.25, 0.08, 0.75))
-	for i in 3:
-		for k in 5:
-			add_mcyl(pile, gold, 0.12, 0.12, 0.035, Vector3(0.75 + i * 0.28, 0.02 + k * 0.04, 0.7 - i * 0.1))
-
 # 가시덤불: 작은 잎 뭉치와 삐죽한 가시 가지
 func make_thorn_shrubs(parent: Node3D, size: Vector3, c: Color) -> void:
 	var r := RandomNumberGenerator.new()
@@ -1906,46 +1709,6 @@ func make_jangseung(pos: Vector3, female: bool) -> void:
 	col.shape = shape
 	col.position.y = 1.4
 	root.add_child(col)
-
-func make_signpost(pos: Vector3) -> void:
-	var sign := make_spot(pos, "gate", "", "", true)
-	add_mcyl(sign, dark_wood_mat, 0.07, 0.08, 1.9, Vector3(0, 0.95, 0))
-	var board := add_mbox(sign, plank_mat, Vector3(1.7, 0.42, 0.08), Vector3(0, 1.62, 0))
-	board.rotation.z = -0.05
-	var lab := Label3D.new()
-	lab.text = "이 길 끝은 2장\n해와 달이 된 오누이\n(준비 중)"
-	lab.font = font
-	lab.font_size = 34
-	lab.modulate = Color(0.25, 0.14, 0.08)
-	lab.outline_size = 0
-	lab.position = Vector3(0, 1.62, 0.05)
-	lab.pixel_size = 0.0034
-	sign.add_child(lab)
-	add_tag(sign, "다음 이야기로 가는 길", 2.4)
-
-func make_border(r: RandomNumberGenerator) -> void:
-	# 보이지 않는 벽 바깥에 나무와 덤불을 둘러 심어, 마을이 숲에 감싸인 것처럼
-	var side := MAP_HALF + 2.5
-	var t := -side
-	while t <= side:
-		for edge in 4:
-			var p := Vector3.ZERO
-			match edge:
-				0: p = Vector3(t, 0, -side)
-				1: p = Vector3(t, 0, side)
-				2: p = Vector3(-side, 0, t)
-				3: p = Vector3(side, 0, t)
-			p += Vector3(r.randf_range(-1.5, 1.5), 0, r.randf_range(-1.5, 1.5))
-			if edge == 1 and absf(p.x + 2.0) < 4.5:
-				continue
-			make_tree(p)
-			if r.randf() < 0.5:
-				make_tree(p + Vector3(r.randf_range(-3, 3), 0, r.randf_range(-3, 3)) + p.normalized() * 4.0)
-		t += r.randf_range(4.5, 6.5)
-	# 다음 이야기로 가는 남쪽 길목
-	make_jangseung(Vector3(-4.7, 0, 37.5), false)
-	make_jangseung(Vector3(0.7, 0, 37.5), true)
-	make_signpost(Vector3(1.6, 0, 34.0))
 
 # ---------- 마을 소품 ----------
 
@@ -2259,38 +2022,6 @@ func near_path(p: Vector2, extra: float) -> bool:
 			if p.distance_squared_to(line[i]) < lim * lim:
 				return true
 	return false
-
-func make_paths() -> void:
-	make_dirt_path([Vector2(-2.0, -13.6), Vector2(-2.3, -8.0), Vector2(-1.6, -2.5), Vector2(-2.3, 3.5), Vector2(-1.8, 8.0), Vector2(-2.4, 12.5), Vector2(-2.0, 18.0), Vector2(-2.7, 25.0), Vector2(-1.7, 32.0), Vector2(-2.2, 39.0), Vector2(-2.0, 48.0)], 2.5, 1.0)
-	# 남쪽 갈림길: 왼쪽은 연못 낚시터, 오른쪽은 최 영감네 논
-	make_dirt_path([Vector2(-2.3, 30.0), Vector2(-6.0, 31.2), Vector2(-10.5, 30.6), Vector2(-15.4, 31.0)], 1.8, 7.0)
-	make_dirt_path([Vector2(-1.8, 29.0), Vector2(3.5, 30.0), Vector2(9.5, 29.4), Vector2(15.0, 30.4), Vector2(19.0, 31.0)], 1.8, 9.0)
-	make_dirt_path([Vector2(-12.2, 6.4), Vector2(-7.5, 8.4), Vector2(-2.0, 8.0), Vector2(4.0, 7.5), Vector2(9.5, 8.4), Vector2(14.5, 8.0), Vector2(19.6, 8.6), Vector2(20.4, 13.5), Vector2(19.8, 17.6)], 2.3, 4.0)
-
-func make_creek() -> void:
-	var line := []
-	var x := -45.0
-	while x <= 45.0:
-		line.append(Vector2(x, creek_z(x)))
-		x += 0.8
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i in line.size() - 1:
-		var a: Vector2 = line[i]
-		var b: Vector2 = line[i + 1]
-		var ha := creek_half(a.x)
-		var hb := creek_half(b.x)
-		var quad := [[Vector3(a.x, 0.03, a.y - ha), Vector2((a.x + 45.0) / 90.0, 0)], [Vector3(a.x, 0.03, a.y + ha), Vector2((a.x + 45.0) / 90.0, 1)], [Vector3(b.x, 0.03, b.y - hb), Vector2((b.x + 45.0) / 90.0, 0)], [Vector3(b.x, 0.03, b.y + hb), Vector2((b.x + 45.0) / 90.0, 1)]]
-		for k in [0, 2, 1, 1, 2, 3]:
-			st.set_normal(Vector3.UP)
-			st.set_uv(quad[k][1])
-			st.add_vertex(quad[k][0])
-	var mi := MeshInstance3D.new()
-	mi.mesh = st.commit()
-	mi.material_override = water_material(0, Vector4(0, 0, 1, 1), Color(0.13, 0.4, 0.6), Color(0.42, 0.72, 0.82), Vector2(0.06, 0.0), 0.8)
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mi)
-
 
 # ---------- 땅과 물 셰이더 (그림 같은 풀밭, 땅에 스며든 흙길, 반짝이는 물) ----------
 
@@ -3276,196 +3007,7 @@ func make_npc(id: String, label: String, c: Color, pos: Vector3, size: float, so
 	add_thing(n, "npc", id)
 	return n
 
-func make_gourd_at(pos: Vector3, c: Color, radius: float) -> Node3D:
-	var g := Node3D.new()
-	g.position = pos
-	add_child(g)
-	make_gourd_visual(g, c, radius)
-	g.set_meta("radius", radius)
-	add_tag(g, "박", radius * 2.0 + 0.7)
-	g.visible = false
-	return g
-
 # ---------- 세상 만들기 ----------
-
-func make_world() -> void:
-	make_surface_materials()
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-46, 36, 0)
-	# 늦은 오후 같은 따뜻한 햇빛
-	sun.light_color = Color(1.0, 0.9, 0.74)
-	sun.light_energy = 0.82
-	# 부드러운 그림자 (가까운 곳만 그려서 가볍게)
-	sun.shadow_enabled = SHADOWS_ON
-	sun.shadow_blur = 2.2
-	sun.shadow_bias = 0.04
-	sun.shadow_normal_bias = 1.0
-	sun.shadow_opacity = 0.85
-	if light_mode:
-		# 가까운 곳만 한 장으로 그림자 그리기
-		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-		sun.directional_shadow_max_distance = 22.0
-		RenderingServer.directional_shadow_atlas_set_size(1024, true)
-	else:
-		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-		sun.directional_shadow_max_distance = 42.0
-		RenderingServer.directional_shadow_atlas_set_size(2048, true)
-	add_child(sun)
-	var env := WorldEnvironment.new()
-	var e := Environment.new()
-	e.background_mode = Environment.BG_SKY
-	var sky := Sky.new()
-	var sky_mat := ProceduralSkyMaterial.new()
-	# 위는 맑은 파랑, 지평선은 따뜻한 크림빛
-	sky_mat.sky_top_color = Color(0.33, 0.58, 0.9)
-	sky_mat.sky_horizon_color = Color(0.93, 0.9, 0.82)
-	sky_mat.sky_curve = 0.12
-	sky_mat.ground_horizon_color = Color(0.8, 0.84, 0.72)
-	sky_mat.ground_bottom_color = Color(0.5, 0.62, 0.45)
-	sky_mat.sun_angle_max = 20.0
-	sky.sky_material = sky_mat
-	e.sky = sky
-	# 하늘빛으로 은은하게 밝혀서, 그늘은 살짝 푸르고 해 드는 곳은 따뜻해요
-	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	e.ambient_light_sky_contribution = 0.55
-	e.ambient_light_color = Color(1.0, 0.95, 0.86)
-	e.ambient_light_energy = 0.62
-	# 멀리는 따뜻하게 뿌옇게 (공기감)
-	e.fog_enabled = true
-	e.fog_light_color = Color(0.86, 0.88, 0.86)
-	e.fog_light_energy = 1.0
-	e.fog_sun_scatter = 0.18
-	e.fog_density = 0.0024
-	e.fog_sky_affect = 0.0
-	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 1.04
-	e.tonemap_white = 5.0
-	e.adjustment_enabled = true
-	e.adjustment_saturation = 1.1
-	e.adjustment_contrast = 1.04
-	env.environment = e
-	add_child(env)
-
-	var full := MAP_HALF * 2.0
-	var none := Color(0, 0, 0, 0)
-	var ground_col := add_solid(Vector3(0, -0.5, 0), Vector3(full, 1, full), Color(0.45, 0.7, 0.35))
-	(ground_col.get_parent().get_child(0) as MeshInstance3D).material_override = ground_mat
-	add_solid(Vector3(0, 2, -MAP_HALF), Vector3(full, 8, 1), none)
-	add_solid(Vector3(0, 2, MAP_HALF), Vector3(full, 8, 1), none)
-	add_solid(Vector3(-MAP_HALF, 2, 0), Vector3(1, 8, full), none)
-	add_solid(Vector3(MAP_HALF, 2, 0), Vector3(1, 8, full), none)
-
-	# 숲 바닥, 개울, 다리, 길
-	make_creek()
-	add_box(self, Color(0.55, 0.4, 0.25), Vector3(3, 0.2, 4), Vector3(-2, 0.1, -15.5)).material_override = plank_mat
-	# 개울은 다리로만 건널 수 있어요 (점프로도 못 넘는 보이지 않는 벽, 다리 자리만 비워 둠)
-	var creek_left_len := (-3.5) - (-MAP_HALF)
-	var creek_right_len := MAP_HALF - (-0.5)
-	add_solid(Vector3(-MAP_HALF + creek_left_len / 2.0, 2, -15.5), Vector3(creek_left_len, 5, 3), none)
-	add_solid(Vector3(-0.5 + creek_right_len / 2.0, 2, -15.5), Vector3(creek_right_len, 5, 3), none)
-	make_paths()
-
-func make_village() -> void:
-	# 놀부네
-	make_house(Vector3(14, 0, 2), Vector3(9, 4, 6), Color(0.95, 0.93, 0.86), Color(0.28, 0.3, 0.36), "tile")
-	make_npc("nolbu", "놀부", Color(0.6, 0.2, 0.45), Vector3(14, 0, 7.5), 1.15, true)
-	make_npc("wife", "놀부 마누라", Color(0.75, 0.3, 0.3), Vector3(10.5, 0, 7.8), 1.0, true)
-	nolbu_gourd = make_gourd_at(Vector3(19, 0, 8.5), Color(0.6, 0.68, 0.4), 1.7)
-	make_npc("dokkaebi", "도깨비", Color(0.2, 0.55, 0.6), Vector3(19, 0, 8.5), 1.3, false).visible = false
-
-	# 흥부네
-	hut = make_house(Vector3(-13, 0, -2), Vector3(4.5, 2.8, 3.5), Color(0.8, 0.74, 0.64), Color(0.6, 0.53, 0.38), "thatch")
-	make_hut_shabby(hut)
-	make_npc("heungbu", "흥부", Color(0.85, 0.6, 0.35), Vector3(-12, 0, 2.5), 1.0, true)
-	make_npc("kid1", "첫째", Color(0.95, 0.75, 0.5), Vector3(-16.5, 0, 4), 0.7, true)
-	make_npc("kid2", "막내", Color(0.98, 0.82, 0.6), Vector3(-9, 0, 5), 0.55, true)
-	var nest := make_spot(Vector3(-15.2, 0, 0.7), "nest", "", "", true)
-	add_tag(nest, "제비 둥지", 3.4)
-	make_nest_visual(nest)
-	for pos in [Vector3(-6.5, 0, -3), Vector3(-5, 0, 0), Vector3(-6.5, 0, 3)]:
-		add_thing(make_gourd_at(pos, Color(0.82, 0.9, 0.62), 1.2), "gourd", "")
-
-	# 장터
-	add_solid(Vector3(20, 1, 19.2), Vector3(4, 2, 1.2), Color(0, 0, 0, 0))
-	make_stall(Vector3(20, 0, 19.2))
-	make_npc("merchant", "장터 상인", Color(0.3, 0.5, 0.35), Vector3(20, 0, 21.2), 1.0, true)
-
-	# 놀부 심술에 당한 마을 사람들
-	make_npc("dori", "돌이", Color(0.9, 0.8, 0.45), Vector3(9, 0, 19), 0.6, true)
-	make_npc("suni", "순이 엄마", Color(0.55, 0.65, 0.85), Vector3(-9, 0, -12), 1.0, true)
-	make_npc("kim", "김 서방", Color(0.5, 0.45, 0.3), Vector3(-24, 0, 15), 1.0, true)
-	make_npc("ong", "옹기 할멈", Color(0.6, 0.5, 0.55), Vector3(27, 0, -9), 0.9, true)
-	make_npc("park", "박 첨지", Color(0.4, 0.5, 0.55), Vector3(-31, 0, -5), 1.0, true)
-	var pr := RandomNumberGenerator.new()
-	pr.seed = 15
-	for pos in [Vector3(-26.5, 0, 16.8), Vector3(-22.3, 0, 17), Vector3(-25, 0, 18.5)]:
-		make_pumpkin(pos, 1.25, pr)
-	var ong_jars := StaticBody3D.new()
-	add_child(ong_jars)
-	var crack := make_color(Color(0.15, 0.1, 0.08))
-	for pos in [Vector3(29, 0, -10), Vector3(29.8, 0, -8.6), Vector3(28.6, 0, -7.6)]:
-		make_jar(ong_jars, pos, 1.05, Color(0.42, 0.25, 0.15))
-		# 놀부가 차서 생긴 금
-		var c0: Vector3 = pos + Vector3(-0.1, 0.85, 0.5)
-		ong_cracks.append(add_beam(self, crack, c0, c0 + Vector3(0.12, -0.2, 0.02), 0.025, 0.02))
-		ong_cracks.append(add_beam(self, crack, c0 + Vector3(0.12, -0.2, 0.02), c0 + Vector3(0.02, -0.4, 0.04), 0.025, 0.02))
-	make_paddy(Vector3(-34.5, 0, -3), 6.0, 6.0)
-	for pos in [Vector3(-14, 0, -13.2), Vector3(-21, 0, -17.6), Vector3(5, 0, -13.2)]:
-		var cloth := make_spot(pos, "laundry", "", "빨래", false)
-		make_laundry_pile(cloth)
-
-	# 품팔이 터
-	var well := make_spot(Vector3(4, 0, -3), "job", "water", "우물", true)
-	make_well_visual(well)
-	add_solid(Vector3(4, 0.45, -3), Vector3(1.4, 0.9, 1.4), Color(0, 0, 0, 0))
-	var straw := make_spot(Vector3(-17.5, 0, 8.5), "job", "shoes", "짚더미", true)
-	make_haystack_visual(straw)
-	add_solid(Vector3(-17.5, 0.4, 8.5), Vector3(1.6, 0.8, 1.2), Color(0, 0, 0, 0))
-	var stump := make_spot(Vector3(15, 0, -19.5), "job", "wood", "나무터", true)
-	make_spot(Vector3(3, 0, 5.4), "job", "gam", "감나무", true)
-	make_stump_visual(stump)
-	add_solid(Vector3(15, 0.35, -19.5), Vector3(1.0, 0.7, 1.0), Color(0, 0, 0, 0))
-
-	# 숨바꼭질하는 흥부네 동생들
-	for pos in [Vector3(18.6, 0, -2.6), Vector3(-23.4, 0, 6.6), Vector3(5.2, 0, 12.4), Vector3(-4.4, 0, -13)]:
-		var kid := make_spot(pos, "hider", "", "", false)
-		make_person(kid, "kid", Color(0.98, 0.78, 0.5), false)
-		kid.scale = Vector3(0.5, 0.5, 0.5)
-
-	# 마을 나무
-	for pos in [Vector3(5, 0, 14), Vector3(-22, 0, 8), Vector3(24, 0, -6), Vector3(-26, 0, 22), Vector3(30, 0, 18), Vector3(8, 0, -8), Vector3(-20, 0, -9)]:
-		make_tree(pos)
-
-	# 바위 (점프해서 올라가요)
-	add_solid(Vector3(29, 0.55, 7.5), Vector3(1.8, 1.1, 1.8), Color(0, 0, 0, 0))
-	add_solid(Vector3(30.8, 1.1, 5.6), Vector3(2.4, 2.2, 2.4), Color(0, 0, 0, 0))
-	var rr := RandomNumberGenerator.new()
-	rr.seed = 5
-	make_rock(Vector3(29, 0.45, 7.5), Vector3(2.0, 1.25, 2.0), rr)
-	make_rock(Vector3(30.8, 1.0, 5.6), Vector3(2.6, 2.4, 2.6), rr)
-
-	# 이웃 초가집들과 살림살이
-	make_house(Vector3(-28, 0, 10), Vector3(4.6, 2.4, 3.4), Color(0.94, 0.9, 0.82), Color(0.8, 0.66, 0.3), "thatch")
-	make_house(Vector3(30, 0, -3), Vector3(4.4, 2.3, 3.4), Color(0.93, 0.89, 0.8), Color(0.8, 0.66, 0.3), "thatch")
-	make_house(Vector3(-10, 0, 22), Vector3(4.8, 2.4, 3.5), Color(0.95, 0.91, 0.83), Color(0.8, 0.66, 0.3), "thatch")
-	make_jangdok(Vector3(7.8, 0, -2.7), rr)
-	make_laundry(Vector3(-19.4, 0, 0.9), Vector3(-17.0, 0, 0.9))
-	make_laundry(Vector3(-13.2, 0, 25.0), Vector3(-6.8, 0, 25.0))
-	make_basket(Vector3(-10.3, 0, 0.9), 1.0, Color(0.95, 0.55, 0.15))
-	make_basket(Vector3(-25.2, 0, 13.0), 0.9, Color(0.4, 0.7, 0.3))
-	make_basket(Vector3(-7.1, 0, 25.5), 1.1, Color(0, 0, 0, 0))
-	make_sieve(Vector3(-11.6, 0, -4.15), PI)
-	make_sieve(Vector3(27.6, 0, -1.25), 0.3)
-	make_bench(Vector3(8.6, 0, 11.6), 0.2)
-	make_trellis(Vector3(-10.0, 0, 11.9), Vector3(-7.0, 0, 11.9), rr)
-
-	# 숨은 이야기 조각
-	var piece_pos := [Vector3(14, 0, -6.5), Vector3(-31, 0, -12), Vector3(-9, 0, -36), Vector3(-27.5, 0, 23.5), Vector3(35, 0, 33), Vector3(30.8, 2.2, 5.6)]
-	for i in piece_pos.size():
-		var p := make_spot(piece_pos[i], "piece", str(i), "", true)
-		make_piece_visual(p)
-	make_south()
-	make_wild_herbs()
 
 # ---------- 약초 도감 (6종, 종류마다 3번, 캐면 3분 뒤 다시 자라요) ----------
 
@@ -3483,127 +3025,6 @@ var herb_counts := [0, 0, 0, 0, 0, 0]
 var herb_reward := false
 var wild_spots: Array = []   # [노드, 종류, 다시 자랄 때까지 남은 시간]
 
-func make_wild_herbs() -> void:
-	for k in HERBS.size():
-		for pos in HERBS[k]["spots"]:
-			var n := make_spot(pos, "wild", str(k), "", true)
-			add_tag(n, HERBS[k]["name"], 1.25)
-			make_wild_visual(n, k)
-			wild_spots.append([n, k, 0.0])
-
-func wild_keep_clear() -> Array:
-	var out := []
-	for h in HERBS:
-		out += h["spots"]
-	return out
-
-func make_wild_visual(n: Node3D, kind: int) -> void:
-	var r := RandomNumberGenerator.new()
-	r.seed = int(n.position.x * 13.0 + n.position.z * 3.0)
-	var items := []
-	match kind:
-		0:  # 쑥: 은빛 도는 잎 무더기
-			for i in 9:
-				var a := i * TAU / 9.0
-				var hh := r.randf_range(0.25, 0.5)
-				items.append([Vector3(cos(a) * 0.14, hh * 0.5, sin(a) * 0.14), Vector3(0.16, hh, 0.07), Color(0.52, 0.66, 0.48).lerp(Color(0.7, 0.78, 0.66), r.randf()), Vector3(0, -rad_to_deg(a), 22)])
-		1:  # 냉이: 바닥에 붙은 잎과 하얀 꽃대
-			for i in 8:
-				var a := i * TAU / 8.0
-				items.append([Vector3(cos(a) * 0.2, 0.04, sin(a) * 0.2), Vector3(0.3, 0.04, 0.1), Color(0.36, 0.58, 0.3), Vector3(0, -rad_to_deg(a), 0)])
-			for i in 3:
-				var top := Vector3(r.randf_range(-0.1, 0.1), r.randf_range(0.4, 0.55), r.randf_range(-0.1, 0.1))
-				add_beam(n, make_color(Color(0.4, 0.6, 0.3)), Vector3(0, 0.03, 0), top, 0.025, 0.025)
-				for k in 4:
-					items.append([top + Vector3(r.randf_range(-0.05, 0.05), r.randf_range(-0.06, 0.02), r.randf_range(-0.05, 0.05)), Vector3(0.06, 0.06, 0.06), Color(1, 1, 0.97)])
-		2:  # 달래: 가는 잎과 하얀 알뿌리
-			for i in 9:
-				var tilt := Vector3(r.randf_range(-25, 25), 0, r.randf_range(-25, 25))
-				items.append([Vector3(r.randf_range(-0.08, 0.08), 0.28, r.randf_range(-0.08, 0.08)), Vector3(0.035, 0.55, 0.035), Color(0.4, 0.66, 0.32), tilt])
-			items.append([Vector3(0.12, 0.06, 0.05), Vector3(0.12, 0.1, 0.12), Color(0.98, 0.96, 0.9)])
-			items.append([Vector3(-0.08, 0.05, 0.1), Vector3(0.1, 0.09, 0.1), Color(0.98, 0.94, 0.88)])
-		3:  # 도라지: 보랏빛 별꽃
-			for i in 3:
-				var a := i * TAU / 3.0
-				var top := Vector3(cos(a) * 0.15, r.randf_range(0.55, 0.75), sin(a) * 0.15)
-				add_beam(n, make_color(Color(0.32, 0.52, 0.24)), Vector3(0, 0.02, 0), top, 0.03, 0.03)
-				items.append([top * 0.5, Vector3(0.16, 0.04, 0.08), Color(0.36, 0.6, 0.28), Vector3(0, -rad_to_deg(a), 25)])
-				var fc := Color(0.6, 0.45, 0.92) if i != 1 else Color(0.96, 0.96, 1.0)
-				for k in 5:
-					var b := k * TAU / 5.0
-					items.append([top + Vector3(cos(b) * 0.08, 0.0, sin(b) * 0.08), Vector3(0.1, 0.04, 0.07), fc, Vector3(0, -rad_to_deg(b), 0)])
-				items.append([top + Vector3(0, 0.03, 0), Vector3(0.04, 0.04, 0.04), Color(1.0, 0.95, 0.6)])
-		4:  # 더덕: 막대를 감아 오르는 덩굴과 종 모양 꽃
-			add_mcyl(n, dark_wood_mat, 0.03, 0.035, 0.9, Vector3(0, 0.45, 0))
-			for i in 7:
-				var a := i * 1.4
-				var y := 0.12 + i * 0.11
-				items.append([Vector3(cos(a) * 0.08, y, sin(a) * 0.08), Vector3(0.14, 0.05, 0.1), Color(0.34, 0.56, 0.28), Vector3(0, -rad_to_deg(a), 15)])
-			for y in [0.5, 0.78]:
-				items.append([Vector3(0.1, y, 0.0), Vector3(0.1, 0.13, 0.1), Color(0.66, 0.72, 0.5)])
-				items.append([Vector3(0.1, y - 0.06, 0.0), Vector3(0.11, 0.04, 0.11), Color(0.55, 0.3, 0.4)])
-		5:  # 산삼: 손바닥 잎 다섯 장과 빨간 열매
-			add_beam(n, make_color(Color(0.36, 0.5, 0.26)), Vector3(0, 0.02, 0), Vector3(0, 0.55, 0), 0.03, 0.03)
-			for i in 3:
-				var a := i * TAU / 3.0
-				var base := Vector3(cos(a) * 0.12, 0.42, sin(a) * 0.12)
-				add_beam(n, make_color(Color(0.36, 0.5, 0.26)), Vector3(0, 0.4, 0), base, 0.02, 0.02)
-				for k in 5:
-					var b := a + (k - 2) * 0.45
-					items.append([base + Vector3(cos(b) * 0.1, 0.0, sin(b) * 0.1), Vector3(0.14, 0.03, 0.06), Color(0.3, 0.55, 0.26), Vector3(0, -rad_to_deg(b), 0)])
-			for i in 7:
-				items.append([Vector3(r.randf_range(-0.05, 0.05), 0.6 + r.randf_range(0, 0.06), r.randf_range(-0.05, 0.05)), Vector3(0.06, 0.06, 0.06), Color(0.9, 0.12, 0.12)])
-	add_blobs(n, items)
-	add_blobs(n, [[Vector3(0, 0.02, 0), Vector3(0.55, 0.1, 0.55), Color(0.45, 0.33, 0.22)]], null, true)
-
-func update_wild(delta: float) -> void:
-	for ws in wild_spots:
-		var node: Node3D = ws[0]
-		if node.visible:
-			continue
-		ws[2] = float(ws[2]) - delta
-		if float(ws[2]) <= 0.0:
-			if node.has_meta("anchor"):
-				node.position = random_near(node.get_meta("anchor"), SCATTER_HERB)
-			node.visible = true
-			pop3d(node, true)
-
-func herb_kinds_done() -> int:
-	var n := 0
-	for c in herb_counts:
-		if int(c) >= HERB_NEED:
-			n += 1
-	return n
-
-func pick_wild(t: Dictionary) -> void:
-	var node: Node3D = t["node"]
-	var k := int(t["id"])
-	node.visible = false
-	for ws in wild_spots:
-		if ws[0] == node:
-			ws[2] = HERB_REGROW
-	sfx("pop")
-	burst3d(node.position + Vector3(0, 0.6, 0), Color(0.6, 0.9, 0.5))
-	herb_counts[k] = int(herb_counts[k]) + 1
-	var nm: String = HERBS[k]["name"]
-	var lines := []
-	var cnt := int(herb_counts[k])
-	if cnt < HERB_NEED:
-		lines.append(["", "%s을(를) 캤다! (%d/%d) 3분 뒤에 다시 자라요." % [nm, cnt, HERB_NEED]])
-	elif cnt == HERB_NEED:
-		var rw: int = HERBS[k]["reward"]
-		earn(rw)
-		lines.append(["", "%s을(를) %d번 모아 약초 도감에 올렸다! 장터에 팔아 엽전 %d냥. (약초 도감 %d/%d)" % [nm, HERB_NEED, rw, herb_kinds_done(), HERBS.size()]])
-		if herb_kinds_done() >= HERBS.size() and not herb_reward:
-			herb_reward = true
-			earn(40)
-			lines.append(["", "약초 도감을 모두 채웠다! 마을 사람들이 고맙다며 엽전 40냥을 모아 주었다."])
-	else:
-		earn(1)
-		lines.append(["", "%s을(를) 캐서 장터에 팔았다. 엽전 1냥." % nm])
-	save_south()
-	say(lines, Callable())
-
 # ---------- 도감 책 ----------
 
 var book_button: Button
@@ -3618,15 +3039,6 @@ var story_box: VBoxContainer
 var story_buttons: Array = []
 var story_reader: Panel
 var story_reader_label: Label
-
-func read_story(i: int) -> void:
-	if not story_read[i]:
-		return
-	sfx("tap")
-	var st: Dictionary = STORY[i]
-	story_reader_label.text = "%d. %s\n\n%s" % [i + 1, st["title"], st["text"]]
-	story_box.visible = false
-	story_reader.visible = true
 
 func make_book_ui() -> void:
 	book_button = Button.new()
@@ -3883,42 +3295,6 @@ func random_near(anchor: Vector3, radius: float) -> Vector3:
 
 # 빨래는 개울 양쪽 물가를 따라 세 구간에 하나씩 흩어져요
 var laundry_seg := 0
-func laundry_spot(seg: int) -> Vector3:
-	var ranges := [[-35.0, -15.0], [-13.0, 12.0], [14.0, 35.0]]
-	var rg: Array = ranges[seg % 3]
-	for i in 40:
-		var x := rng.randf_range(rg[0], rg[1])
-		if absf(x + 2.0) < 3.0:
-			continue
-		var side := -1.0 if rng.randf() < 0.5 else 1.0
-		var p := Vector3(x, 0, creek_z(x) + side * (creek_half(x) + rng.randf_range(1.2, 2.2)))
-		if ground_ok(p):
-			return p
-	return Vector3(rng.randf_range(rg[0], rg[1]), 0, -13.0)
-
-func scatter_items() -> void:
-	# 물리 세상이 준비될 때까지 잠깐 기다려요
-	await get_tree().physics_frame
-	await get_tree().physics_frame
-	rng.randomize()
-	for t in things:
-		var node: Node3D = t["node"]
-		var kind: String = t["kind"]
-		var radius := 0.0
-		if kind == "piece" and node.position.y < 0.5:
-			radius = SCATTER_PIECE
-		elif kind == "herb":
-			radius = SCATTER_HERB
-		elif kind == "wild" and node.position.x < 36.0:
-			radius = SCATTER_HERB
-		if kind == "laundry":
-			node.position = laundry_spot(laundry_seg)
-			laundry_seg += 1
-		if radius > 0.0:
-			if not node.has_meta("anchor"):
-				node.set_meta("anchor", node.position)
-			node.position = random_near(node.get_meta("anchor"), radius)
-
 # 돌리기 버튼: 동그랗게 도는 화살표
 func draw_turn_icon(ci: Control) -> void:
 	var c := ci.size / 2.0
@@ -4146,30 +3522,6 @@ var STORY := [
 ]
 var story_read := [false, false, false, false, false, false, false]
 
-func story_count() -> int:
-	var n := 0
-	for r in story_read:
-		if r:
-			n += 1
-	return n
-
-func get_piece_id(id: int, extra: String) -> void:
-	pieces_found += 1
-	update_quest_text()
-	var first: bool = not story_read[id]
-	story_read[id] = true
-	save_south()
-	var st: Dictionary = STORY[id]
-	var found := []
-	if extra != "":
-		found.append(["", extra])
-	found.append(["이야기 조각 “%s”" % st["title"], st["text"]])
-	if first:
-		found.append(["", "새 이야기 조각을 찾았어요! 도감의 ‘이야기’에서 다시 읽을 수 있어요. (%d/%d)" % [story_count(), STORY.size()]])
-	if pieces_found >= PIECE_TOTAL:
-		found.append(["이야기 조각", "일곱 조각이 하나로 이어졌어요.\n놀부의 욕심 뒤에는, 동생들을 지키고 싶었던 겁 많은 형이 있었어요."])
-	say(found, Callable())
-
 # ---------- 마을 안에서 하는 3D 미니게임 (우물, 나무하기, 낚시) ----------
 var mg_world := false
 var mg_back: Control
@@ -4186,595 +3538,14 @@ var line_node: MeshInstance3D
 
 var world_hidden: Array = []
 
-func world_hide(n: Node) -> void:
-	if n != null and is_instance_valid(n) and (n as Node3D).visible:
-		(n as Node3D).visible = false
-		world_hidden.append(n)
-
-func world_game_begin(stand: Vector3, face: Vector3, cam_pos: Vector3, cam_at: Vector3, spot: Node3D = null) -> void:
-	mg_world = true
-	if spot != null:
-		for lb in spot.find_children("*", "Label3D", true, false):
-			world_hide(lb)
-	player.position = stand
-	player.velocity = Vector3.ZERO
-	player.rotation.y = atan2(face.x - stand.x, face.z - stand.z)
-	player_body.rotation = Vector3.ZERO
-	world_cam = Transform3D(Basis(), cam_pos).looking_at(cam_at, Vector3.UP)
-	hud_hidden = []
-	for c in [action_button, jump_button, turn_button, book_button, settings_button, quest_panel]:
-		if c != null and c.visible:
-			hud_hidden.append(c)
-			c.visible = false
-
-func world_game_end() -> void:
-	mg_world = false
-	for n in world_hidden:
-		if is_instance_valid(n):
-			(n as Node3D).visible = true
-	world_hidden = []
-	for n in mg_nodes:
-		if is_instance_valid(n):
-			n.queue_free()
-	mg_nodes = []
-	for c in hud_hidden:
-		if is_instance_valid(c):
-			c.visible = true
-	hud_hidden = []
-	drop_tool()
-	world_restore()
-	update_quest_text()
-
-func world_node(n: Node3D) -> Node3D:
-	if n.get_parent() == null:
-		add_child(n)
-	mg_nodes.append(n)
-	return n
-
-func hold_tool(kind: String) -> void:
-	drop_tool()
-	tool_kind = kind
-	tool_node = MeshInstance3D.new()
-	var root := Node3D.new()
-	if kind == "shovel":
-		add_mcyl(root, wood_mat, 0.03, 0.035, 1.2, Vector3(0, 0.6, 0))
-		add_mbox(root, make_color(Color(0.5, 0.52, 0.56)), Vector3(0.24, 0.3, 0.03), Vector3(0, 1.3, 0))
-	elif kind == "stick":
-		add_mcyl(root, make_color(Color(0.6, 0.45, 0.25)), 0.025, 0.035, 1.1, Vector3(0, 0.55, 0))
-		add_blobs(root, [[Vector3(0, 1.12, 0), Vector3(0.22, 0.3, 0.22), Color(0.85, 0.72, 0.45)]], thatch_blob_mat)
-	elif kind == "pole":
-		# 끝이 갈라진 대나무 장대
-		add_mcyl(root, make_color(Color(0.72, 0.68, 0.38)), 0.022, 0.03, 2.6, Vector3(0, 1.3, 0))
-		for k in 4:
-			add_mcyl(root, make_color(Color(0.5, 0.48, 0.26)), 0.034, 0.034, 0.03, Vector3(0, 0.4 + k * 0.6, 0))
-		var fa := add_mcyl(root, make_color(Color(0.72, 0.68, 0.38)), 0.012, 0.016, 0.25, Vector3(0.05, 2.68, 0))
-		fa.rotation.z = -0.35
-		var fb := add_mcyl(root, make_color(Color(0.72, 0.68, 0.38)), 0.012, 0.016, 0.25, Vector3(-0.05, 2.68, 0))
-		fb.rotation.z = 0.35
-	elif kind == "axe":
-		var handle := add_mcyl(root, wood_mat, 0.035, 0.04, 0.95, Vector3(0, 0.47, 0))
-		handle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-		add_mbox(root, make_color(Color(0.5, 0.52, 0.56)), Vector3(0.07, 0.2, 0.3), Vector3(0, 0.9, 0.1))
-		add_mbox(root, make_color(Color(0.85, 0.86, 0.88)), Vector3(0.075, 0.18, 0.04), Vector3(0, 0.9, 0.26))
-	else:
-		add_mcyl(root, make_color(Color(0.55, 0.42, 0.22)), 0.012, 0.03, 2.3, Vector3(0, 1.15, 0))
-		add_mcyl(root, make_color(Color(0.3, 0.2, 0.12)), 0.04, 0.04, 0.3, Vector3(0, 0.1, 0))
-	tool_node.add_child(root)
-	add_child(tool_node)
-
-func drop_tool() -> void:
-	if tool_node != null and is_instance_valid(tool_node):
-		tool_node.queue_free()
-	tool_node = null
-	tool_kind = ""
-
-func bone_world(bn: String) -> Vector3:
-	if not player_body.has_meta("skel"):
-		return player.position + Vector3(0, 1.0, 0)
-	var skel: Skeleton3D = player_body.get_meta("skel")
-	var i := skel.find_bone(bn)
-	return skel.global_transform * skel.get_bone_global_pose(i).origin
-
-# 도구는 손에 붙이고, 정해 준 방향(dir)으로 뻗게 해요
-func place_tool(dir: Vector3) -> void:
-	if tool_node == null:
-		return
-	var hand := bone_world("handR").lerp(bone_world("handL"), 0.5 if tool_kind == "axe" else 0.0)
-	var y := dir.normalized()
-	var x := y.cross(Vector3.UP if absf(y.y) < 0.95 else Vector3.FORWARD).normalized()
-	var z := x.cross(y).normalized()
-	tool_node.global_transform = Transform3D(Basis(x, y, z), hand - y * 0.12)
-
-func tool_tip(length: float) -> Vector3:
-	if tool_node == null:
-		return player.position
-	return tool_node.global_transform * Vector3(0, length, 0)
-
-# 여러 자세를 직접 잡아요 (팔: 앞으로 드는 정도·벌림·팔꿈치, 몸 숙임)
-func pose_custom(arm_l: Vector3, arm_r: Vector3, lean: float, crouch: float) -> void:
-	if not player_body.has_meta("skel"):
-		pose_person(player_body, 0.0, 0.0)
-		return
-	var skel: Skeleton3D = player_body.get_meta("skel")
-	var bones: Dictionary = player_body.get_meta("bones")
-	for side in ["L", "R"]:
-		var sx := -1.0 if side == "L" else 1.0
-		var arm: Vector3 = arm_l if side == "L" else arm_r
-		var twist: Vector3 = (bones["arm" + side] as Array)[3] if bones.has("arm" + side) else Vector3.UP
-		turn_bone(skel, bones, "arm" + side, [[Vector3.RIGHT, arm.x], [Vector3.BACK, -sx * arm.y], [twist, sx * 0.9]])
-		turn_bone(skel, bones, "fore" + side, [[Vector3.RIGHT, arm.z]])
-		turn_bone(skel, bones, "thigh" + side, [[Vector3.RIGHT, -0.14 - crouch * 0.5]])
-		turn_bone(skel, bones, "shin" + side, [[Vector3.RIGHT, 0.26 + crouch]])
-		turn_bone(skel, bones, "foot" + side, [[Vector3.RIGHT, -0.12 - crouch * 0.45]])
-	turn_bone(skel, bones, "hips", [])
-	turn_bone(skel, bones, "spine", [[Vector3.RIGHT, lean]])
-	turn_bone(skel, bones, "head", [[Vector3.RIGHT, -lean * 0.4]])
-	player_body.position.y = 1.0 - crouch * 0.12
-
-func world_pose(delta: float) -> void:
-	if scene_pose():
-		return
-	match mg_type:
-		"wood3d":
-			var t: float = w.get("chop", 0.0)
-			var arm := Vector3(lerpf(-2.75, -0.85, t), lerpf(0.12, 0.28, t), lerpf(-0.55, -0.08, t))
-			pose_custom(arm, arm, lerpf(-0.14, 0.32, t), 0.18 + t * 0.15)
-			var sh := (bone_world("armL") + bone_world("armR")) * 0.5
-			place_tool((((bone_world("handL") + bone_world("handR")) * 0.5) - sh).normalized() + Vector3(0, 0.25 * (1.0 - t), 0))
-		"well3d":
-			var ph: float = w.get("pull_anim", 0.0)
-			var reach := -1.35 - 0.35 * sin(ph)
-			var reach2 := -1.35 + 0.35 * sin(ph)
-			pose_custom(Vector3(reach, 0.25, -0.7), Vector3(reach2, 0.25, -0.7), 0.15, 0.15)
-		"fish":
-			var jerk: float = w.get("jerk", 0.0)
-			var fight := 0.0
-			if mg_step >= 2:
-				fight = sin(anim_t * 18.0) * 0.06
-			pose_custom(Vector3(-0.5, 0.45, -0.3), Vector3(-1.05 - jerk * 0.6 + fight, 0.3, -0.85 + jerk * 0.3), 0.06 - jerk * 0.1, 0.12)
-			var fwd := Vector3(sin(player.rotation.y), 0, cos(player.rotation.y))
-			place_tool((fwd * 0.75 + Vector3(0, 0.62 + jerk * 0.5, 0)).normalized())
-
-# --- 효과 ---
-
-func splash3d(pos: Vector3, big: bool = false) -> void:
-	burst3d(pos + Vector3(0, 0.1, 0), Color(0.75, 0.9, 1.0), 26 if big else 12)
-	ripple3d(pos, 1.6 if big else 0.9)
-
-func ripple3d(pos: Vector3, size: float) -> void:
-	var mi := MeshInstance3D.new()
-	var tor := TorusMesh.new()
-	tor.inner_radius = 0.9
-	tor.outer_radius = 1.0
-	tor.rings = 24
-	mi.mesh = tor
-	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(1, 1, 1, 0.8)
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mi.material_override = m
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mi.position = Vector3(pos.x, 0.1, pos.z)
-	mi.scale = Vector3(0.15, 0.04, 0.15)
-	add_child(mi)
-	var tw := mi.create_tween()
-	tw.tween_property(mi, "scale", Vector3(size, 0.04, size), 0.7).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(m, "albedo_color:a", 0.0, 0.7)
-	tw.tween_callback(mi.queue_free)
-
-func chips3d(pos: Vector3) -> void:
-	var p := CPUParticles3D.new()
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(0.09, 0.03, 0.05)
-	mesh.material = make_color(Color(0.9, 0.74, 0.5))
-	p.mesh = mesh
-	p.amount = 22
-	p.one_shot = true
-	p.explosiveness = 1.0
-	p.lifetime = 0.8
-	p.direction = Vector3.UP
-	p.spread = 80.0
-	p.initial_velocity_min = 2.5
-	p.initial_velocity_max = 5.0
-	p.gravity = Vector3(0, -12, 0)
-	p.angular_velocity_min = -720
-	p.angular_velocity_max = 720
-	p.scale_amount_min = 0.6
-	p.scale_amount_max = 1.4
-	p.position = pos
-	add_child(p)
-	p.emitting = true
-	get_tree().create_timer(1.2).timeout.connect(p.queue_free)
-
 # ---------- 나무하기: 타이밍 맞춰 도끼로 쩍! ----------
-
-func start_wood3d() -> void:
-	var stump := job_spot("wood")
-	var s := stump.position
-	start_game("wood3d", {"world": true, "art": "world", "title": "막대가 초록 칸에 왔을 때 눌러서\n도끼로 장작을 쪼개요!", "goal": 6}, job_done)
-	world_game_begin(s + Vector3(0, 0, 1.15), s, s + Vector3(2.5, 2.1, 2.8), s + Vector3(0, 0.75, 0.35), stump)
-	if stump.has_meta("axe"):
-		world_hide(stump.get_meta("axe"))
-	hold_tool("axe")
-	w["chop"] = 0.0
-	w["busy"] = false
-	w["stump"] = s
-	wood_new_log()
-
-func job_spot(id: String) -> Node3D:
-	for t in things:
-		if t["kind"] == "job" and t["id"] == id:
-			return t["node"]
-	return self
-
-func wood_new_log() -> void:
-	# 게임이 끝난 뒤 늦게 불리면 아무것도 안 해요
-	if not mg_active or mg_type != "wood3d" or not w.has("stump"):
-		return
-	var s: Vector3 = w["stump"]
-	var lg := Node3D.new()
-	lg.position = s + Vector3(0, 0.72, 0)
-	world_node(lg)
-	var body := add_mcyl(lg, dark_wood_mat, 0.2, 0.21, 0.52, Vector3(0, 0.26, 0))
-	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-	var cap := add_mcyl(lg, endgrain_mat(), 0.195, 0.195, 0.01, Vector3(0, 0.525, 0))
-	cap.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	w["log"] = lg
-	pop3d(lg, true)
-
-func wood_marker() -> float:
-	return sin(mg_phase)
-
-func wood_zone() -> float:
-	return maxf(0.08, 0.2 - mg_count * 0.018)
-
-func update_wood3d(delta: float) -> void:
-	if not w.get("busy", false):
-		mg_phase += delta * (2.0 + mg_count * 0.32)
-	mg_progress = float(mg_count) / float(mg_cfg["goal"])
-	mg_info.text = "장작 %d/%d | 남은 기회 %d" % [mg_count, mg_cfg["goal"], mg_lives]
-
-func wood_strike() -> void:
-	if w.get("busy", false) or not mg_active:
-		return
-	w["busy"] = true
-	var hit := absf(wood_marker()) < wood_zone()
-	var tw := create_tween()
-	tw.tween_method(func(v): w["chop"] = v, 0.0, 1.0, 0.11).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.tween_callback(func(): wood_impact(hit))
-	tw.tween_interval(0.18)
-	tw.tween_method(func(v): w["chop"] = v, 1.0, 0.0, 0.32).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tw.tween_callback(func():
-		w["busy"] = false
-		if hit and mg_active:
-			wood_new_log())
-
-func wood_impact(hit: bool) -> void:
-	var lg: Node3D = w.get("log")
-	if lg == null or not is_instance_valid(lg):
-		return
-	var top := lg.global_position + Vector3(0, 0.5, 0)
-	if hit:
-		mg_count += 1
-		sfx("crack", rng.randf_range(0.95, 1.1))
-		sfx("saw", 1.4)
-		hit_stop(0.07)
-		shake(12)
-		cam_kick = 0.35
-		chips3d(top)
-		flash(Color(1, 0.95, 0.8))
-		var at := cam.unproject_position(top)
-		float_text(["쩍!", "탁!", "쩌억!"][mg_count % 3], at, Color(1, 0.95, 0.75), 1.5)
-		burst(at, Color(1, 0.85, 0.4), 10)
-		# 통나무가 반으로 갈라져 양쪽으로 날아가요
-		lg.visible = false
-		for sx in [-1.0, 1.0]:
-			var half := Node3D.new()
-			half.position = lg.global_position + Vector3(sx * 0.1, 0, 0)
-			add_child(half)
-			var hm := add_mcyl(half, dark_wood_mat, 0.2, 0.21, 0.52, Vector3(0, 0.26, 0))
-			hm.scale = Vector3(0.5, 1, 1)
-			add_mbox(half, endgrain_mat(), Vector3(0.01, 0.5, 0.38), Vector3(-sx * 0.0, 0.26, 0))
-			var dest := half.position + Vector3(sx * rng.randf_range(0.7, 1.0), -0.6, rng.randf_range(-0.3, 0.3))
-			var tw := half.create_tween()
-			tw.tween_property(half, "position", half.position + Vector3(sx * 0.4, 0.55, 0), 0.18).set_ease(Tween.EASE_OUT)
-			tw.parallel().tween_property(half, "rotation", Vector3(0, 0, -sx * 1.4), 0.5)
-			tw.tween_property(half, "position", dest, 0.3).set_ease(Tween.EASE_IN)
-			tw.tween_property(half, "scale", Vector3(0.01, 0.01, 0.01), 0.35)
-			tw.tween_callback(half.queue_free)
-		lg.queue_free()
-	else:
-		mg_lives -= 1
-		mg_perfect = false
-		sfx("bad")
-		sfx("tick", 0.6)
-		shake(6)
-		var at2 := cam.unproject_position(top)
-		float_text("빗나갔어요!", at2, Color(1, 0.6, 0.5), 1.1)
-		var tw2 := lg.create_tween()
-		tw2.tween_property(lg, "rotation:z", 0.25, 0.06)
-		tw2.tween_property(lg, "rotation:z", -0.18, 0.08)
-		tw2.tween_property(lg, "rotation:z", 0.0, 0.12)
 
 # ---------- 우물: 두레박을 당겨 물 길어 올리기 ----------
 
 const WELL_TOP := 1.12
 const WELL_WATER := 0.72
 
-func start_well3d() -> void:
-	var well := job_spot("water")
-	var p := well.position
-	start_game("well3d", {"world": true, "art": "world", "title": "손가락으로 위로 쓸어 줄을 당겨요\n너무 세게 당기면 물이 쏟아져요!"}, job_done)
-	world_game_begin(p + Vector3(0, 0, 1.3), p, p + Vector3(-2.2, 2.4, 3.0), p + Vector3(0, 0.8, 0), well)
-	for k in ["bucket", "rope"]:
-		if well.has_meta(k):
-			world_hide(well.get_meta(k))
-	var bk := Node3D.new()
-	bk.position = p + Vector3(0.2, WELL_TOP, 0)
-	world_node(bk)
-	add_mcyl(bk, wood_mat, 0.17, 0.14, 0.26, Vector3(0, -0.13, 0))
-	add_mcyl(bk, make_color(Color(0.3, 0.22, 0.14)), 0.175, 0.175, 0.03, Vector3(0, -0.02, 0))
-	var wtr := add_mcyl(bk, water_material(1, Vector4(0, 0, 0.15, 0.15), Color(0.2, 0.45, 0.6), Color(0.45, 0.7, 0.8), Vector2.ZERO, 0.0), 0.15, 0.15, 0.01, Vector3(0, -0.24, 0))
-	w["bucket"] = bk
-	w["water_disc"] = wtr
-	var rope := MeshInstance3D.new()
-	var rb := BoxMesh.new()
-	rb.size = Vector3(0.025, 1.0, 0.025)
-	rope.mesh = rb
-	rope.material_override = make_color(Color(0.75, 0.62, 0.4))
-	world_node(rope)
-	w["rope"] = rope
-	w["pulley"] = p + Vector3(0.2, 1.75, 0)
-	w["well"] = well
-	w["y"] = WELL_TOP
-	w["water"] = 0.0
-	w["sway"] = 0.0
-	w["state"] = "lower"
-	w["timer"] = 0.0
-	w["fill"] = 0.0
-	w["pull_anim"] = 0.0
-	w["last_y"] = -1.0
-
-func update_well3d(delta: float) -> void:
-	var st: String = w["state"]
-	var y: float = w["y"]
-	w["timer"] = float(w["timer"]) + delta
-	w["sway"] = maxf(0.0, float(w["sway"]) - delta * 0.9)
-	if st == "lower":
-		y = move_toward(y, WELL_WATER, delta * 0.9)
-		if y <= WELL_WATER + 0.001:
-			sfx("splash")
-			splash3d((w["pulley"] as Vector3) * Vector3(1, 0, 1) + Vector3(0, 0.62, 0))
-			w["state"] = "fill"
-			w["timer"] = 0.0
-		mg_info.text = "두레박을 내려요..."
-	elif st == "fill":
-		w["water"] = minf(1.0, float(w["timer"]) / 0.6)
-		if float(w["timer"]) > 0.7:
-			w["state"] = "pull"
-		mg_info.text = "물이 차오르고 있어요"
-	elif st == "pull":
-		var sway: float = w["sway"]
-		if sway > 0.5:
-			# 너무 흔들리면 물이 쏟아져요
-			var spill := (sway - 0.5) * delta * 3.0
-			w["water"] = maxf(0.0, float(w["water"]) - spill)
-			if rng.randf() < delta * 8.0:
-				var bkn: Node3D = w["bucket"]
-				burst3d(bkn.global_position, Color(0.7, 0.88, 1.0), 4)
-		if y >= WELL_TOP - 0.001:
-			var got: float = w["water"]
-			if got < 0.3:
-				mg_lives -= 1
-				mg_perfect = false
-				sfx("bad")
-				float_text("물이 다 쏟아졌어요!", cam.unproject_position((w["bucket"] as Node3D).global_position), Color(1, 0.6, 0.5), 1.1)
-			else:
-				if got < 0.85:
-					mg_perfect = false
-				w["fill"] = float(w["fill"]) + got * 0.36
-				sfx("splash", 1.2)
-				sfx("good")
-				shake(4)
-				var bp := (w["bucket"] as Node3D).global_position
-				splash3d(bp + Vector3(0.4, -0.3, 0.5))
-				float_text("물 한 동이!" if got >= 0.85 else "조금 쏟았어요", cam.unproject_position(bp), Color(0.8, 0.95, 1.0), 1.2)
-			w["water"] = 0.0
-			w["state"] = "lower"
-		var sw_txt := "흔들려요! 살살~" if sway > 0.5 else "위로 쓸어 올려요"
-		mg_info.text = "%s | 항아리 %d%% | 남은 기회 %d" % [sw_txt, int(minf(float(w["fill"]), 1.0) * 100.0), mg_lives]
-	w["y"] = y
-	mg_progress = minf(float(w["fill"]), 1.0)
-	# 3D 위치 갱신
-	var bk: Node3D = w["bucket"]
-	var pul: Vector3 = w["pulley"]
-	var swing := sin(anim_t * 9.0) * minf(float(w["sway"]), 1.2) * 0.35
-	bk.global_position = Vector3(pul.x + sin(swing) * 0.15, (w["well"] as Node3D).position.y + y, pul.z)
-	bk.rotation.z = swing
-	(w["water_disc"] as Node3D).visible = float(w["water"]) > 0.02
-	(w["water_disc"] as Node3D).position.y = -0.24 + float(w["water"]) * 0.2
-	var rope: MeshInstance3D = w["rope"]
-	var top := pul
-	var bot := bk.global_position
-	rope.global_position = (top + bot) * 0.5
-	rope.scale = Vector3(1, maxf(0.05, top.distance_to(bot)), 1)
-	rope.rotation = Vector3(0, 0, -swing * 0.3)
-
-func well_drag(dy: float, dt_ms: float) -> void:
-	if w.get("state", "") != "pull":
-		return
-	var h := mg_overlay.size.y
-	var rise := dy / h * 1.1
-	if rise <= 0.0:
-		return
-	w["y"] = minf(WELL_TOP, float(w["y"]) + rise)
-	w["pull_anim"] = float(w["pull_anim"]) + rise * 14.0
-	var speed := rise / maxf(dt_ms / 1000.0, 0.008)
-	if speed > 1.1:
-		w["sway"] = minf(1.6, float(w["sway"]) + (speed - 1.1) * 0.12)
-	if rng.randf() < 0.3:
-		sfx("tick", rng.randf_range(0.7, 0.9))
-
 # ---------- 낚시 (3D): 연못 위 찌, 물고기 그림자, 튀어 오르는 물고기 ----------
-
-func start_fishing3d() -> void:
-	start_game("fish", {"world": true, "art": "world", "title": "찌가 쏙 들어가면 눌러서 채요!\n걸리면 눌렀다 뗐다 하며 초록 칸에"}, fish_done)
-	var stand := POND_C + Vector3(4.1, 0.0, 0.0)
-	var fspot: Node3D = null
-	for t in things:
-		if t["kind"] == "fish":
-			fspot = t["node"]
-	world_game_begin(stand, POND_C, POND_C + Vector3(7.4, 3.3, 3.8), POND_C + Vector3(1.6, 0.3, 0.0), fspot)
-	for d in pond_deco:
-		world_hide(d)
-	hold_tool("rod")
-	var bob := Node3D.new()
-	world_node(bob)
-	add_ball(bob, Color(0.9, 0.2, 0.2), 0.07, Vector3(0, 0.05, 0))
-	add_ball(bob, Color(1, 1, 1), 0.065, Vector3(0, -0.01, 0))
-	w["bobber"] = bob
-	w["bob_at"] = POND_C + Vector3(1.0, 0.09, 0.4)
-	var shadow := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = 0.5
-	sm.height = 1.0
-	shadow.mesh = sm
-	var shm := StandardMaterial3D.new()
-	shm.albedo_color = Color(0.05, 0.12, 0.18, 0.55)
-	shm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	shm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	shadow.material_override = shm
-	shadow.scale = Vector3(0.7, 0.05, 0.28)
-	shadow.visible = false
-	world_node(shadow)
-	w["shadow"] = shadow
-	var lab := Label3D.new()
-	lab.text = "!"
-	lab.font = font
-	lab.font_size = 140
-	lab.modulate = Color(1, 0.3, 0.2)
-	lab.outline_size = 18
-	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lab.visible = false
-	world_node(lab)
-	w["bang"] = lab
-	line_mesh = ImmediateMesh.new()
-	line_node = MeshInstance3D.new()
-	line_node.mesh = line_mesh
-	var lm := StandardMaterial3D.new()
-	lm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	lm.albedo_color = Color(1, 1, 1, 0.9)
-	line_node.material_override = lm
-	line_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	world_node(line_node)
-	w["jerk"] = 0.0
-	w["last_step"] = 0
-	w["splash_t"] = 0.0
-
-func update_fish_world(delta: float) -> void:
-	if not mg_world or not w.has("bobber"):
-		return
-	var bob: Node3D = w["bobber"]
-	var base: Vector3 = w["bob_at"]
-	var shadow: Node3D = w["shadow"]
-	var bang: Label3D = w["bang"]
-	w["jerk"] = maxf(0.0, float(w["jerk"]) - delta * 3.0)
-	var target := base
-	if mg_step == 0:
-		var nib := 0.03 if fmod(mg_phase, 1.7) < 0.15 else 0.0
-		bob.visible = true
-		bob.position = base + Vector3(0, sin(mg_phase * 2.2) * 0.015 - nib, 0)
-		shadow.visible = false
-		bang.visible = false
-		if nib > 0.0 and rng.randf() < 0.1:
-			ripple3d(base, 0.5)
-	elif mg_step == 1:
-		bob.position = base + Vector3(0, -0.08, 0)
-		bang.visible = true
-		bang.position = base + Vector3(0, 0.75 + sin(anim_t * 20.0) * 0.05, 0)
-		if rng.randf() < delta * 6.0:
-			ripple3d(base, 0.8)
-	else:
-		bob.visible = false
-		bang.visible = false
-		shadow.visible = true
-		var fx := (mg_trail - 0.5) * 3.4
-		var fz := sin(mg_phase * 2.3) * 0.9
-		target = POND_C + Vector3(1.0 + fz * 0.4, 0.07, fx)
-		shadow.position = target
-		shadow.rotation.y = atan2(mg_dir - mg_trail, 0.2) * 0.8
-		w["splash_t"] = float(w["splash_t"]) - delta
-		if float(w["splash_t"]) <= 0.0:
-			w["splash_t"] = rng.randf_range(0.35, 0.8)
-			splash3d(target)
-			sfx("splash", rng.randf_range(1.2, 1.5))
-		target += Vector3(0, 0.02, 0)
-	# 낚싯줄
-	var tip := tool_tip(2.3)
-	var end := bob.position + Vector3(0, 0.06, 0) if mg_step < 2 else target
-	line_mesh.clear_surfaces()
-	line_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
-	var sag := 0.25 if mg_step < 2 else 0.05
-	for i in 13:
-		var t := i / 12.0
-		var p := tip.lerp(end, t) - Vector3(0, sag * sin(t * PI), 0)
-		line_mesh.surface_add_vertex(p)
-	line_mesh.surface_end()
-
-func fish_world_hooked() -> void:
-	if not mg_world:
-		return
-	w["jerk"] = 1.0
-	cam_kick = 0.3
-	hit_stop(0.05)
-	splash3d(w["bob_at"], true)
-
-# 낚아 올린 물고기가 물에서 튀어 올라 품으로 와요
-func fish_leap(kind: int) -> void:
-	var f: Dictionary = FISH[kind]
-	var col: Color = f["col"]
-	var fish := Node3D.new()
-	add_child(fish)
-	var ln: float = f["len"]
-	add_blobs(fish, [
-		[Vector3.ZERO, Vector3(0.5 * ln, 0.22, 0.14), col],
-		[Vector3(-0.3 * ln, 0, 0), Vector3(0.16, 0.18, 0.05), col.darkened(0.15)],
-		[Vector3(0.18 * ln, 0.04, 0.06), Vector3(0.05, 0.05, 0.03), Color(0.05, 0.05, 0.05)],
-		[Vector3(0.18 * ln, 0.04, -0.06), Vector3(0.05, 0.05, 0.03), Color(0.05, 0.05, 0.05)],
-	], blob_gloss())
-	var from: Vector3 = POND_C + Vector3(1.0, 0.1, 0.3)
-	var to := player.position + Vector3(0, 1.3, 0)
-	fish.position = from
-	splash3d(from, true)
-	sfx("splash", 0.9)
-	var tw := fish.create_tween()
-	tw.tween_method(func(t):
-		fish.position = from.lerp(to, t) + Vector3(0, sin(t * PI) * 1.6, 0)
-		fish.rotation = Vector3(0, 0, sin(t * 12.0) * 0.6 + t * 6.0), 0.0, 1.0, 0.7)
-	tw.tween_callback(func():
-		burst3d(fish.position, Color(1, 0.9, 0.4), 18)
-		sfx("coin"))
-	tw.tween_property(fish, "scale", Vector3(0.01, 0.01, 0.01), 0.25)
-	tw.tween_callback(fish.queue_free)
-
-# 오른쪽 힘겨루기 칸 (낚시)
-func draw_reel_meter(ci: CanvasItem) -> void:
-	var w2 := mg_overlay.size.x
-	var h := mg_overlay.size.y
-	var mx := w2 * 0.88
-	var y0 := h * 0.4
-	var y1 := h * 0.82
-	var span := y1 - y0
-	d_box(ci, Vector2(mx, (y0 + y1) / 2.0), Vector2(54, span + 20), 0.0, Color(0.62, 0.45, 0.28), 4)
-	d_box(ci, Vector2(mx, (y0 + y1) / 2.0), Vector2(38, span), 0.0, Color(0.3, 0.5, 0.66), 0.0)
-	var hard: float = FISH[fish_kind]["hard"]
-	var half := lerpf(0.16, 0.1, hard)
-	var zone_c := y1 - mg_off * span
-	var inside := mg_step == 2
-	var z_top := maxf(zone_c - half * span, y0)
-	var z_bot := minf(zone_c + half * span, y1)
-	d_box(ci, Vector2(mx, (z_top + z_bot) / 2.0), Vector2(40, z_bot - z_top), 0.0, Color(0.45, 0.9, 0.45, 0.85) if inside else Color(0.6, 0.85, 0.5, 0.6), 3)
-	draw_fish2d(ci, Vector2(mx, y1 - mg_trail * span), 17, fish_kind, -PI / 2.0 + sin(anim_t * 10.0) * 0.3, true)
 
 # ---------- 화면 위 안내 (3D 게임은 배경 없이 막대·안내만) ----------
 
@@ -4866,228 +3637,8 @@ func blob_node(items: Array, mat: Material = null) -> Node3D:
 	add_blobs(n, items, mat)
 	return n
 
-func scene_setup(scene: String) -> void:
-	w["scene"] = scene
-	w["seen"] = {}
-	w["count0"] = mg_count
-	w["lives0"] = mg_lives
-	match scene:
-		"heal":
-			var nest := Vector3(-15.2, 0, 0.7)
-			var stand := Vector3(-13.6, 0, 3.4)
-			var table := stand + Vector3(-0.15, 0, -0.75)
-			world_game_begin(stand, table, table + Vector3(1.0, 1.25, -1.15), table + Vector3(-0.05, 0.6, 0.35))
-			# 소반 위에 다친 제비
-			var tb := Node3D.new()
-			tb.position = table
-			world_node(tb)
-			add_mcyl(tb, wood_mat, 0.42, 0.42, 0.05, Vector3(0, 0.42, 0))
-			for k in 4:
-				var a := k * TAU / 4.0 + 0.4
-				add_mcyl(tb, dark_wood_mat, 0.035, 0.03, 0.4, Vector3(cos(a) * 0.3, 0.2, sin(a) * 0.3))
-			var bird := Node3D.new()
-			bird.position = table + Vector3(0, 0.5, 0)
-			bird.rotation.y = 0.6
-			world_node(bird)
-			var navy := Color(0.17, 0.2, 0.38)
-			add_blobs(bird, [
-				[Vector3(0, 0.1, 0), Vector3(0.26, 0.17, 0.34), navy],
-				[Vector3(0, 0.07, 0.03), Vector3(0.18, 0.11, 0.24), Color(0.97, 0.95, 0.9)],
-				[Vector3(0, 0.2, 0.15), Vector3(0.16, 0.15, 0.15), navy],
-				[Vector3(0, 0.18, 0.24), Vector3(0.05, 0.04, 0.07), Color(1, 0.6, 0.2)],
-				[Vector3(0.06, 0.22, 0.2), Vector3(0.035, 0.035, 0.035), Color(0.05, 0.05, 0.05)],
-				[Vector3(-0.06, 0.22, 0.2), Vector3(0.035, 0.035, 0.035), Color(0.05, 0.05, 0.05)],
-				[Vector3(0, 0.12, -0.24), Vector3(0.08, 0.03, 0.22), navy, Vector3(10, 18, 0)],
-				[Vector3(0, 0.12, -0.24), Vector3(0.08, 0.03, 0.22), navy, Vector3(10, -18, 0)],
-			], blob_gloss())
-			var wl := add_blobs(bird, [[Vector3(0.14, 0.14, -0.02), Vector3(0.08, 0.04, 0.26), navy.lightened(0.1), Vector3(0, 0, -25)]], blob_gloss())
-			var wr := add_blobs(bird, [[Vector3(-0.14, 0.14, -0.02), Vector3(0.08, 0.04, 0.26), navy.lightened(0.1), Vector3(0, 0, 25)]], blob_gloss())
-			# 다친 다리 + 부목
-			add_beam(bird, make_color(Color(0.85, 0.55, 0.35)), Vector3(0.05, 0.03, 0.02), Vector3(0.12, -0.02, 0.1), 0.02, 0.02)
-			add_beam(bird, wood_mat, Vector3(0.07, 0.04, 0.0), Vector3(0.15, -0.01, 0.13), 0.035, 0.012)
-			w["bird"] = bird
-			w["wings"] = [wl, wr]
-			w["threads"] = []
-		"straw":
-			var hay := job_spot("shoes").position
-			var stand := hay + Vector3(0.6, 0, 1.6)
-			var mat_at := stand + Vector3(-0.1, 0, -0.65)
-			world_game_begin(stand, mat_at, mat_at + Vector3(2.7, 1.9, 1.3), mat_at + Vector3(-0.1, 0.5, 0.3), job_spot("shoes"))
-			var sandal := Node3D.new()
-			sandal.position = mat_at + Vector3(0, 0.36, 0)
-			world_node(sandal)
-			add_mbox(sandal, thatch_dark_mat, Vector3(0.7, 0.06, 0.5), Vector3(0, -0.04, 0))
-			var sole := Node3D.new()
-			sandal.add_child(sole)
-			add_blobs(sole, [[Vector3(0, 0, 0), Vector3(0.18, 0.04, 0.4), Color(0.9, 0.76, 0.46)], [Vector3(0, 0.04, -0.08), Vector3(0.14, 0.05, 0.16), Color(0.85, 0.7, 0.42)]], thatch_blob_mat)
-			w["sole"] = sole
-			var twist := Node3D.new()
-			twist.position = Vector3(0, 0.12, 0.25)
-			sandal.add_child(twist)
-			for k in 6:
-				var tor := MeshInstance3D.new()
-				var tm := TorusMesh.new()
-				tm.inner_radius = 0.025
-				tm.outer_radius = 0.05
-				tor.mesh = tm
-				tor.material_override = thatch_dark_mat
-				tor.position = Vector3(0, 0, -k * 0.05)
-				tor.rotation.x = PI / 2.0 + k * 0.4
-				twist.add_child(tor)
-			w["twist"] = twist
-		"ong":
-			var jar := Vector3(29, 0, -10)
-			var stand := jar + Vector3(-1.05, 0, 0.95)
-			world_game_begin(stand, jar + Vector3(0, 0, 0.4), jar + Vector3(0.9, 1.5, 2.9), jar + Vector3(-0.3, 0.75, 0.4))
-			for c in ong_cracks:
-				world_hide(c)
-			var patch := blob_node([[Vector3.ZERO, Vector3(0.34, 0.5, 0.06), Color(0.62, 0.45, 0.3)]])
-			patch.position = jar + Vector3(-0.05, 0.66, 0.52)
-			patch.scale = Vector3(0.05, 0.05, 1)
-			w["patch"] = patch
-			w["crack_on"] = []
-			var cr := make_color(Color(0.15, 0.1, 0.08))
-			var c0 := jar + Vector3(-0.1, 0.85, 0.53)
-			w["crack_on"].append(world_node(add_beam(self, cr, c0, c0 + Vector3(0.12, -0.2, 0.02), 0.025, 0.02)))
-			w["crack_on"].append(world_node(add_beam(self, cr, c0 + Vector3(0.12, -0.2, 0.02), c0 + Vector3(0.02, -0.4, 0.04), 0.025, 0.02)))
-			var trowel := blob_node([[Vector3.ZERO, Vector3(0.16, 0.04, 0.24), Color(0.55, 0.57, 0.6)], [Vector3(0, 0.06, -0.14), Vector3(0.04, 0.12, 0.04), Color(0.55, 0.38, 0.22)]], blob_gloss())
-			w["trowel"] = trowel
-			w["jar_c"] = jar + Vector3(-0.05, 0.66, 0.58)
-		"saw":
-			var g: Node3D = saw_thing["node"]
-			var gp := g.position
-			# 박의 실제 높이를 재서 톱을 꼭대기에 올려요
-			var top_y := 0.0
-			for mi in g.find_children("*", "GeometryInstance3D", true, false):
-				if mi is Label3D:
-					continue
-				var gi := mi as GeometryInstance3D
-				var bb := gi.get_aabb()
-				var tr: Transform3D = g.global_transform.affine_inverse() * gi.global_transform
-				top_y = maxf(top_y, (tr * (bb.position + bb.size)).y)
-			var rad: float = maxf(0.5, top_y / 2.0) if top_y > 0.1 else g.get_meta("radius", 1.2)
-			w["rad"] = rad
-			var stand := gp + Vector3(rad + 0.75, 0, 0.0)
-			world_game_begin(stand, gp, gp + Vector3(0.4, rad * 2.0 + 1.6, rad * 2.0 + 4.6), gp + Vector3(0.0, rad * 1.1, 0.0))
-			if npcs.has("heungbu"):
-				world_move(npcs["heungbu"], gp + Vector3(-rad - 0.75, 0, 0.0), gp)
-			var saw := Node3D.new()
-			saw.position = gp + Vector3(0, rad * 2.0, 0.0)
-			world_node(saw)
-			add_mbox(saw, make_color(Color(0.42, 0.44, 0.5)), Vector3(rad * 2.0 + 1.4, 0.3, 0.04), Vector3(0, 0, 0))
-			add_mbox(saw, make_color(Color(0.8, 0.82, 0.86)), Vector3(rad * 2.0 + 1.4, 0.05, 0.05), Vector3(0, -0.15, 0))
-			for sx in [-(rad + 0.7), rad + 0.7]:
-				add_mcyl(saw, wood_mat, 0.04, 0.04, 0.35, Vector3(sx, 0.1, 0))
-			w["saw"] = saw
-			w["gp"] = gp
-			var cut := MeshInstance3D.new()
-			var cb := BoxMesh.new()
-			cb.size = Vector3(0.9, 1.0, 0.05)
-			cut.mesh = cb
-			cut.material_override = make_color(Color(0.95, 0.95, 0.85))
-			world_node(cut)
-			w["cut"] = cut
-			w["dir_last"] = 1.0
-		"ditch":
-			var pd := Vector3(-34.5, 0, -3)
-			var dig := pd + Vector3(3.8, 0, 1.2)
-			var stand := dig + Vector3(0.0, 0, 1.0)
-			world_game_begin(stand, dig, dig + Vector3(2.2, 2.4, 3.6), dig + Vector3(-0.3, 0.4, 0))
-			if npcs.has("park"):
-				world_move(npcs["park"], dig + Vector3(-0.9, 0, 0.9), dig)
-			hold_tool("shovel")
-			var pile := blob_node([[Vector3.ZERO, Vector3(0.7, 0.4, 0.6), Color(0.45, 0.33, 0.22)]])
-			pile.position = dig + Vector3(1.0, 0.0, -0.3)
-			pile.scale = Vector3(0.2, 0.2, 0.2)
-			w["pile"] = pile
-			var ch := MeshInstance3D.new()
-			var chm := BoxMesh.new()
-			chm.size = Vector3(1, 0.02, 0.5)
-			ch.mesh = chm
-			ch.material_override = water_material(2, Vector4(0, 0, 0.5, 0.25), Color(0.3, 0.42, 0.4), Color(0.45, 0.58, 0.5), Vector2(0.1, 0.0), 0.3)
-			world_node(ch)
-			w["channel"] = ch
-			w["dig"] = dig
-			w["pd"] = pd
-		"snake":
-			var nest := Vector3(-15.08, 2.0, 0.2)
-			var stand := Vector3(-12.5, 0, 1.3)
-			world_game_begin(stand, nest * Vector3(1, 0, 1), Vector3(-11.2, 2.7, 5.4), Vector3(-14.7, 0.9, 0.9))
-			if npcs.has("heungbu"):
-				world_move(npcs["heungbu"], Vector3(-10.6, 0, -0.6), nest * Vector3(1, 0, 1))
-			hold_tool("stick")
-			w["nest"] = nest
-		"kim":
-			var pumps := [Vector3(-26.5, 0, 16.8), Vector3(-22.3, 0, 17), Vector3(-25, 0, 18.5)]
-			var mid: Vector3 = (pumps[0] + pumps[1] + pumps[2]) / 3.0
-			var stand := mid + Vector3(2.4, 0, 0.6)
-			world_game_begin(stand, mid, mid + Vector3(6.6, 4.8, 2.0), mid + Vector3(0.3, 0.2, 0.2))
-			w["pumps"] = pumps
-		"sparrow":
-			var stand := FARM_C + Vector3(-5.2, 0, 1.6)
-			world_game_begin(stand, FARM_C, FARM_C + Vector3(-8.4, 5.6, 5.4), FARM_C + Vector3(-1.2, 0.3, 0.6))
-			for s2 in sparrows:
-				world_hide(s2[0])
-		"rice":
-			var wife: Node3D = npcs["wife"]
-			var wp := wife.position
-			for lb in wife.find_children("*", "Label3D", true, false):
-				world_hide(lb)
-			var stand := wp + Vector3(0, 0, 2.6)
-			world_game_begin(stand, wp, wp + Vector3(0.0, 2.3, 7.4), wp + Vector3(0, 2.9, 1.4))
-			var bowl := blob_node([[Vector3.ZERO, Vector3(0.6, 0.22, 0.6), Color(0.86, 0.76, 0.5)], [Vector3(0, 0.08, 0), Vector3(0.48, 0.08, 0.48), Color(0.98, 0.97, 0.92)]], thatch_blob_mat)
-			w["bowl"] = bowl
-			w["items"] = {}
-			w["center"] = stand
-			w["depth"] = cam_depth_of(stand + Vector3(0, 2.4, 0), wp + Vector3(0.0, 2.3, 7.4))
-		"plant":
-			var stand := FARM_C + Vector3(-3.0, 0, 1.2)
-			world_game_begin(stand, stand + Vector3(1, 0, -0.9), stand + Vector3(5.6, 3.4, -0.9), stand + Vector3(1.2, 0.3, -0.9))
-			var line := MeshInstance3D.new()
-			var lb := BoxMesh.new()
-			lb.size = Vector3(0.02, 0.02, 2.6)
-			line.mesh = lb
-			line.material_override = make_color(Color(0.95, 0.9, 0.75))
-			world_node(line)
-			w["rope"] = line
-			var marks := []
-			for k in 4:
-				var mk := blob_node([[Vector3.ZERO, Vector3(0.07, 0.07, 0.07), Color(0.9, 0.2, 0.15)]])
-				marks.append(mk)
-			w["marks"] = marks
-			var bundle := blob_node([[Vector3(0, 0.15, 0), Vector3(0.12, 0.35, 0.12), Color(0.45, 0.72, 0.3)], [Vector3(0, 0.0, 0), Vector3(0.1, 0.1, 0.1), Color(0.99, 0.83, 0.69)]])
-			w["bundle"] = bundle
-			var ring := MeshInstance3D.new()
-			var tm := TorusMesh.new()
-			tm.inner_radius = 0.2
-			tm.outer_radius = 0.3
-			tm.rings = 32
-			ring.mesh = tm
-			var rmat := StandardMaterial3D.new()
-			rmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			rmat.albedo_color = Color(1.0, 0.85, 0.15)
-			rmat.no_depth_test = true
-			rmat.render_priority = 5
-			ring.material_override = rmat
-			ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			world_node(ring)
-			w["ring"] = ring
-			w["planted"] = []
-			w["base"] = stand + Vector3(0.9, 0, -1.0)
-			farm_stages_hidden_for_plant()
-			if has_node("Scarecrow"):
-				world_hide(get_node("Scarecrow"))
-
-func farm_stages_hidden_for_plant() -> void:
-	for st in farm_stages:
-		world_hide(st)
-
 func cam_depth_of(target: Vector3, cam_pos: Vector3) -> float:
 	return target.distance_to(cam_pos)
-
-func plant_world_pos(row: int, col: int) -> Vector3:
-	var base: Vector3 = w["base"]
-	return base + Vector3(row * 0.75, 0.12, (1.5 - col) * 0.55)
 
 # 3D 물체를 화면 위치로 바꿔 보이지 않는 버튼을 거기 놓아요
 func pin_button(b: Control, at: Vector3) -> void:
@@ -5527,10 +4078,6 @@ var harvests := 0
 var farm_stages: Array = []   # [어린 모, 푸른 벼, 누런 벼]
 var sparrows: Array = []      # [노드, 처음 위치]
 
-func make_south() -> void:
-	make_fishing_pond()
-	make_farm()
-
 func flat_ellipse(c: Vector3, rx: float, rz: float, y: float, mat: Material) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
@@ -5546,750 +4093,6 @@ func flat_ellipse(c: Vector3, rx: float, rz: float, y: float, mat: Material) -> 
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 	return mi
-
-func make_fishing_pond() -> void:
-	var c := POND_C
-	var rx := 5.6
-	var rz := 4.0
-	var r := RandomNumberGenerator.new()
-	r.seed = 33
-	var none := Color(0, 0, 0, 0)
-	flat_ellipse(c, rx, rz, 0.06, water_material(1, Vector4(c.x, c.z, rx, rz), Color(0.12, 0.36, 0.52), Color(0.42, 0.68, 0.72)))
-	# 물가 돌 (나루터 쪽은 비워요)
-	var stones := []
-	var a := 0.0
-	while a < TAU:
-		a += r.randf_range(0.18, 0.3)
-		if absf(wrapf(a, -PI, PI)) < 0.3:
-			continue
-		var k := r.randf_range(0.0, 0.35)
-		stones.append([c + Vector3(cos(a) * (rx + 0.3 + k), 0.08, sin(a) * (rz + 0.3 + k)), Vector3(r.randf_range(0.5, 1.0), r.randf_range(0.3, 0.55), r.randf_range(0.45, 0.8)), stone_color(r)])
-	add_blobs(self, stones, stone_blob_mat)
-	# 갈대와 부들
-	var reeds := []
-	for ang in [2.2, 2.55, 3.5, 3.9, 1.3, 4.9, 5.4]:
-		var base := c + Vector3(cos(ang) * rx * 0.93, 0, sin(ang) * rz * 0.93)
-		for i in 7:
-			var p := base + Vector3(r.randf_range(-0.5, 0.5), 0, r.randf_range(-0.4, 0.4))
-			var hgt := r.randf_range(0.9, 1.5)
-			var tilt := Vector3(r.randf_range(-12, 12), 0, r.randf_range(-12, 12))
-			reeds.append([p + Vector3(0, hgt * 0.5, 0), Vector3(0.05, hgt, 0.05), Color(0.42, 0.62, 0.28), tilt])
-			if i % 2 == 0:
-				reeds.append([p + Vector3(0, hgt * 0.85, 0), Vector3(0.1, 0.3, 0.1), Color(0.48, 0.3, 0.16), tilt])
-			else:
-				reeds.append([p + Vector3(0.06, hgt * 0.35, 0), Vector3(0.16, hgt * 0.6, 0.04), Color(0.5, 0.7, 0.32), tilt + Vector3(0, 0, 18)])
-	add_blobs(self, reeds)
-	# 연잎과 연꽃
-	var pads := []
-	for i in 9:
-		var pa := r.randf_range(0.5, TAU - 0.5)
-		var pr := r.randf_range(0.35, 0.8)
-		var p := c + Vector3(cos(pa) * rx * pr, 0.085, sin(pa) * rz * pr)
-		pads.append([p, Vector3(0.75, 0.04, 0.65), Color(0.36, 0.62, 0.3).lerp(Color(0.48, 0.7, 0.34), r.randf())])
-		if i % 3 == 0:
-			pads.append([p + Vector3(0.1, 0.08, 0), Vector3(0.24, 0.16, 0.24), Color(1.0, 0.7, 0.8)])
-			pads.append([p + Vector3(0.1, 0.14, 0), Vector3(0.1, 0.08, 0.1), Color(1.0, 0.92, 0.5)])
-	add_blobs(self, pads, null, true)
-	# 나루터 (나무 발판)
-	for i in 8:
-		var plank := add_mbox(self, plank_mat, Vector3(0.42, 0.08, 1.45 + r.randf_range(-0.08, 0.08)), Vector3(c.x + rx + 0.3 - i * 0.48, 0.12, c.z + r.randf_range(-0.04, 0.04)))
-		plank.rotation.y = r.randf_range(-0.04, 0.04)
-	for px in [c.x + rx - 3.0, c.x + rx - 1.4]:
-		for pz in [-0.72, 0.72]:
-			add_mcyl(self, dark_wood_mat, 0.07, 0.08, 0.7, Vector3(px, 0.1, c.z + pz))
-	# 꽂아 둔 낚싯대와 동동 뜬 찌
-	var tip := Vector3(c.x + rx - 4.6, 1.9, c.z + 1.3)
-	pond_deco.append(add_beam(self, make_color(Color(0.55, 0.42, 0.22)), Vector3(c.x + rx - 2.8, 0.2, c.z + 0.6), tip, 0.04, 0.04))
-	var bob_pos := Vector3(c.x + rx - 5.4, 0.1, c.z + 1.6)
-	pond_deco.append(add_beam(self, make_color(Color(0.95, 0.95, 0.95)), tip, bob_pos, 0.012, 0.012))
-	var bob := Node3D.new()
-	bob.position = bob_pos
-	add_child(bob)
-	add_ball(bob, Color(0.9, 0.2, 0.2), 0.08, Vector3(0, 0.04, 0))
-	add_ball(bob, Color(1, 1, 1), 0.07, Vector3(0, -0.02, 0))
-	sway_items.append([bob, bob_pos, 0, 1.3, 0.0])
-	pond_deco.append(bob)
-	# 물이 막아요 (나루터 자리는 열어 둬요)
-	add_solid(Vector3(c.x - 0.8, 1, c.z), Vector3(8.0, 2, 6.0), none)
-	add_solid(Vector3(c.x - 5.2, 1, c.z), Vector3(0.8, 2, 3.4), none)
-	add_solid(Vector3(c.x + 4.2, 1, c.z - 1.67), Vector3(2.0, 2, 1.85), none)
-	add_solid(Vector3(c.x + 4.2, 1, c.z + 1.68), Vector3(2.0, 2, 1.85), none)
-	var spot := make_spot(Vector3(c.x + rx - 2.0, 0, c.z), "fish", "", "낚시터", true)
-	spot.visible = true
-	make_basket(Vector3(c.x + rx + 0.9, 0, c.z - 1.3), 0.9, Color(0.62, 0.68, 0.74))
-	make_npc("fisher", "강태공", Color(0.5, 0.6, 0.66), Vector3(c.x + rx + 1.6, 0, c.z + 2.0), 1.0, true)
-	make_tree(Vector3(c.x - 5.8, 0, c.z - 4.8), "Willow0")
-	make_tree(Vector3(c.x - 6.3, 0, c.z + 4.6), "Willow0")
-	house_rects.append(Rect2(c.x - rx - 0.4, c.z - rz - 0.4, rx * 2.0 + 0.8, rz * 2.0 + 0.8))
-
-func make_farm() -> void:
-	var c := FARM_C
-	var w := 9.0
-	var d := 7.0
-	var r := RandomNumberGenerator.new()
-	r.seed = 44
-	var earth := make_tex_material(Color(0.5, 0.42, 0.3), plaster_tex, 0.4)
-	add_mbox(self, earth, Vector3(w + 0.5, 0.25, 0.5), c + Vector3(0, 0.12, d / 2.0))
-	add_mbox(self, earth, Vector3(w + 0.5, 0.25, 0.5), c + Vector3(0, 0.12, -d / 2.0))
-	add_mbox(self, earth, Vector3(0.5, 0.25, d), c + Vector3(w / 2.0, 0.12, 0))
-	add_mbox(self, earth, Vector3(0.5, 0.25, d), c + Vector3(-w / 2.0, 0.12, 0))
-	add_mbox(self, earth, Vector3(0.4, 0.2, d), c + Vector3(0, 0.1, 0))
-	add_mbox(self, make_color(Color(0.42, 0.34, 0.24)), Vector3(w - 0.4, 0.04, d - 0.4), c + Vector3(0, 0.02, 0))
-	var pmat := water_material(2, Vector4(c.x, c.z, w / 2.0 - 0.2, d / 2.0 - 0.2), Color(0.3, 0.3, 0.2), Color(0.46, 0.42, 0.3), Vector2.ZERO, 0.12)
-	pmat.set_shader_parameter("spec", 0.25)
-	pmat.set_shader_parameter("rough", 0.3)
-	pmat.set_shader_parameter("mud", 1.0)
-	var wtr := add_mbox(self, pmat, Vector3(w - 0.4, 0.02, d - 0.4), c + Vector3(0, 0.08, 0))
-	wtr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# 자라는 단계마다 벼 모양을 따로 만들어 두고 바꿔 보여 줘요
-	var young := []
-	var green := []
-	var gold := []
-	var nx := 12
-	var nz := 8
-	for ix in nx:
-		for iz in nz:
-			var p := c + Vector3(-w / 2.0 + 0.55 + ix * (w - 1.1) / (nx - 1), 0, -d / 2.0 + 0.55 + iz * (d - 1.1) / (nz - 1))
-			if absf(p.x - c.x) < 0.4 or (absf(p.x - c.x - 1.5) < 0.55 and absf(p.z - c.z) < 0.55):
-				continue
-			p += Vector3(r.randf_range(-0.05, 0.05), 0, r.randf_range(-0.05, 0.05))
-			young.append([p + Vector3(0, 0.2, 0), Vector3(0.09, 0.28, 0.09), Color(0.5, 0.76, 0.32)])
-			young.append([p + Vector3(0.04, 0.22, 0), Vector3(0.045, 0.24, 0.045), Color(0.6, 0.82, 0.38), Vector3(0, 0, -22)])
-			var rot := r.randf_range(0, 180)
-			for k in 3:
-				var lean := Vector3(0, rot + k * 60.0, -14.0 + k * 14.0)
-				green.append([p + Vector3((k - 1) * 0.06, 0.4, 0), Vector3(0.07, 0.8, 0.07), Color(0.36, 0.62, 0.25).lerp(Color(0.5, 0.74, 0.32), k / 2.0), lean])
-				gold.append([p + Vector3((k - 1) * 0.06, 0.38, 0), Vector3(0.06, 0.76, 0.06), Color(0.8, 0.68, 0.3).lerp(Color(0.9, 0.78, 0.36), k / 2.0), lean])
-			# 고개 숙인 이삭
-			for k in 2:
-				var sx := -1.0 if k == 0 else 1.0
-				gold.append([p + Vector3(sx * 0.13, 0.74, 0.0), Vector3(0.09, 0.22, 0.07), Color(0.98, 0.82, 0.34), Vector3(0, rot, sx * -50.0)])
-	farm_stages = [add_blobs(self, young), add_blobs(self, green), add_blobs(self, gold)]
-	# 논두렁에 난 풀
-	var bank_mm := MultiMesh.new()
-	bank_mm.transform_format = MultiMesh.TRANSFORM_3D
-	bank_mm.use_colors = true
-	bank_mm.mesh = make_tuft_mesh()
-	var tufts := []
-	for k in 70:
-		var side := k % 5
-		var t := r.randf_range(-0.5, 0.5)
-		var q := Vector3.ZERO
-		match side:
-			0: q = Vector3(t * w, 0.25, d / 2.0 + r.randf_range(-0.15, 0.15))
-			1: q = Vector3(t * w, 0.25, -d / 2.0 + r.randf_range(-0.15, 0.15))
-			2: q = Vector3(w / 2.0 + r.randf_range(-0.15, 0.15), 0.25, t * d)
-			3: q = Vector3(-w / 2.0 + r.randf_range(-0.15, 0.15), 0.25, t * d)
-			_: q = Vector3(r.randf_range(-0.12, 0.12), 0.2, t * d)
-		tufts.append(c + q)
-	bank_mm.instance_count = tufts.size()
-	for k in tufts.size():
-		var bs := Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * r.randf_range(0.5, 0.9))
-		bank_mm.set_instance_transform(k, Transform3D(bs, tufts[k]))
-		bank_mm.set_instance_color(k, Color(0.42, 0.66, 0.32).lerp(Color(0.62, 0.82, 0.42), r.randf()))
-	var bank_mi := MultiMeshInstance3D.new()
-	bank_mi.multimesh = bank_mm
-	bank_mi.material_override = grass_material()
-	bank_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(bank_mi)
-	# 허수아비
-	var sc := Node3D.new()
-	sc.name = "Scarecrow"
-	sc.position = c + Vector3(1.5, 0, 0)
-	sc.rotation.y = -0.4
-	add_child(sc)
-	var pole := make_color(Color(0.55, 0.4, 0.24))
-	add_mcyl(sc, pole, 0.06, 0.07, 2.1, Vector3(0, 1.05, 0))
-	add_beam(sc, pole, Vector3(-0.95, 1.45, 0), Vector3(0.95, 1.45, 0), 0.08, 0.08)
-	add_mbox(sc, plaster_mat(Color(0.78, 0.66, 0.5)), Vector3(0.75, 0.75, 0.4), Vector3(0, 1.28, 0))
-	add_mbox(sc, make_color(Color(0.55, 0.62, 0.78)), Vector3(0.25, 0.22, 0.42), Vector3(0.18, 1.18, 0.0))
-	add_mbox(sc, plaster_mat(Color(0.78, 0.66, 0.5)), Vector3(1.5, 0.22, 0.3), Vector3(0, 1.48, 0))
-	add_blobs(sc, [
-		[Vector3(0, 1.98, 0), Vector3(0.55, 0.55, 0.5), Color(0.96, 0.88, 0.62)],
-		[Vector3(-0.85, 1.42, 0), Vector3(0.28, 0.2, 0.2), Color(0.95, 0.85, 0.55)],
-		[Vector3(0.85, 1.42, 0), Vector3(0.28, 0.2, 0.2), Color(0.95, 0.85, 0.55)],
-		[Vector3(0, 0.88, 0), Vector3(0.6, 0.18, 0.36), Color(0.95, 0.85, 0.55)],
-	], thatch_blob_mat)
-	# 밀짚모자, 얼굴
-	add_mcyl(sc, thatch_dark_mat, 0.52, 0.55, 0.04, Vector3(0, 2.2, 0))
-	add_mcyl(sc, thatch_dark_mat, 0.16, 0.26, 0.22, Vector3(0, 2.33, 0))
-	for ex in [-0.11, 0.11]:
-		add_ball(sc, Color(0.15, 0.1, 0.08), 0.045, Vector3(ex, 2.02, 0.25))
-		add_ball(sc, Color(1.0, 0.55, 0.55), 0.05, Vector3(ex * 1.7, 1.93, 0.22))
-	add_beam(sc, make_color(Color(0.5, 0.2, 0.15)), Vector3(-0.08, 1.88, 0.26), Vector3(0.08, 1.88, 0.26), 0.02, 0.02)
-	sway_items.append([sc, sc.position, 1, 2.0, 0.025])
-	# 참새 (참새 떼가 몰려오면 보여요)
-	for i in 6:
-		var sp := Node3D.new()
-		var pos := c + Vector3(r.randf_range(-3.6, 3.6), 0.95, r.randf_range(-2.8, 2.8))
-		sp.position = pos
-		sp.rotation.y = r.randf() * TAU
-		add_child(sp)
-		add_blobs(sp, [
-			[Vector3(0, 0, 0), Vector3(0.26, 0.2, 0.32), Color(0.6, 0.42, 0.28)],
-			[Vector3(0, 0.1, 0.13), Vector3(0.17, 0.16, 0.16), Color(0.55, 0.32, 0.2)],
-			[Vector3(0, 0.07, 0.18), Vector3(0.12, 0.08, 0.08), Color(0.98, 0.95, 0.9)],
-			[Vector3(0, 0.02, -0.2), Vector3(0.1, 0.05, 0.16), Color(0.45, 0.3, 0.2)],
-			[Vector3(0, 0.1, 0.23), Vector3(0.05, 0.04, 0.06), Color(0.3, 0.25, 0.2)],
-		])
-		sp.visible = false
-		sparrows.append([sp, pos])
-	# 논 앞 팻말, 논 주인, 볏짚단
-	make_spot(Vector3(c.x - w / 2.0 - 0.9, 0, c.z), "farm", "", "최 영감네 논", true)
-	make_npc("choi", "최 영감", Color(0.62, 0.55, 0.42), Vector3(c.x - w / 2.0 - 1.8, 0, c.z - 3.4), 1.0, true)
-	var stack := Node3D.new()
-	stack.position = c + Vector3(w / 2.0 + 1.8, 0, -2.2)
-	add_child(stack)
-	make_haystack_visual(stack)
-	add_solid(stack.position + Vector3(0, 0.4, 0), Vector3(1.6, 0.8, 1.2), Color(0, 0, 0, 0))
-	house_rects.append(Rect2(c.x - w / 2.0 - 0.4, c.z - d / 2.0 - 0.4, w + 0.8, d + 0.8))
-	farm_visual()
-
-func farm_visual() -> void:
-	if farm_stages.size() < 3:
-		return
-	var stage := -1
-	if farm_state == 1 or farm_state == 2:
-		stage = 0
-	elif farm_state == 3:
-		stage = 1
-	elif farm_state == 4:
-		stage = 2
-	for i in 3:
-		(farm_stages[i] as Node3D).visible = (i == stage)
-	for s in sparrows:
-		(s[0] as Node3D).visible = farm_state == 2
-
-func update_south(delta: float) -> void:
-	update_walk_hint(delta)
-	update_wild(delta)
-	if farm_state == 1 or farm_state == 3:
-		farm_timer -= delta
-		if farm_timer <= 0.0:
-			farm_state += 1
-			farm_visual()
-			if farm_state == 2:
-				float_text("참새 떼가 논에 몰려왔어요!", Vector2(short_side * 0.5, 300), Color(1, 0.9, 0.6), 1.0)
-			else:
-				float_text("최 영감네 벼가 누렇게 익었어요!", Vector2(short_side * 0.5, 300), Color(1, 0.9, 0.4), 1.0)
-	if farm_state == 2:
-		for i in sparrows.size():
-			var node: Node3D = sparrows[i][0]
-			var base: Vector3 = sparrows[i][1]
-			var hop := absf(sin(anim_t * 5.0 + i * 1.7))
-			node.position = base + Vector3(0, hop * 0.18, 0)
-			node.rotation.x = 0.5 * maxf(0.0, sin(anim_t * 9.0 + i))
-
-func farm_action_text() -> String:
-	match farm_state:
-		-1: return "논 살펴보기"
-		0: return "모내기"
-		2: return "참새 쫓기"
-		4: return "벼 베기"
-	return "벼 살펴보기"
-
-# --- 저장 (도감은 다음에 와도 남아 있어요) ---
-
-func load_south() -> void:
-	var cf := ConfigFile.new()
-	if cf.load("user://save.cfg") != OK:
-		return
-	var got: Array = cf.get_value("ch1", "fish", [])
-	for i in mini(got.size(), fish_caught.size()):
-		fish_caught[i] = int(got[i])
-	fish_reward = cf.get_value("ch1", "fish_reward", false)
-	harvests = cf.get_value("ch1", "harvests", 0)
-	var hg: Array = cf.get_value("ch1", "herbs", [])
-	for i in mini(hg.size(), herb_counts.size()):
-		herb_counts[i] = int(hg[i])
-	herb_reward = cf.get_value("ch1", "herb_reward", false)
-	var sr: Array = cf.get_value("ch1", "story", [])
-	for i in mini(sr.size(), story_read.size()):
-		story_read[i] = bool(sr[i])
-
-func save_south() -> void:
-	var cf := ConfigFile.new()
-	cf.load("user://save.cfg")
-	cf.set_value("ch1", "fish", fish_caught)
-	cf.set_value("ch1", "fish_reward", fish_reward)
-	cf.set_value("ch1", "harvests", harvests)
-	cf.set_value("ch1", "herbs", herb_counts)
-	cf.set_value("ch1", "herb_reward", herb_reward)
-	cf.set_value("ch1", "story", story_read)
-	cf.save("user://save.cfg")
-
-# --- 낚시 ---
-
-func fish_kinds_found() -> int:
-	var n := 0
-	for k in fish_caught:
-		if int(k) > 0:
-			n += 1
-	return n
-
-func fish_book() -> String:
-	var parts := []
-	for i in FISH.size():
-		if int(fish_caught[i]) > 0:
-			parts.append("%s %d마리" % [FISH[i]["name"], fish_caught[i]])
-		else:
-			parts.append("???")
-	return "물고기 도감 %d/%d\n%s" % [fish_kinds_found(), FISH.size(), ", ".join(parts)]
-
-func fish_how() -> Array:
-	return [
-		["강태공", "찌가 쏙 들어가면 바로 화면을 눌러 낚싯대를 채거라. 너무 일찍 채면 물고기가 놀라 도망간단다."],
-		["강태공", "물고기가 걸리면 화면을 꾹 눌렀다 뗐다 하며 초록 칸 안에 물고기를 붙잡아 두거라."],
-	]
-
-func talk_fisher() -> void:
-	if not fisher_met:
-		fisher_met = true
-		say([["강태공", "허허, 세월을 낚는 중이란다. 너도 한번 해 보겠느냐? 나루터 끝의 낚싯대를 쓰거라."]] + fish_how() + [["강태공", "물고기는 모두 여섯 가지. 금빛 잉어는 나도 평생 두 번밖에 못 봤단다."]], Callable())
-		return
-	var lines := [["강태공", fish_book()]]
-	if fish_kinds_found() >= FISH.size():
-		lines.append(["강태공", "허허, 이 연못 물고기를 다 낚아 보다니! 네가 진짜 강태공이로구나."])
-	else:
-		lines.append(["강태공", "물고기마다 힘이 달라. 큰 놈일수록 초록 칸에 붙잡아 두기 어렵단다."])
-	say(lines, Callable())
-
-func start_fishing() -> void:
-	if not fisher_met:
-		fisher_met = true
-		say([["강태공", "낚시는 처음이냐? 내 알려 주마."]] + fish_how(), start_fishing)
-		return
-	start_fishing3d()
-
-func pick_fish() -> int:
-	var total := 0
-	for f in FISH:
-		total += int(f["w"])
-	var roll := rng.randi_range(1, total)
-	for i in FISH.size():
-		roll -= int(FISH[i]["w"])
-		if roll <= 0:
-			return i
-	return 0
-
-func fish_done(ok: bool, _good: bool) -> void:
-	if not ok:
-		say([["", "물고기가 모두 달아났다. 다시 해 보자."]], Callable())
-		return
-	var f: Dictionary = FISH[fish_kind]
-	var first := int(fish_caught[fish_kind]) == 0
-	fish_caught[fish_kind] = int(fish_caught[fish_kind]) + 1
-	var pay: int = f["pay"]
-	earn(pay)
-	var lines := []
-	if first:
-		lines.append(["", "%s를 낚았다! 처음 보는 물고기다. (물고기 도감 %d/%d)" % [f["name"], fish_kinds_found(), FISH.size()]])
-	else:
-		lines.append(["", "%s를 낚았다! (%d마리째)" % [f["name"], fish_caught[fish_kind]]])
-	lines.append(["", "장터에 팔아 엽전 %d냥을 받았다." % pay])
-	if fish_kinds_found() >= FISH.size() and not fish_reward:
-		fish_reward = true
-		earn(50)
-		lines.append(["강태공", "허허! 여섯 가지 물고기를 다 낚았구나. 상으로 엽전 50냥을 주마!"])
-	save_south()
-	say(lines, Callable())
-
-func fish_tap() -> void:
-	var at := Vector2(mg_overlay.size.x * 0.42, mg_overlay.size.y * 0.58)
-	if mg_step == 0:
-		mg_lives -= 1
-		mg_perfect = false
-		mg_timer = rng.randf_range(1.6, 3.2)
-		sfx("bad")
-		shake(10)
-		float_text("너무 일찍 챘어요!", at, Color(1, 0.6, 0.5), 1.1)
-	elif mg_step == 1:
-		mg_step = 2
-		sfx("splash", rng.randf_range(0.9, 1.1))
-		fish_world_hooked()
-		mg_progress = 0.3
-		mg_off = 0.25
-		mg_trail = 0.3
-		mg_dir = 0.5
-		mg_speed = 0.0
-		mg_frame_angle = 0.0
-		sfx("good")
-		shake(8)
-		burst(at, Color(0.8, 0.95, 1.0), 10)
-		float_text("걸렸다!", at, Color(1, 1, 1), 1.3)
-
-func update_fish(delta: float) -> void:
-	mg_phase += delta
-	var at := Vector2(mg_overlay.size.x * 0.42, mg_overlay.size.y * 0.58)
-	if mg_step == 0:
-		mg_timer -= delta
-		mg_info.text = "찌를 잘 보세요... | 남은 기회 %d" % mg_lives
-		if mg_timer <= 0.0:
-			fish_kind = pick_fish()
-			mg_step = 1
-			mg_timer = lerpf(0.95, 0.6, FISH[fish_kind]["hard"])
-			sfx("pop", 0.7)
-			shake(4)
-	elif mg_step == 1:
-		mg_timer -= delta
-		mg_info.text = "지금이에요! 눌러요!"
-		if mg_timer <= 0.0:
-			mg_step = 0
-			mg_timer = rng.randf_range(1.5, 3.2)
-			float_text("미끼만 먹고 갔어요...", at, Color(1, 1, 1), 1.0)
-	else:
-		var hard: float = FISH[fish_kind]["hard"]
-		if mg_touch:
-			mg_speed += 2.6 * delta
-		else:
-			mg_speed -= 2.2 * delta
-		mg_speed = clampf(mg_speed, -1.1, 1.1)
-		mg_off += mg_speed * delta
-		if mg_off <= 0.0 or mg_off >= 1.0:
-			mg_off = clampf(mg_off, 0.0, 1.0)
-			mg_speed = 0.0
-		mg_frame_angle -= delta
-		if mg_frame_angle <= 0.0:
-			mg_dir = rng.randf_range(0.05, 0.95)
-			mg_frame_angle = rng.randf_range(lerpf(1.5, 0.45, hard), lerpf(2.4, 1.0, hard))
-		mg_trail = move_toward(mg_trail, mg_dir, delta * lerpf(0.22, 0.85, hard))
-		mg_trail = clampf(mg_trail + sin(mg_phase * 9.0) * 0.004 * hard, 0.0, 1.0)
-		var half := lerpf(0.16, 0.1, hard)
-		if absf(mg_trail - mg_off) < half:
-			mg_progress += delta / lerpf(2.4, 4.2, hard)
-			mg_step = 2
-		else:
-			mg_progress -= delta * 0.2
-			mg_step = 3
-		if mg_progress <= 0.0:
-			mg_lives -= 1
-			mg_perfect = false
-			mg_progress = 0.0
-			mg_step = 0
-			mg_timer = rng.randf_range(1.5, 3.0)
-			sfx("bad")
-			shake(14)
-			flash(Color(1, 0.3, 0.3))
-			float_text("줄이 풀려 놓쳤어요!", at, Color(1, 0.6, 0.5), 1.1)
-		else:
-			mg_info.text = "꾹 누르면 초록 칸이 올라가요 | 남은 기회 %d" % mg_lives
-
-func draw_fish2d(ci: CanvasItem, c: Vector2, s: float, kind: int, rot: float, shadow: bool) -> void:
-	var f: Dictionary = FISH[kind]
-	var col: Color = f["col"]
-	var ln: float = f["len"]
-	var th: float = f["thin"]
-	var ol := 3.0
-	if shadow:
-		col = Color(0.12, 0.22, 0.32, 0.45)
-		ol = 0.0
-	var wig := sin(anim_t * 12.0) * 0.25
-	var tail := PackedVector2Array([c + Vector2(-s * ln * 0.75, 0).rotated(rot), c + Vector2(-s * ln * 1.25, -s * 0.38).rotated(rot + wig), c + Vector2(-s * ln * 1.2, s * 0.38).rotated(rot + wig)])
-	d_poly(ci, tail, col.darkened(0.1), ol)
-	d_ell(ci, c, s * ln * 0.85, s * th, col, rot, ol)
-	if shadow:
-		return
-	d_ell(ci, c + Vector2(-s * 0.1, -s * th * 0.75).rotated(rot), s * 0.3, s * 0.12, col.darkened(0.15), rot, 2.0)
-	d_ell(ci, c + Vector2(s * ln * 0.05, s * th * 0.35).rotated(rot), s * ln * 0.55, s * th * 0.4, col.lightened(0.3), rot, 0.0)
-	var eye := c + Vector2(s * ln * 0.55, -s * th * 0.25).rotated(rot)
-	ci.draw_circle(eye, s * 0.11, Color(1, 1, 1))
-	ci.draw_circle(eye + Vector2(s * 0.02, 0).rotated(rot), s * 0.065, Color(0.1, 0.08, 0.08))
-	if kind == 4:
-		for k in [-1.0, 1.0]:
-			d_line(ci, c + Vector2(s * ln * 0.8, s * 0.05).rotated(rot), c + Vector2(s * ln * 1.25, k * s * 0.35).rotated(rot), col.darkened(0.3), 3)
-	if kind == 5:
-		for k in 3:
-			ci.draw_circle(c + Vector2((k - 1) * s * 0.35, -s * 0.05).rotated(rot), s * 0.08, Color(1, 1, 0.85, 0.8))
-
-func draw_bobber(ci: CanvasItem, c: Vector2, s: float) -> void:
-	d_line(ci, c + Vector2(0, -s * 1.3), c, Color(0.95, 0.4, 0.3), 4)
-	d_ell(ci, c, s * 0.42, s * 0.55, Color(0.92, 0.25, 0.22), 0.0, 3.0)
-	d_ell(ci, c + Vector2(0, s * 0.3), s * 0.42, s * 0.28, Color(1, 1, 0.97), 0.0, 2.0)
-
-func draw_pond_scene(ci: CanvasItem) -> void:
-	var w := mg_overlay.size.x
-	var h := mg_overlay.size.y
-	var pc := Vector2(w * 0.42, h * 0.6)
-	var rx := w * 0.38
-	var ry := h * 0.17
-	d_ell(ci, pc, rx + 14, ry + 12, Color(0.56, 0.46, 0.32), 0.0, 0.0)
-	d_ell(ci, pc, rx, ry, Color(0.42, 0.7, 0.9), 0.0, 4.0)
-	d_ell(ci, pc + Vector2(0, ry * 0.15), rx * 0.6, ry * 0.5, Color(0.36, 0.62, 0.84), 0.0, 0.0)
-	# 물결 반짝이
-	for k in 5:
-		var gx := pc.x + sin(anim_t * 0.6 + k * 1.9) * rx * 0.6
-		var gy := pc.y + cos(k * 2.3) * ry * 0.6
-		d_line(ci, Vector2(gx - 16, gy), Vector2(gx + 16, gy), Color(1, 1, 1, 0.45), 3)
-	# 연잎
-	for lp in [[-0.7, -0.3], [-0.55, 0.45], [0.65, 0.5], [0.72, -0.4]]:
-		var lc := pc + Vector2(rx * lp[0], ry * lp[1])
-		d_ell(ci, lc, 30, 16, Color(0.4, 0.66, 0.32), 0.0, 3.0)
-		d_line(ci, lc, lc + Vector2(26, -6), Color(0.42, 0.7, 0.9), 4)
-	ci.draw_circle(pc + Vector2(rx * 0.72, -ry * 0.4) + Vector2(-6, -8), 9, Color(1, 0.72, 0.82))
-	# 갈대
-	for rd in [-0.95, -0.88, -0.8, 0.86, 0.93]:
-		var base := pc + Vector2(rx * rd, ry * 0.55)
-		var top := base + Vector2(sin(anim_t * 1.3 + rd * 5.0) * 6.0, -h * 0.12)
-		d_line(ci, base, top, Color(0.38, 0.58, 0.26), 5)
-		d_ell(ci, top + Vector2(0, 14), 7, 20, Color(0.5, 0.32, 0.18), 0.0, 2.0)
-	# 낚싯대와 줄
-	var hold := Vector2(w * 0.06, h * 0.86)
-	var bend := 0.0
-	if mg_step >= 2:
-		bend = 0.12 + sin(anim_t * 14.0) * 0.03
-	var tip := hold + Vector2(w * 0.34, -h * 0.34).rotated(bend)
-	var mid := hold.lerp(tip, 0.5) + Vector2(0, 20 + bend * 200.0)
-	ci.draw_polyline(PackedVector2Array([hold, mid, tip]), Color(0.55, 0.38, 0.2), 9, true)
-	d_ell(ci, hold + Vector2(10, -10), 16, 26, Color(0.6, 0.45, 0.25), -0.7, 3.0)
-	var bob := pc + Vector2(0, -ry * 0.1)
-	if mg_step == 0:
-		var nibble := 0.0
-		if fmod(mg_phase, 1.7) < 0.15:
-			nibble = 5.0
-		bob.y += sin(mg_phase * 2.2) * 4.0 + nibble
-		d_line(ci, tip, bob + Vector2(0, -18), Color(1, 1, 1, 0.85), 2)
-		draw_bobber(ci, bob, 18)
-		ci.draw_polyline(ell_pts(bob + Vector2(0, 8), 30 + sin(mg_phase * 2.2) * 4.0, 8), Color(1, 1, 1, 0.5), 2, true)
-	elif mg_step == 1:
-		bob.y += 16
-		d_line(ci, tip, bob + Vector2(0, -6), Color(1, 1, 1, 0.85), 2)
-		d_line(ci, bob + Vector2(0, -6), bob + Vector2(0, -18), Color(0.95, 0.4, 0.3), 4)
-		for k in 3:
-			var rr := 20.0 + fmod(mg_phase * 70.0 + k * 22.0, 66.0)
-			ci.draw_polyline(ell_pts(bob, rr, rr * 0.3), Color(1, 1, 1, 0.8 - rr / 90.0), 3, true)
-		ci.draw_string(font, bob + Vector2(-16, -40), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size * 2.0), Color(0.95, 0.25, 0.2))
-	else:
-		# 물고기가 이리저리 버둥대요 (그림자만 보여요)
-		var fx := pc.x + (mg_trail - 0.5) * rx * 1.3
-		var fpos := Vector2(fx, pc.y + sin(mg_phase * 3.0) * ry * 0.25)
-		var dirv := signf(mg_dir - mg_trail)
-		if dirv == 0.0:
-			dirv = 1.0
-		draw_fish2d(ci, fpos, 34, fish_kind, 0.0 if dirv > 0.0 else PI, true)
-		d_line(ci, tip, fpos, Color(1, 1, 1, 0.9), 2)
-		for k in 2:
-			var rr := 26.0 + fmod(mg_phase * 60.0 + k * 30.0, 60.0)
-			ci.draw_polyline(ell_pts(fpos, rr, rr * 0.3), Color(1, 1, 1, 0.6 - rr / 120.0), 3, true)
-		# 오른쪽 힘겨루기 칸
-		var mx := w * 0.88
-		var y0 := h * 0.4
-		var y1 := h * 0.82
-		var span := y1 - y0
-		d_box(ci, Vector2(mx, (y0 + y1) / 2.0), Vector2(54, span + 20), 0.0, Color(0.62, 0.45, 0.28), 4)
-		d_box(ci, Vector2(mx, (y0 + y1) / 2.0), Vector2(38, span), 0.0, Color(0.3, 0.5, 0.66), 0.0)
-		var hard: float = FISH[fish_kind]["hard"]
-		var half := lerpf(0.16, 0.1, hard)
-		var zone_c := y1 - mg_off * span
-		var inside := mg_step == 2
-		var z_top := maxf(zone_c - half * span, y0)
-		var z_bot := minf(zone_c + half * span, y1)
-		d_box(ci, Vector2(mx, (z_top + z_bot) / 2.0), Vector2(40, z_bot - z_top), 0.0, Color(0.45, 0.9, 0.45, 0.85) if inside else Color(0.6, 0.85, 0.5, 0.6), 3)
-		draw_fish2d(ci, Vector2(mx, y1 - mg_trail * span), 17, fish_kind, -PI / 2.0 + sin(anim_t * 10.0) * 0.3, true)
-
-# --- 모내기 ---
-
-func plant_slot(row: int, col: int) -> Vector2:
-	var w := mg_overlay.size.x
-	var h := mg_overlay.size.y
-	var sc := 1.0 - row * 0.12
-	return Vector2(w * 0.5 + (col - 1.5) * w * 0.2 * sc, h * (0.76 - row * 0.12))
-
-func plant_cursor_x() -> float:
-	var w := mg_overlay.size.x
-	var row := mini(mg_count / 4, 2)
-	var sc := 1.0 - row * 0.12
-	return w * 0.5 + w * 0.36 * sc * sin(mg_phase)
-
-func plant_tap() -> void:
-	if mg_count >= 12:
-		return
-	var row := mg_count / 4
-	var col := mg_count % 4
-	var target := plant_slot(row, col)
-	var cx := plant_cursor_x()
-	if absf(cx - target.x) < mg_overlay.size.x * 0.05:
-		mg_items.append([row, col, cx - target.x])
-		mg_count += 1
-		sfx("pop", 1.0 + mg_count * 0.04)
-		shake(3)
-		burst(target, Color(0.6, 0.9, 0.5), 7)
-		float_text(["쏙!", "착!", "꾹!"][mg_count % 3], target + Vector2(0, -40), Color(1, 1, 1), 1.0)
-	else:
-		mg_lives -= 1
-		mg_perfect = false
-		sfx("bad")
-		shake(10)
-		flash(Color(1, 0.3, 0.3))
-		float_text("삐뚤빼뚤!", Vector2(cx, target.y - 40), Color(1, 0.6, 0.5), 1.1)
-
-func update_plant(delta: float) -> void:
-	var row := mini(mg_count / 4, 2)
-	mg_phase += delta * (1.7 + row * 0.45)
-	mg_progress = float(mg_count) / 12.0
-	mg_info.text = "모 %d/12 | 남은 기회 %d" % [mg_count, mg_lives]
-
-func draw_seedling(ci: CanvasItem, c: Vector2, s: float, lean: float) -> void:
-	for k in 5:
-		var a := -0.5 + k * 0.25 + lean
-		d_line(ci, c, c + Vector2(0, -s).rotated(a), Color(0.42, 0.7, 0.3).lerp(Color(0.6, 0.82, 0.38), k / 4.0), 5)
-
-func draw_plant_scene(ci: CanvasItem) -> void:
-	var w := mg_overlay.size.x
-	var h := mg_overlay.size.y
-	var top := h * 0.44
-	var bot := h * 0.83
-	var field := PackedVector2Array([Vector2(w * 0.16, top), Vector2(w * 0.84, top), Vector2(w * 0.98, bot), Vector2(w * 0.02, bot)])
-	d_poly(ci, PackedVector2Array([field[0] + Vector2(-14, -12), field[1] + Vector2(14, -12), field[2] + Vector2(14, 12), field[3] + Vector2(-14, 12)]), Color(0.62, 0.5, 0.34), 3.0)
-	d_poly(ci, field, Color(0.5, 0.62, 0.66), 3.0)
-	for k in 4:
-		var gy := lerpf(top, bot, 0.15 + k * 0.23)
-		var gx := w * 0.5 + sin(anim_t * 0.5 + k * 2.0) * w * 0.25
-		d_line(ci, Vector2(gx - 20, gy), Vector2(gx + 20, gy), Color(1, 1, 1, 0.4), 3)
-	var row := mini(mg_count / 4, 2)
-	# 못줄: 지금 심는 줄에 빨간 눈금
-	if mg_count < 12:
-		var a := plant_slot(row, 0) + Vector2(-w * 0.12 * (1.0 - row * 0.12), 0)
-		var b := plant_slot(row, 3) + Vector2(w * 0.12 * (1.0 - row * 0.12), 0)
-		d_line(ci, a, b, Color(0.95, 0.9, 0.75), 3)
-		for col in 4:
-			var p := plant_slot(row, col)
-			if col == mg_count % 4:
-				var pulse := 1.0 + sin(anim_t * 8.0) * 0.15
-				ci.draw_polyline(ell_pts(p, 26 * pulse, 12 * pulse), Color(1, 0.9, 0.3), 4, true)
-			ci.draw_circle(p, 6, Color(0.9, 0.25, 0.2))
-	for it in mg_items:
-		var p := plant_slot(it[0], it[1]) + Vector2(it[2], 0)
-		draw_seedling(ci, p, 46 * (1.0 - it[0] * 0.12), float(it[2]) * 0.01)
-	# 모 한 움큼을 든 손
-	if mg_count < 12:
-		var cx := plant_cursor_x()
-		var target := plant_slot(row, mg_count % 4)
-		var near := absf(cx - target.x) < w * 0.05
-		var hp := Vector2(cx, target.y - 60)
-		draw_seedling(ci, hp + Vector2(0, 30), 50, 0.0)
-		d_ell(ci, hp + Vector2(0, 34), 24, 18, Color(0.99, 0.83, 0.69), 0.0, 3.0)
-		d_box(ci, hp + Vector2(0, 62), Vector2(30, 26), 0.0, Color(0.85, 0.78, 0.6), 3.0)
-		if near:
-			ci.draw_polyline(ell_pts(hp + Vector2(0, 34), 36, 30), Color(0.5, 1.0, 0.5), 4, true)
-
-# --- 참새 쫓기 ---
-
-func draw_sparrow2d(ci: CanvasItem, c: Vector2, s: float, danger: float, flap: float) -> void:
-	var brown := Color(0.62, 0.42, 0.26).lerp(Color(0.85, 0.35, 0.25), danger * 0.5)
-	d_poly(ci, PackedVector2Array([c + Vector2(-s * 0.5, 0), c + Vector2(-s * 1.0, -s * 0.25), c + Vector2(-s * 0.95, s * 0.15)]), brown.darkened(0.2), 3)
-	d_ell(ci, c, s * 0.62, s * 0.45, brown, 0.0, 3.0)
-	d_ell(ci, c + Vector2(-s * 0.05, s * 0.15), s * 0.4, s * 0.25, Color(0.96, 0.92, 0.84), 0.0, 0.0)
-	var peck := sin(anim_t * (6.0 + danger * 14.0)) * 0.25 * (0.5 + danger)
-	var head := c + Vector2(s * 0.5, -s * 0.3) + Vector2(0, peck * s)
-	d_ell(ci, head, s * 0.32, s * 0.3, Color(0.5, 0.3, 0.2), 0.0, 3.0)
-	ci.draw_circle(head + Vector2(-s * 0.02, s * 0.12), s * 0.14, Color(0.98, 0.96, 0.92))
-	ci.draw_circle(head + Vector2(s * 0.12, -s * 0.05), s * 0.06, Color(0.1, 0.08, 0.08))
-	d_poly(ci, PackedVector2Array([head + Vector2(s * 0.28, -s * 0.04), head + Vector2(s * 0.5, s * 0.04), head + Vector2(s * 0.28, s * 0.1)]), Color(0.35, 0.28, 0.2), 0.0)
-	d_ell(ci, c + Vector2(-s * 0.1, -s * 0.12), s * 0.38, s * 0.2, brown.darkened(0.15), -0.3 + flap, 2.0)
-
-func draw_scarecrow2d(ci: CanvasItem, c: Vector2, s: float) -> void:
-	var wood := Color(0.55, 0.4, 0.24)
-	d_line(ci, c + Vector2(0, -s * 0.6), c + Vector2(0, s * 1.2), wood, s * 0.1)
-	d_line(ci, c + Vector2(-s * 1.0, -s * 0.2), c + Vector2(s * 1.0, -s * 0.2), wood, s * 0.08)
-	d_box(ci, c + Vector2(0, s * 0.15), Vector2(s * 0.8, s * 0.8), 0.0, Color(0.8, 0.68, 0.5), 4.0)
-	d_box(ci, c + Vector2(s * 0.15, s * 0.3), Vector2(s * 0.25, s * 0.22), 0.2, Color(0.55, 0.62, 0.8), 3.0)
-	d_box(ci, c + Vector2(0, -s * 0.2), Vector2(s * 1.6, s * 0.24), 0.0, Color(0.8, 0.68, 0.5), 4.0)
-	for sx in [-1.0, 1.0]:
-		for k in 3:
-			d_line(ci, c + Vector2(sx * s * 0.8, -s * 0.2), c + Vector2(sx * s * 1.05, -s * 0.3 + k * s * 0.1), Color(0.95, 0.85, 0.55), 5)
-	d_ell(ci, c + Vector2(0, -s * 0.62), s * 0.36, s * 0.34, Color(0.96, 0.88, 0.62), 0.0, 4.0)
-	for ex in [-0.13, 0.13]:
-		ci.draw_circle(c + Vector2(ex * s, -s * 0.66), s * 0.05, Color(0.15, 0.1, 0.08))
-		ci.draw_circle(c + Vector2(ex * s * 1.7, -s * 0.56), s * 0.06, Color(1, 0.55, 0.55, 0.8))
-	d_line(ci, c + Vector2(-s * 0.1, -s * 0.52), c + Vector2(s * 0.1, -s * 0.52), Color(0.5, 0.2, 0.15), 3)
-	d_ell(ci, c + Vector2(0, -s * 0.9), s * 0.62, s * 0.1, Color(0.85, 0.72, 0.42), 0.0, 3.0)
-	d_poly(ci, PackedVector2Array([c + Vector2(-s * 0.26, -s * 0.92), c + Vector2(-s * 0.16, -s * 1.15), c + Vector2(s * 0.16, -s * 1.15), c + Vector2(s * 0.26, -s * 0.92)]), Color(0.85, 0.72, 0.42), 3.0)
-
-func draw_rice_field(ci: CanvasItem) -> void:
-	var w := mg_overlay.size.x
-	var h := mg_overlay.size.y
-	d_box(ci, Vector2(w * 0.5, h * 0.62), Vector2(w * 1.1, h * 0.46), 0.0, Color(0.5, 0.66, 0.42), 0.0)
-	var rr := RandomNumberGenerator.new()
-	rr.seed = 9
-	for k in 70:
-		var x := rr.randf_range(0.0, w)
-		var y := rr.randf_range(h * 0.4, h * 0.85)
-		var sway := sin(anim_t * 1.5 + x * 0.02) * 0.12
-		draw_seedling(ci, Vector2(x, y), 30.0 + (y - h * 0.4) * 0.08, sway)
-
-# --- 최 영감네 논 ---
-
-func talk_choi() -> void:
-	if farm_state == -1:
-		farm_state = 0
-		say([
-			["최 영감", "아이고 허리야... 올해는 모내기를 못 하겠구나."],
-			["최 영감", "얘야, 나 대신 모를 심어 주겠니? 벼를 거두면 쌀을 팔아 엽전을 나눠 주마."],
-			["최 영감", "논 앞 팻말에서 '모내기'를 누르면 된단다. 못줄 눈금에 맞춰 반듯하게 심어야 한다!"],
-		], Callable())
-		return
-	match farm_state:
-		0:
-			say([["최 영감", "모내기를 부탁하마. 반듯하게 심어야 벼가 잘 자란단다."]], Callable())
-		1, 3:
-			say([["최 영감", "벼가 쑥쑥 자라는 중이란다. 마을 일을 보고 오너라."]], Callable())
-		2:
-			say([["최 영감", "참새 떼가 몰려왔다! 허수아비만으로는 안 되겠어. 어서 쫓아 다오!"]], Callable())
-		4:
-			say([["최 영감", "누렇게 잘 익었구나! 벼를 베어 다오."]], Callable())
-
-func farm_action() -> void:
-	match farm_state:
-		-1:
-			say([["", "물이 찰랑이는 빈 논이다. 옆에 있는 최 영감에게 먼저 말을 걸어 보자."]], Callable())
-		0:
-			farm_perfect = true
-			start_game("plant", {"art": "world", "world": true, "scene": "plant", "title": "손이 노란 동그라미에 왔을 때 눌러서\n못줄 눈금에 맞춰 모를 심어요"}, plant_done)
-		1, 3:
-			say([["", "벼가 자라고 있다. (약 %d초 남았어요)" % int(ceil(farm_timer))]], Callable())
-		2:
-			start_game("tap", {"art": "world", "world": true, "scene": "sparrow", "title": "참새가 벼를 쪼아 먹어요!\n눌러서 훠이 쫓아요", "goal": 10, "interval": 0.75, "life": 1.6, "target": "참새", "center": "허수아비", "color": Color(0.85, 0.72, 0.45)}, sparrow_done)
-		4:
-			harvest_rice()
-
-func plant_done(ok: bool, good: bool) -> void:
-	if not ok:
-		say([["최 영감", "허허, 모가 삐뚤빼뚤하구나. 다시 심어 보자."]], Callable())
-		return
-	farm_perfect = good
-	farm_state = 1
-	farm_timer = FARM_GROW
-	farm_visual()
-	say([["최 영감", "반듯하게 잘 심었구나! 이제 벼가 자라기를 기다리자."]], Callable())
-
-func sparrow_done(ok: bool, good: bool) -> void:
-	if not ok:
-		say([["최 영감", "아이쿠, 참새들이 아직 남았구나. 다시 쫓아 다오!"]], Callable())
-		return
-	farm_perfect = farm_perfect and good
-	farm_state = 3
-	farm_timer = FARM_GROW
-	farm_visual()
-	say([["최 영감", "훠이훠이! 참새들이 다 날아갔구나. 이제 이삭이 여물 차례란다."]], Callable())
-
-func harvest_rice() -> void:
-	farm_state = 0
-	farm_visual()
-	harvests += 1
-	save_south()
-	sfx("good")
-	shake(6)
-	burst3d(FARM_C + Vector3(0, 1, 0), Color(1, 0.85, 0.35), 30)
-	var pay := 25
-	var lines := [["", "누렇게 익은 벼를 쓱싹쓱싹 베었다!"]]
-	if farm_perfect:
-		pay = 30
-		lines.append(["최 영감", "모도 반듯하고 참새도 말끔히 쫓았으니 올해 쌀이 최고로구나! 덤까지 얹어 주마."])
-	else:
-		lines.append(["최 영감", "수고했다! 쌀을 판 돈이다."])
-	earn(pay)
-	lines.append(["", "엽전 %d냥을 받았다! (수확 %d번째) 빈 논에 다시 모를 심을 수 있어요." % [pay, harvests]])
-	say(lines, Callable())
 
 # ---------- 마을 꾸미기 (돌담, 감나무, 장독대, 텃밭, 꽃, 징검돌, 시냇가) ----------
 
@@ -6644,69 +4447,6 @@ func make_firewood(pos: Vector3) -> void:
 		log_mi.position = Vector3(row[0], row[1], 0)
 		root.add_child(log_mi)
 
-func make_decor() -> void:
-	var r := RandomNumberGenerator.new()
-	r.seed = 21
-	# 돌담 (앞쪽은 열어 두었어요)
-	make_stone_wall(Vector2(-20, -7), Vector2(-8.2, -7), r)
-	make_stone_wall(Vector2(-20, -7), Vector2(-20, 2), r)
-	make_stone_wall(Vector2(-8.2, -7), Vector2(-8.2, -1.5), r)
-	make_stone_wall(Vector2(5.5, -4.5), Vector2(22.5, -4.5), r)
-	make_stone_wall(Vector2(5.5, -4.5), Vector2(5.5, 1.5), r)
-	make_stone_wall(Vector2(22.5, -4.5), Vector2(22.5, 1.5), r)
-	# 마을 한가운데
-	make_persimmon(Vector3(3, 0, 2.5), r)
-	# 텃밭, 장작
-	make_garden(Vector3(-17.6, 0, -4.6), 3.2, 1.8, r)
-	make_garden(Vector3(-8.5, 0, 13), 3.0, 1.6, r)
-	make_firewood(Vector3(-9.6, 0, -2.6))
-	# 꽃덤불
-	for pos in [Vector3(-18.6, 0, 2.4), Vector3(-8.9, 0, 2.2), Vector3(6.4, 0, 2.6), Vector3(21.6, 0, 2.6), Vector3(-4.4, 0, -7), Vector3(0.7, 0, -9), Vector3(-4.4, 0, 13), Vector3(0.7, 0, 18), Vector3(-5.6, 0, -12.5), Vector3(1.8, 0, -12.5), Vector3(7.4, 0, 5.8), Vector3(-11.5, 0, 7.2)]:
-		make_flowers(pos, r)
-	# 징검돌 (집 앞에서 큰길까지)
-	var steps := []
-	for z in [1.9, 2.9, 3.9, 4.9, 5.9]:
-		steps.append([Vector3(-12 + r.randf_range(-0.25, 0.25), 0.05, z + r.randf_range(-0.1, 0.1)), Vector3(0.85, 0.12, 0.65), stone_color(r)])
-	for z in [6.0, 7.0]:
-		steps.append([Vector3(14 + r.randf_range(-0.25, 0.25), 0.05, z + r.randf_range(-0.1, 0.1)), Vector3(0.9, 0.12, 0.7), stone_color(r)])
-	for x in [-9.0, -8.0, -7.0]:
-		steps.append([Vector3(x, 0.05, 3.2 + r.randf_range(-0.2, 0.2)), Vector3(0.8, 0.12, 0.6), stone_color(r)])
-	add_blobs(self, steps, stone_blob_mat, true)
-	# 시냇가 돌과 물빛, 다리 난간
-	for side in [1.0, -1.0]:
-		var bank := []
-		var x := -38.0
-		while x < 38.0:
-			x += r.randf_range(1.0, 1.7)
-			if absf(x + 2.0) < 2.3:
-				continue
-			var zb: float = creek_z(x) + side * (creek_half(x) + 0.12)
-			bank.append([Vector3(x, 0.08, zb + r.randf_range(-0.2, 0.2)), Vector3(r.randf_range(0.6, 1.1), r.randf_range(0.35, 0.6), r.randf_range(0.5, 0.8)), stone_color(r)])
-		add_blobs(self, bank, stone_blob_mat)
-	var foam := []
-	for i in 22:
-		foam.append([Vector3(r.randf_range(-38, 38), 0.07, r.randf_range(-0.9, 0.9)), Vector3(r.randf_range(0.6, 1.4), 0.04, 0.12), Color(0.85, 0.95, 1.0)])
-	var foam_mi := add_blobs(self, foam)
-	foam_mm = foam_mi.multimesh
-	for f in foam:
-		foam_data.append([f[0].x, f[0].z, f[1].x, f[2]])
-	var rail := Color(0.55, 0.38, 0.22)
-	for sx in [-3.45, -0.55]:
-		for pz in [-17.3, -15.5, -13.7]:
-			add_mbox(self, dark_wood_mat, Vector3(0.16, 0.95, 0.16), Vector3(sx, 0.55, pz))
-			add_ball(self, Color(0.72, 0.7, 0.66), 0.14, Vector3(sx, 1.05, pz))
-		add_mbox(self, wood_mat, Vector3(0.12, 0.1, 3.9), Vector3(sx, 0.92, -15.5))
-		add_mbox(self, wood_mat, Vector3(0.1, 0.08, 3.9), Vector3(sx, 0.55, -15.5))
-	# 멀리 보이는 둥근 언덕
-	make_butterflies(r)
-	make_clouds(r)
-	make_grass(r)
-	add_box(self, Color(0.42, 0.66, 0.38), Vector3(600, 1, 600), Vector3(0, -0.502, 0)).material_override = ground_mat
-	make_border(r)
-	# 멀리 겹겹이 보이는 부드러운 산 능선 (가까운 초록 언덕, 먼 푸른 산)
-	add_ridge_ring(84.0, 26.0, 9.0, 22.0, Color(0.28, 0.48, 0.24), Color(0.4, 0.58, 0.34), 11)
-	add_ridge_ring(128.0, 40.0, 22.0, 46.0, Color(0.34, 0.48, 0.5), Color(0.46, 0.58, 0.64), 23)
-
 func add_ridge_ring(r0: float, depth: float, hmin: float, hmax: float, low: Color, high: Color, seed_v: int) -> void:
 	var noise := FastNoiseLite.new()
 	noise.seed = seed_v
@@ -6810,41 +4550,6 @@ func make_falling_leaves(parent: Node3D) -> void:
 	grad.colors = PackedColorArray([Color(1.0, 0.75, 0.3), Color(0.98, 0.5, 0.18), Color(0.85, 0.35, 0.15)])
 	p.color_initial_ramp = grad
 	parent.add_child(p)
-
-func make_butterflies(r: RandomNumberGenerator) -> void:
-	var spots := [Vector3(-8.9, 0, 2.2), Vector3(6.4, 0, 2.6), Vector3(-4.4, 0, -7), Vector3(0.7, 0, 18), Vector3(-5.6, 0, -12.5), Vector3(21.6, 0, 2.6), Vector3(-18.6, 0, 2.4)]
-	var cols := [Color(1.0, 0.82, 0.25), Color(0.98, 0.98, 1.0), Color(1.0, 0.58, 0.78), Color(0.55, 0.78, 1.0)]
-	var body_mat := make_color(Color(0.22, 0.16, 0.12))
-	for i in spots.size():
-		var root := Node3D.new()
-		add_child(root)
-		var c: Color = cols[i % cols.size()]
-		var wing := butterfly_wing_mesh(c)
-		var wmat := StandardMaterial3D.new()
-		wmat.vertex_color_use_as_albedo = true
-		wmat.cull_mode = BaseMaterial3D.CULL_DISABLED
-		wmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		var left := Node3D.new()
-		var right := Node3D.new()
-		root.add_child(left)
-		root.add_child(right)
-		for side in [[left, -1.0], [right, 1.0]]:
-			var mi := MeshInstance3D.new()
-			mi.mesh = wing
-			mi.material_override = wmat
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			mi.scale = Vector3(side[1], 1, 1)
-			(side[0] as Node3D).add_child(mi)
-		# 몸통과 더듬이
-		var bd := add_mcyl(root, body_mat, 0.018, 0.012, 0.16, Vector3.ZERO)
-		bd.rotation.x = PI / 2.0
-		add_ball(root, Color(0.22, 0.16, 0.12), 0.026, Vector3(0, 0.005, 0.085))
-		for sx in [-1.0, 1.0]:
-			var an := add_mcyl(root, body_mat, 0.004, 0.004, 0.11, Vector3(sx * 0.022, 0.03, 0.13))
-			an.rotation = Vector3(PI / 2.0 - 0.5, 0, -sx * 0.35)
-			add_ball(root, Color(0.22, 0.16, 0.12), 0.011, Vector3(sx * 0.04, 0.06, 0.175))
-		root.scale = Vector3.ONE * 1.25
-		butterflies.append([root, left, right, spots[i], r.randf_range(1.2, 2.2), r.randf_range(0.5, 0.9), r.randf_range(0, TAU)])
 
 # 위아래 날개가 둥글게 이어진 나비 날개 (오른쪽 날개, 왼쪽은 뒤집어 써요)
 func butterfly_wing_mesh(c: Color) -> ArrayMesh:
@@ -6961,90 +4666,6 @@ func _process(delta: float) -> void:
 		node.position.x += delta * float(cl[1])
 		if node.position.x > 130.0:
 			node.position.x = -130.0
-
-# 산신령 연못: 이끼 낀 돌 테두리, 뒤쪽 갈대, 연잎과 연꽃, 큰 바위
-func make_sansin_pond(c: Vector3) -> void:
-	var rad := 3.2
-	var r := RandomNumberGenerator.new()
-	r.seed = 77
-	flat_ellipse(c + Vector3(0, -0.01, 0), rad, rad, 0.06, water_material(1, Vector4(c.x, c.z, rad, rad), Color(0.1, 0.32, 0.46), Color(0.38, 0.64, 0.68)))
-	var stones := []
-	var a := 0.0
-	while a < TAU:
-		a += r.randf_range(0.2, 0.32)
-		# 나무꾼이 서는 쪽은 낮은 조약돌만
-		var front := absf(wrapf(a - 2.53, -PI, PI)) < 0.45
-		var k := r.randf_range(0.0, 0.3)
-		var sz := Vector3(r.randf_range(0.5, 0.95), r.randf_range(0.3, 0.55), r.randf_range(0.45, 0.8))
-		if front:
-			sz = Vector3(0.35, 0.12, 0.3)
-		stones.append([c + Vector3(cos(a) * (rad + 0.25 + k), 0.06, sin(a) * (rad + 0.25 + k)), sz, stone_color(r)])
-		if not front and r.randf() < 0.4:
-			stones.append([c + Vector3(cos(a) * (rad + 0.3 + k), sz.y * 0.45, sin(a) * (rad + 0.3 + k)), sz * Vector3(0.7, 0.25, 0.7), Color(0.36, 0.5, 0.26)])
-	# 뒤편의 큰 이끼 바위
-	stones.append([c + Vector3(1.6, 0.5, -3.3), Vector3(1.8, 1.3, 1.4), Color(0.56, 0.56, 0.54)])
-	stones.append([c + Vector3(1.6, 1.1, -3.3), Vector3(1.4, 0.3, 1.1), Color(0.38, 0.52, 0.28)])
-	stones.append([c + Vector3(2.6, 0.3, -2.6), Vector3(0.9, 0.7, 0.8), Color(0.6, 0.59, 0.56)])
-	add_blobs(self, stones, stone_blob_mat)
-	var reeds := []
-	for ang in [-1.2, -0.7, -0.2, 0.4, 0.9]:
-		var base := c + Vector3(cos(ang) * rad * 0.95, 0, sin(ang) * rad * 0.95)
-		for i in 6:
-			var p := base + Vector3(r.randf_range(-0.4, 0.4), 0, r.randf_range(-0.4, 0.4))
-			var hgt := r.randf_range(0.9, 1.5)
-			var tilt := Vector3(r.randf_range(-12, 12), 0, r.randf_range(-12, 12))
-			reeds.append([p + Vector3(0, hgt * 0.5, 0), Vector3(0.05, hgt, 0.05), Color(0.42, 0.62, 0.28), tilt])
-			if i % 2 == 0:
-				reeds.append([p + Vector3(0, hgt * 0.85, 0), Vector3(0.1, 0.3, 0.1), Color(0.48, 0.3, 0.16), tilt])
-			else:
-				reeds.append([p + Vector3(0.06, hgt * 0.35, 0), Vector3(0.16, hgt * 0.6, 0.04), Color(0.5, 0.7, 0.32), tilt + Vector3(0, 0, 18)])
-	add_blobs(self, reeds)
-	var pads := []
-	for i in 7:
-		var pa := r.randf_range(-1.6, 1.4)
-		var pr := r.randf_range(0.45, 0.85)
-		var p := c + Vector3(cos(pa) * rad * pr, 0.075, sin(pa) * rad * pr)
-		pads.append([p, Vector3(0.7, 0.04, 0.6), Color(0.36, 0.62, 0.3).lerp(Color(0.48, 0.7, 0.34), r.randf())])
-		if i % 2 == 0:
-			pads.append([p + Vector3(0.1, 0.08, 0), Vector3(0.24, 0.16, 0.24), Color(1.0, 0.72, 0.82)])
-			pads.append([p + Vector3(0.1, 0.14, 0), Vector3(0.1, 0.08, 0.1), Color(1.0, 0.92, 0.5)])
-	add_blobs(self, pads, null, true)
-	make_tree(c + Vector3(-1.2, 0, -4.6), "Willow0")
-
-func make_forest() -> void:
-	var herb_spots := [Vector3(-24, 0, -25), Vector3(5, 0, -32), Vector3(27, 0, -22)]
-	for pos in herb_spots:
-		var h := make_spot(pos, "herb", "", "약초", false)
-		make_herb_visual(h)
-
-	# 가시덤불로 막힌 연못 (금도끼 은도끼)
-	var none := Color(0, 0, 0, 0)
-	for hd in [[Vector3(23, 1.1, -37.5), Vector3(1, 2.2, 4)], [Vector3(23, 1.1, -31.25), Vector3(1, 2.2, 2.5)], [Vector3(31.25, 1.1, -30), Vector3(17.5, 2.2, 1)]]:
-		var hc := add_solid(hd[0], hd[1], none)
-		make_thorn_shrubs(hc.get_parent(), hd[1], Color(0.2, 0.42, 0.22))
-	bush_col = add_solid(Vector3(23, 1.0, -34), Vector3(1, 2.0, 3), none)
-	make_thorn_shrubs(bush_col.get_parent(), Vector3(1, 2.0, 3), Color(0.36, 0.46, 0.2))
-	var bush: Node3D = bush_col.get_parent()
-	add_tag(bush, "가시덤불", 1.6)
-	add_thing(bush, "bush", "")
-	make_sansin_pond(Vector3(33.5, 0, -35.5))
-	make_npc("woodman", "나무꾼", Color(0.55, 0.42, 0.3), Vector3(28, 0, -33), 1.0, true)
-	make_npc("sansin", "산신령", Color(0.95, 0.95, 1.0), Vector3(31.5, 0, -35), 1.2, false).visible = false
-
-	var keep_clear := herb_spots + wild_keep_clear() + [Vector3(-9, 0, -36), Vector3(-2, 0, -19), Vector3(15, 0, -19.5)]
-	var planted := 0
-	var tries := 0
-	while planted < 30 and tries < 500:
-		tries += 1
-		var pos := Vector3(rng.randf_range(-37, 37), 0, rng.randf_range(-37.5, -19))
-		var ok := not (pos.x > 20.0 and pos.z < -27.5)
-		for c in keep_clear:
-			if pos.distance_to(c) < 3.0:
-				ok = false
-		if ok:
-			make_tree(pos)
-			keep_clear.append(pos)
-			planted += 1
 
 func make_player() -> void:
 	player = CharacterBody3D.new()
@@ -7803,35 +5424,6 @@ func on_option(i: int) -> void:
 
 # ---------- 퀘스트 표시 ----------
 
-func update_quest_text() -> void:
-	var t := ""
-	if quest == Q_NOLBU:
-		t = "큰 기와집에 가서 여기가 어딘지 물어보기 (길 따라 오른쪽)"
-	elif quest == Q_MEET:
-		t = "길 건너 초가집의 흥부 만나기 (왼쪽)"
-	elif quest == Q_RICE:
-		t = "흥부와 함께 놀부 마누라에게 쌀 부탁하기"
-	elif quest == Q_VILLAGE:
-		if mischief_done >= MISCHIEF_NEED:
-			t = "흥부에게 돌아가기"
-		else:
-			t = "놀부 심술에 당한 마을 사람 돕기 (%d/%d) | 마을 곳곳을 돌아다녀 보세요" % [mischief_done, MISCHIEF_NEED]
-	elif quest == Q_SNAKE:
-		t = "흥부네 처마 밑 제비 둥지 지키기"
-	elif quest == Q_HERB:
-		t = "개울 건너 숲에서 약초 찾기 (%d/%d)" % [herbs_found, HERB_TOTAL]
-	elif quest == Q_GIVE:
-		t = "흥부에게 약초 가져다주기"
-	elif quest == Q_GOURD:
-		t = "흥부네 마당에서 박 타기 (%d/3)" % gourds_done
-	elif quest == Q_NOLBU2:
-		t = "시끌시끌한 놀부네에 가 보기"
-	elif quest == Q_RETURN:
-		t = "흥부에게 돌아가 소식 전하기"
-	elif quest == Q_END:
-		t = "1장 끝! 마을을 둘러보고, 흥부에게 말을 걸면 엔딩을 다시 고를 수 있어요"
-	quest_label.text = "할 일: %s\n엽전 %d냥 | 조각 %d/%d | 심술 수습 %d/5" % [t, shown_coins, pieces_found, PIECE_TOTAL, mischief_done]
-
 func set_quest(q: int) -> void:
 	quest = q
 	update_quest_text()
@@ -7969,679 +5561,19 @@ func on_action() -> void:
 	elif kind == "farm":
 		farm_action()
 
-func talk_to(id: String) -> void:
-	if id == "nolbu":
-		talk_nolbu()
-	elif id == "wife":
-		talk_wife()
-	elif id == "heungbu":
-		talk_heungbu()
-	elif id == "kid1":
-		talk_kid1()
-	elif id == "kid2":
-		if gourds_done >= 1:
-			say([["막내", "쌀밥 세 그릇이나 먹었어! 배가 뽈록해."]], Callable())
-		else:
-			say([["막내", "배고파... 그래도 제비가 빨리 나았으면 좋겠어."]], Callable())
-	elif id == "dokkaebi":
-		say([["도깨비", "껄껄, 책 밖에서 온 아이로구나. 너는 착하니 겁낼 것 없다."]], Callable())
-	elif id == "merchant":
-		shop()
-	elif id == "woodman":
-		talk_woodman()
-	elif id == "fisher":
-		talk_fisher()
-	elif id == "choi":
-		talk_choi()
-	elif id == "sansin":
-		say([["산신령", "정직한 마음을 잊지 말거라. 그것이 금도끼보다 귀하니라."]], Callable())
-	else:
-		talk_villager(id)
-
 # ---------- 놀부네 ----------
-
-func talk_nolbu() -> void:
-	if quest == Q_NOLBU:
-		say([
-			["놀부", "뭐냐, 웬 꼬마가 남의 집 앞에서 얼쩡거려?"],
-			["놀부", "옷차림은 또 그게 뭐냐? 저고리도 아니고, 신발은 왜 그 모양이야?"],
-			["놀부", "길을 잃었다고? 내 알 바 아니다! 책 속에서 왔다니, 별 실없는 소리를 다 듣겠네."],
-			["놀부", "밥? 흥! 물 한 모금도 아깝다. 길 건너 내 아우 흥부한테나 가 보든지."],
-		], func(): set_quest(Q_MEET))
-	elif quest == Q_NOLBU2:
-		say([
-			["놀부", "흥부 놈이 제비 덕에 부자가 됐다지? 그깟 거 나도 한다!"],
-			["놀부", "그래서 내가 제비 다리를 똑 부러뜨린 다음 고쳐 줬지. 으하하!"],
-			["놀부", "자, 봐라. 내 박은 흥부네 것보다 훨씬 크지? 슬근슬근 톱질하세..."],
-			["놀부", "어? 어어? 박 속에서 뭐가 나온다!"],
-		], after_nolbu_boast)
-	elif quest >= Q_RETURN:
-		if helped_nolbu:
-			say([["놀부", "네가 내 편을 들어 주다니... 박대해서 미안했다, 얘야. 이제 심술은 안 부리마."]], Callable())
-		else:
-			say([["놀부", "내가 욕심이 과했다... 다 내 탓이지, 누굴 원망하겠느냐."]], Callable())
-	else:
-		say([["놀부", "아직도 안 갔느냐? 내 마당 흙 닳는다, 썩 가거라!"]], Callable())
-
-func talk_wife() -> void:
-	if quest == Q_RICE:
-		say([
-			["흥부", "형수님, 아이들이 굶고 있습니다. 쌀 한 되만 꾸어 주십시오."],
-			["놀부 마누라", "뭐야? 남 줄 쌀이 어디 있어! 이 밥주걱 맛이나 봐라!"],
-			["흥부", "아이고! ...어? 뺨에 밥풀이 붙었네. 형수님, 이쪽 뺨도 마저 때려 주십시오!"],
-			["흥부", "얘야, 바가지를 들고 튀는 밥풀을 받아 다오. 주걱은 피하고!"],
-		], start_rice)
-	elif quest >= Q_RETURN:
-		say([["놀부 마누라", "아이고, 내 팔자야... 주걱으로 때린 벌을 받나 보다."]], Callable())
-	else:
-		say([["놀부 마누라", "뭘 봐? 우리 집엔 남 줄 쌀 한 톨 없어!"]], Callable())
-
-func start_rice() -> void:
-	start_game("catch", {"world": true, "scene": "rice", "title": "놀부 마누라의 밥주걱은 피하고\n튀는 밥풀만 바가지로 받으세요", "goal": 12, "interval": 0.6, "speed": 0.42, "bad_ratio": 0.35, "good": "밥풀", "bad": "주걱", "basket": "바가지", "art": "world"}, rice_done)
-
-func rice_done(ok: bool, _good: bool) -> void:
-	if not ok:
-		say([["흥부", "아이쿠, 주걱에 너무 많이 맞았다... 형수님께 다시 부탁해 보자꾸나."]], Callable())
-		return
-	var heungbu: Node3D = npcs["heungbu"]
-	heungbu.position = Vector3(-12, 0, 2.5)
-	say([
-		["흥부", "허허, 밥풀이 한 줌은 되는구나. 아이들 죽이라도 끓여 주겠다."],
-		["놀부 마누라", "저, 저런 못난이들! 썩 꺼져!"],
-		["흥부", "나는 품을 팔러 가야겠다. 형님 심술에 마을 사람들이 고생이 많은데, 네가 좀 도와주겠느냐?"],
-	], func(): set_quest(Q_VILLAGE))
-
-func after_nolbu_boast() -> void:
-	nolbu_gourd.visible = false
-	var dok: Node3D = npcs["dokkaebi"]
-	dok.visible = true
-	pop3d(dok, true)
-	sfx("crack")
-	shake(22)
-	hit_stop(0.08)
-	flash(Color(1, 1, 1))
-	burst3d(dok.position + Vector3(0, 1.5, 0), Color(0.6, 0.68, 0.4), 30)
-	set_quest(Q_DOKKAEBI)
-	say([
-		["도깨비", "이놈 놀부야! 멀쩡한 제비 다리를 일부러 부러뜨려?"],
-		["놀부", "아이고, 도깨비님! 잘못했습니다, 살려 주십시오!"],
-		["도깨비", "욕심으로 얻은 재물은 내가 몽땅 가져가마. 뚝딱!"],
-		["놀부", "아이고, 내 재산... 내 기와집... 흑흑."],
-	], func(): ask("놀부", "얘야... 염치없다만, 흥부한테 내 얘기 좀 잘 해 주겠느냐?", ["도와준다", "모른 척한다"], on_nolbu_choice))
-
-func on_nolbu_choice(i: int) -> void:
-	helped_nolbu = i == 0
-	if helped_nolbu:
-		say([["놀부", "고, 고맙다... 박대한 나를 도와주다니. 내가 부끄럽구나."]], func(): set_quest(Q_RETURN))
-	else:
-		say([["놀부", "그래, 내가 한 짓이 있는데 무슨 낯으로... 흑흑."]], func(): set_quest(Q_RETURN))
 
 # ---------- 흥부네 ----------
 
-func talk_heungbu() -> void:
-	if quest == Q_NOLBU:
-		say([["흥부", "어서 오너라. 처음 보는 옷이로구나. 길을 잃었으면 저기 큰 기와집 형님께 먼저 여쭤 보렴."]], Callable())
-	elif quest == Q_MEET:
-		say([
-			["흥부", "아이고, 형님 댁에서 그냥 쫓겨났다고? 저런, 많이 놀랐겠구나."],
-			["흥부", "옛이야기 책을 펼쳤더니 여기였다고? 허허, 신기한 일도 다 있구나. 그 책 좀 보자."],
-			["흥부", "이런, 책장이 텅 비었구나. 이야기가 채워져야 돌아갈 길이 열리려나 보다."],
-			["흥부", "밥이라도 먹이고 싶다만... 실은 쌀이 똑 떨어졌단다."],
-			["흥부", "형님 댁에 쌀을 꾸러 가려던 참인데, 같이 가 주겠느냐?"],
-		], after_meet)
-	elif quest == Q_RICE:
-		say([["흥부", "형수님께 같이 부탁드려 보자꾸나. 바로 옆에 계신다."]], Callable())
-	elif quest == Q_VILLAGE:
-		if mischief_done >= MISCHIEF_NEED:
-			say([
-				["흥부", "마을 사람들을 도와줬다고? 장하구나!"],
-				["흥부", "그런데 큰일이다! 처마 밑 제비 둥지에 구렁이가 나타났어!"],
-			], func(): set_quest(Q_SNAKE))
-		else:
-			say([["흥부", "형님 심술에 당한 사람이 마을에 다섯이나 된단다. 셋만 도와줘도 큰 힘이 될 게다."]], Callable())
-	elif quest == Q_SNAKE:
-		say([["흥부", "어서 둥지를 지켜 다오! 우리 집 처마 밑이다."]], Callable())
-	elif quest == Q_HERB:
-		say([["흥부", "약초는 개울 건너 뒷산 숲에 있단다. 나무 사이를 잘 살펴보렴."]], Callable())
-	elif quest == Q_GIVE:
-		say([
-			["흥부", "오오, 세 포기나! 정말 고맙구나."],
-			["흥부", "약초를 바르고 실로 다리를 감아 줘야 한단다."],
-			["흥부", "내 손은 거칠어서... 네가 살살 감아 주겠느냐?"],
-		], start_heal)
-	elif quest == Q_GOURD:
-		say([["흥부", "박은 마당에 있단다. 하나씩 같이 타 보자꾸나."]], Callable())
-	elif quest == Q_NOLBU2:
-		say([["흥부", "형님 댁이 시끌시끌하구나. 무슨 일인지 가 보겠느냐?"]], Callable())
-	elif quest == Q_RETURN:
-		var lines := [["흥부", "형님이 도깨비한테 혼쭐이 나셨다고? 저런..."]]
-		if helped_nolbu:
-			lines.append(["흥부", "네가 형님 편을 들어 주었구나. 고맙다. 우리 새 집에서 함께 지내시라 해야겠다."])
-		else:
-			lines.append(["흥부", "미워도 내 형님이다. 우리 새 집에서 함께 지내시라 해야겠구나."])
-		lines.append(["흥부", "얘야, 네 책 좀 보렴. 빈 책장에 우리 이야기가 거의 채워졌구나. 마지막 한 줄만 비어 있다."])
-		lines.append(["흥부", "그 한 줄은 네가 정해 다오. 네 덕에 제비도 살고 우리 식구도 살았으니."])
-		say(lines, ask_final)
-	else:
-		ask("흥부", "집으로 돌아가는 길, 꼭 찾기를 바란다. 이야기의 마지막 한 줄을 다시 고르겠느냐?", ["다시 고를래요", "이대로 둘래요"], on_replay_choice)
-
-func after_meet() -> void:
-	var heungbu: Node3D = npcs["heungbu"]
-	heungbu.position = Vector3(12.2, 0, 9.8)
-	set_quest(Q_RICE)
-
-func talk_kid1() -> void:
-	if hide_state == 0:
-		hide_state = 1
-		for t in things:
-			if t["kind"] == "hider":
-				var node: Node3D = t["node"]
-				node.visible = true
-		say([["첫째", "그 옷 어디서 났어? 처음 봐! 참, 심심한데 숨바꼭질 하자."], ["첫째", "동생 넷이 마을 어딘가에 숨었어. 다 찾으면 내 보물을 줄게!"]], Callable())
-	elif hide_state == 1:
-		if hiders_found >= 4:
-			hide_state = 2
-			earn(20)
-			say([["첫째", "벌써 다 찾았어? 대단하다! 약속한 보물이야."], ["", "엽전 20냥을 받았다!"]], Callable())
-		else:
-			say([["첫째", "아직 %d명 남았어. 집 뒤, 나무 뒤, 다리 밑을 잘 봐!" % (4 - hiders_found)]], Callable())
-	elif gourds_done >= 2:
-		say([["첫째", "나도 새 옷 입었어! 다음엔 어느 이야기로 가? 나도 따라가고 싶다."]], Callable())
-	else:
-		say([["첫째", "우리 아버지는 세상에서 제일 착해. 가난해도 제비까지 돌봐 준다니까!"]], Callable())
-
-# 구렁이 쫓기
-func start_snake() -> void:
-	start_game("tap", {"world": true, "scene": "snake", "title": "구렁이가 제비 둥지로 기어와요!\n닿기 전에 눌러서 쫓아내세요", "goal": 12, "interval": 0.75, "life": 1.6, "target": "구렁이", "center": "둥지", "color": Color(0.5, 0.38, 0.25), "art": "world"}, snake_done)
-
-func snake_done(ok: bool, _good: bool) -> void:
-	if not ok:
-		say([["흥부", "구렁이가 둥지에 닿았다! 얼른 다시 쫓아 다오!"]], Callable())
-		return
-	for t in things:
-		if t["kind"] == "herb":
-			var node: Node3D = t["node"]
-			node.visible = true
-	say([
-		["", "구렁이는 달아났지만, 놀란 새끼 제비 한 마리가 떨어져 다리를 다쳤다."],
-		["흥부", "저런, 가엾어라! 뒷산 숲에서 약초를 세 포기만 구해다 주겠느냐? 분홍빛 나는 풀이란다."],
-	], func(): set_quest(Q_HERB))
-
-# 제비 치료
-func start_heal() -> void:
-	start_game("circle", {"world": true, "scene": "heal", "art": "world", "trail": Color(1, 1, 1), "title": "다친 제비 다리에 부목을 대고\n둘레를 천천히 돌며 실을 감아요", "label": "제비", "turns": 6.0, "max_speed": 11.0, "warn": "너무 빨라요! 제비가 아파해요", "color": Color(0.2, 0.22, 0.35)}, heal_done)
-
-func heal_done(ok: bool, good: bool) -> void:
-	if not ok:
-		say([["흥부", "제비가 놀라서 푸드덕거리는구나. 숨을 고르고 다시 살살 감아 보자."]], start_heal)
-		return
-	var lines := [["제비", "짹짹!"]]
-	if good:
-		lines.append(["흥부", "허허, 아주 꼼꼼하게 감았구나. 제비가 하나도 안 아파하는구나."])
-	else:
-		lines.append(["흥부", "조금 놀랐나 보다만, 그래도 잘 감아 주었구나."])
-	lines.append(["흥부", "어라, 네 책에 제비 그림이 생겼구나! 이야기가 채워지고 있나 보다."])
-	lines.append(["흥부", "다 나으면 강남으로 날아가겠지. 고맙다, 얘야."])
-	say(lines, after_heal_talk)
-
-func after_heal_talk() -> void:
-	set_quest(Q_SEASON)
-	show_card("제비는 따뜻한 강남으로 날아갔어요.\n\n계절이 바뀌고,\n이듬해 봄...", 0.0, 3.0, after_season)
-
-func after_season() -> void:
-	set_quest(Q_SEED)
-	say([
-		["제비", "짹짹! 짹짹!"],
-		["흥부", "아니, 작년 그 제비가 아니냐! 입에 문 건... 박씨로구나."],
-		["흥부", "마당에 심었더니 어느새 커다란 박이 세 통이나 열렸단다."],
-		["흥부", "얘야, 나와 같이 박을 타 보지 않겠느냐? 박자가 너무 어긋나면 톱이 끼니 조심하고."],
-	], after_seed)
-
-func after_seed() -> void:
-	for t in things:
-		if t["kind"] == "gourd":
-			var node: Node3D = t["node"]
-			node.visible = true
-	set_quest(Q_GOURD)
-
-# 박 타기
-func start_saw() -> void:
-	start_game("follow", {"world": true, "scene": "saw", "art": "world", "title": "슬근슬근 톱질하세! (%d번째 박)\n아래 손잡이를 흥부와 같이 좌우로" % (gourds_done + 1), "slow": 2.4 - gourds_done * 0.35, "tol": 0.42 - gourds_done * 0.04, "goal": 6.0, "patience": 4.0 - gourds_done * 0.5, "color": Color(0.82, 0.9, 0.62)}, saw_done)
-
-func saw_done(ok: bool, _good: bool) -> void:
-	if not ok:
-		say([["흥부", "아이쿠, 박자가 어긋나 톱이 박에 끼었구나. 숨 한번 돌리고 다시 타 보자."]], Callable())
-		return
-	var g: Node3D = saw_thing["node"]
-	g.visible = false
-	sfx("crack")
-	shake(22)
-	hit_stop(0.08)
-	flash(Color(1, 1, 1))
-	burst3d(g.position + Vector3(0, 1.2, 0), PAPER, 30)
-	spawn_treasure(gourds_done, g.position)
-	var all_lines := [
-		[
-			["흥부", "아이고, 쌀이다! 하얀 쌀이 끝도 없이 쏟아지는구나!"],
-			["막내", "쌀밥이다! 아버지, 오늘은 배불리 먹어요?"],
-			["흥부", "그럼, 그럼. 네 몫으로 엽전도 나왔구나. 자, 다음 박도 타 보자."],
-		],
-		[
-			["흥부", "이번엔 비단이로구나! 고운 비단이 필필이 나온다!"],
-			["첫째", "우와, 우리도 새 옷 입는 거예요?"],
-			["흥부", "허허, 마지막 박이 남았구나. 톱질이 점점 빨라지니 잘 따라오너라."],
-		],
-		[
-			["흥부", "아니, 이번엔 목수들이 우르르 나오는구나!"],
-			["흥부", "뚝딱뚝딱, 눈 깜짝할 사이에 새 집을 지어 주었구나!"],
-			["흥부", "착한 일을 하면 복이 온다더니... 이 은혜는 잊지 않으마."],
-			["흥부", "그런데 형님 댁이 왜 저리 시끄러울꼬? 한번 가 보겠느냐?"],
-		],
-	]
-	var lines: Array = all_lines[gourds_done]
-	gourds_done += 1
-	earn(15)
-	say(lines, after_gourd_talk)
-
-func after_gourd_talk() -> void:
-	if gourds_done >= 3:
-		nolbu_gourd.visible = true
-		set_quest(Q_NOLBU2)
-	else:
-		update_quest_text()
-
-func spawn_treasure(order: int, pos: Vector3) -> void:
-	var pile := Node3D.new()
-	pile.position = pos
-	add_child(pile)
-	if order == 0:
-		spawn_rice(pile)
-		add_tag(pile, "쌀", 2.0)
-	elif order == 1:
-		spawn_silk(pile)
-		add_tag(pile, "비단", 2.0)
-	else:
-		spawn_gold(pile)
-		add_tag(pile, "금은보화", 1.6)
-		hut.visible = false
-		pop3d(make_house(hut.position, Vector3(7, 3.4, 4.5), Color(0.96, 0.94, 0.88), Color(0.2, 0.35, 0.5), "tile"), true)
-	pop3d(pile, true)
-
 # ---------- 1장 엔딩 ----------
-
-func ask_final() -> void:
-	var opts := ["형님도 우리 집에서 함께 지내요", "형님은 벌 받은 대로 두어요"]
-	if coins >= RICH_COINS:
-		opts.append("보물로 땅을 더 사서 불려요")
-	ask("흥부", "이야기의 마지막 한 줄이다. 형님을 어찌하면 좋을꼬?", opts, on_final_choice)
-
-func on_replay_choice(i: int) -> void:
-	if i == 0:
-		say([["흥부", "그래, 마지막 한 줄은 몇 번이고 다시 쓸 수 있지."]], ask_final)
-
-func on_final_choice(i: int) -> void:
-	var id := "original"
-	if i == 0:
-		if helped_nolbu and mischief_done >= 5:
-			id = "true"
-		else:
-			id = "awkward"
-	elif i == 2:
-		id = "greed"
-	finish_chapter(id)
-
-func ending_data(id: String) -> Array:
-	match id:
-		"true":
-			return ["함께 사는 집", "놀부는 마을 사람들을 하나하나 찾아가 고개를 숙였어요.\n처음엔 닫혀 있던 대문들이 하나둘 열렸고,\n흥부네 처마 밑 제비집은 둘로 늘었답니다.\n\n책의 첫 장이 환하게 채워졌어요."]
-		"awkward":
-			return ["아직은 어색한 화해", "흥부는 형님을 새 집에 모셨어요.\n하지만 놀부에게 상처받은 마을 사람들은\n아직 대문을 활짝 열지 못했어요.\n\n용서는 한 사람만의 일이라서\n시간이 더 필요한가 봐요.\n\n책의 첫 장이 반쯤 채워졌어요."]
-		"greed":
-			return ["작은 놀부", "보물로 땅을 사고 또 사던 흥부네 대문은\n해마다 높아지고 굳게 닫혔어요.\n처마 밑 제비는 다른 집으로 떠났고,\n마을 사람들은 흥부를 '작은 놀부'라 불렀어요.\n\n책장의 글씨가 흐릿하게 번졌어요.\n욕심은 누구의 마음에든 찾아오나 봐요."]
-	return ["권선징악", "놀부는 도깨비에게 모든 것을 잃고\n흥부네 담장 밖을 오래 서성였어요.\n\n착한 마음에는 복이, 욕심에는 화가 따른다지만\n담장 밖 뒷모습이 자꾸 마음에 걸렸어요.\n\n책의 첫 장이 채워졌어요."]
-
-# 모은 엔딩을 파일에 기억해요. 지금까지 모은 개수를 돌려줘요
-func save_ending(id: String) -> int:
-	var cf := ConfigFile.new()
-	cf.load("user://save.cfg")
-	var got: Array = cf.get_value("ch1", "endings", [])
-	if not got.has(id):
-		got.append(id)
-		cf.set_value("ch1", "endings", got)
-		cf.save("user://save.cfg")
-	return got.size()
-
-func finish_chapter(id: String) -> void:
-	ending_id = id
-	var seen := save_ending(id)
-	set_quest(Q_END)
-	var d := ending_data(id)
-	show_card("%s\n\n엔딩 “%s” (모은 엔딩 %d/%d)\n1장 흥부와 놀부  끝" % [d[1], d[0], seen, ENDING_COUNT], 0.0, 5.0, Callable())
 
 # ---------- 마을 사람 돕기 ----------
 
-func talk_villager(id: String) -> void:
-	var v: Dictionary = villagers[id]
-	var who: String = v["name"]
-	var state: int = mischief.get(id, 0)
-	if state == 2:
-		say([[who, "네 덕에 한시름 놓았다. 고맙다!"]], Callable())
-	elif v.has("game"):
-		say(v["ask"], func(): start_game(v["game"], v["cfg"], villager_game_done.bind(id)))
-	elif state == 0:
-		mischief[id] = 1
-		if id == "suni":
-			for t in things:
-				if t["kind"] == "laundry":
-					var node: Node3D = t["node"]
-					node.visible = true
-		say(v["ask"], Callable())
-	elif (id == "dori" and has_yeot) or (id == "suni" and laundry_found >= 3):
-		if id == "dori":
-			has_yeot = false
-		finish_mischief(id)
-	else:
-		say([[who, v["wait"]]], Callable())
-
-func villager_game_done(ok: bool, _good: bool, id: String) -> void:
-	var v: Dictionary = villagers[id]
-	if ok and id == "ong":
-		# 진흙을 발라 금이 사라졌어요
-		for c in ong_cracks:
-			(c as Node3D).visible = false
-	if ok:
-		finish_mischief(id)
-	else:
-		say([[v["name"], v["fail"]]], Callable())
-
-func finish_mischief(id: String) -> void:
-	var v: Dictionary = villagers[id]
-	mischief[id] = 2
-	mischief_done += 1
-	earn(10)
-	say([[v["name"], v["done"]], ["", "엽전 10냥을 받았다! (놀부 심술 수습 %d/5)" % mischief_done]], Callable())
-
 # ---------- 품팔이와 장터 ----------
-
-func start_job(id: String) -> void:
-	if id == "water":
-		start_well3d()
-		return
-	if id == "water_2d":
-		start_game("catch", {"art": "water", "title": "두레박을 좌우로 움직여 물방울만 받아요\n돌멩이는 피해요", "goal": 10, "interval": 0.55, "speed": 0.5, "bad_ratio": 0.3, "good": "물", "bad": "돌", "basket": "두레박"}, job_done)
-	elif id == "wood":
-		start_wood3d()
-	elif id == "gam":
-		start_gam3d()
-	elif id == "wood_2d":
-		start_game("tap", {"art": "wood", "title": "통나무가 올라오면\n눌러서 쩍! 장작을 패요", "goal": 10, "interval": 0.7, "life": 1.3, "target": "장작", "center": "나무", "color": Color(0.5, 0.35, 0.2)}, job_done)
-	else:
-		start_game("circle", {"world": true, "scene": "straw", "art": "world", "trail": Color(0.9, 0.78, 0.42), "title": "짚을 빙글빙글 꼬아 짚신을 삼아요\n너무 빠르면 짚이 끊어져요", "label": "짚신", "turns": 5.0, "max_speed": 12.0, "warn": "짚이 끊어질 것 같아요!", "color": Color(0.8, 0.68, 0.35)}, job_done)
-
-func job_done(ok: bool, good: bool) -> void:
-	if not ok:
-		say([["", "일을 망쳐서 품삯을 받지 못했다. 다시 해 보자."]], Callable())
-		return
-	var pay := 10
-	if good:
-		pay = 15
-	earn(pay)
-	if good:
-		say([["", "솜씨가 좋다고 덤까지 받았다. 엽전 %d냥!" % pay]], Callable())
-	else:
-		say([["", "품삯으로 엽전 %d냥을 받았다." % pay]], Callable())
-
-func shop() -> void:
-	ask("장터 상인", "어서 오너라! 무엇을 줄까? (가진 엽전 %d냥)" % coins, ["엿 5냥", "짚신 20냥 (발이 빨라져요)", "낫 15냥 (덤불을 베요)", "한복 40냥 (옷 갈아입기)", "그만 볼래요"], on_shop)
-
-func on_shop(i: int) -> void:
-	if i >= 4:
-		return
-	var prices := [5, 20, 15, 40]
-	var owned := (i == 0 and has_yeot) or (i == 1 and has_shoes) or (i == 2 and has_sickle) or (i == 3 and has_hanbok)
-	if owned:
-		say([["장터 상인", "그건 이미 가지고 있잖니."]], shop)
-		return
-	if coins < prices[i]:
-		say([["장터 상인", "엽전이 모자라는구나. 우물, 나무터, 짚더미, 감나무에서 품을 팔거나 남쪽 연못에서 낚시를 하고, 최 영감네 논일을 도우면 엽전을 벌 수 있단다."]], Callable())
-		return
-	coins -= prices[i]
-	if i == 0:
-		has_yeot = true
-	elif i == 1:
-		has_shoes = true
-	elif i == 2:
-		has_sickle = true
-	else:
-		has_hanbok = true
-		recolor_outfit(player_body, Color(0.45, 0.78, 0.72))
-		pop3d(player)
-		burst3d(player.position + Vector3(0, 1, 0), Color(0.45, 0.78, 0.72), 20)
-	sfx("coin")
-	update_quest_text()
-	say([["장터 상인", "옜다, 잘 쓰거라!"]], shop)
 
 # ---------- 숨은 이야기: 금도끼 은도끼 ----------
 
-func talk_woodman() -> void:
-	if axe_done:
-		say([["나무꾼", "네 정직함 덕분에 어머니를 잘 모시게 됐어. 고마워!"]], Callable())
-		return
-	var sansin: Node3D = npcs["sansin"]
-	sansin.visible = true
-	pop3d(sansin, true)
-	burst3d(sansin.position + Vector3(0, 1, 0), Color(0.6, 0.8, 1.0), 20)
-	say([
-		["나무꾼", "엉엉... 하나뿐인 쇠도끼를 연못에 빠뜨렸어. 나무를 해야 어머니를 모시는데..."],
-		["산신령", "어흠. 나는 이 연못의 산신령이니라."],
-		["산신령", "책 밖에서 온 아이야, 네가 대신 시험을 받아 보아라."],
-		["산신령", "내가 연못에서 도끼를 하나씩 들어 올리마. 나무꾼의 낡은 쇠도끼일 때만 눌러 받거라."],
-		["산신령", "번쩍이는 금도끼, 은도끼에 손을 대면... 욕심으로 알겠느니라!"],
-	], start_axe_game)
-
 const AXE_GOAL := 3
-
-func start_axe_game() -> void:
-	start_game("axe", {"world": true, "art": "world", "title": "산신령이 도끼를 들어 올려요\n낡은 쇠도끼일 때만 눌러서 받아요!"}, axe_game_done)
-	var sansin: Node3D = npcs["sansin"]
-	var sp := sansin.position
-	var stand := Vector3(29.3, 0, -32.6)
-	var dir := (stand - sp) * Vector3(1, 0, 1)
-	dir = dir.normalized()
-	var side := dir.cross(Vector3.UP)
-	world_game_begin(stand, sp, Vector3(26.4, 1.9, -31.4), sp + Vector3(0, 0.75, 0))
-	world_move(sansin, sp, stand)
-	if npcs.has("woodman"):
-		var wm: Node3D = npcs["woodman"]
-		world_move(wm, stand + Vector3(0.9, 0, 0.9), sp)
-		for lb2 in wm.find_children("*", "Label3D", true, false):
-			world_hide(lb2)
-	for lb in sansin.find_children("*", "Label3D", true, false):
-		world_hide(lb)
-	var axes := {}
-	for kind in ["gold", "silver", "iron"]:
-		var ax := make_axe_model(kind)
-		ax.visible = false
-		axes[kind] = ax
-	w["axes"] = axes
-	w["sansin"] = sp
-	w["top"] = sp + dir * 0.75 + Vector3(0, 1.25, 0)
-	w["state"] = "gap"
-	w["timer"] = 1.0
-	w["cur"] = ""
-	w["since_iron"] = 0
-	axe_info()
-
-func make_axe_model(kind: String) -> Node3D:
-	var n := Node3D.new()
-	world_node(n)
-	var metal := StandardMaterial3D.new()
-	match kind:
-		"gold":
-			metal.albedo_color = Color(1.0, 0.78, 0.22)
-			metal.metallic = 0.85
-			metal.roughness = 0.25
-			metal.emission_enabled = true
-			metal.emission = Color(1.0, 0.7, 0.2)
-			metal.emission_energy_multiplier = 0.35
-		"silver":
-			metal.albedo_color = Color(0.86, 0.9, 0.95)
-			metal.metallic = 0.85
-			metal.roughness = 0.2
-			metal.emission_enabled = true
-			metal.emission = Color(0.7, 0.8, 0.95)
-			metal.emission_energy_multiplier = 0.25
-		_:
-			metal.albedo_color = Color(0.36, 0.34, 0.33)
-			metal.metallic = 0.3
-			metal.roughness = 0.85
-	var handle: Material = metal if kind != "iron" else wood_mat
-	add_mcyl(n, handle, 0.032, 0.038, 0.95, Vector3(0, 0, 0))
-	add_mbox(n, metal, Vector3(0.22, 0.17, 0.07), Vector3(0.1, 0.36, 0))
-	add_mbox(n, metal, Vector3(0.07, 0.3, 0.06), Vector3(0.22, 0.36, 0))
-	add_mbox(n, metal, Vector3(0.08, 0.12, 0.08), Vector3(-0.04, 0.36, 0))
-	if kind == "iron":
-		# 녹슨 자국
-		add_ball(n, Color(0.55, 0.32, 0.18), 0.035, Vector3(0.12, 0.4, 0.035))
-		add_ball(n, Color(0.5, 0.3, 0.18), 0.025, Vector3(0.05, 0.31, 0.035))
-	n.scale = Vector3.ONE * 1.5
-	return n
-
-func axe_info() -> void:
-	mg_progress = float(mg_count) / AXE_GOAL
-	mg_info.text = "쇠도끼 %d/%d | 남은 기회 %d" % [mg_count, AXE_GOAL, mg_lives]
-
-func axe_pick_next() -> String:
-	# 쇠도끼가 너무 오래 안 나오지 않게 해요
-	var since: int = w["since_iron"]
-	if since >= 3 or rng.randf() < 0.3:
-		w["since_iron"] = 0
-		return "iron"
-	w["since_iron"] = since + 1
-	return "gold" if rng.randf() < 0.55 else "silver"
-
-func update_axe(delta: float) -> void:
-	var axes: Dictionary = w["axes"]
-	var sp: Vector3 = w["sansin"]
-	var top: Vector3 = w["top"]
-	w["timer"] = float(w["timer"]) - delta
-	var st: String = w["state"]
-	var cur: String = w["cur"]
-	var show_time := 1.25 - mg_count * 0.15
-	if st == "gap":
-		if float(w["timer"]) <= 0.0:
-			cur = axe_pick_next()
-			w["cur"] = cur
-			w["state"] = "rise"
-			w["timer"] = 0.35
-			var ax: Node3D = axes[cur]
-			ax.visible = true
-			ax.global_position = sp + Vector3(0, 0.1, 0)
-			splash3d(sp + Vector3(0, 0.05, 0))
-			sfx("splash", 1.2)
-	elif st == "rise":
-		var ax2: Node3D = axes[cur]
-		var k := 1.0 - clampf(float(w["timer"]) / 0.35, 0.0, 1.0)
-		ax2.global_position = (sp + Vector3(0, 0.1, 0)).lerp(top, ease(k, 0.4))
-		ax2.rotation = Vector3(0, k * TAU, 0.2)
-		if float(w["timer"]) <= 0.0:
-			w["state"] = "show"
-			w["timer"] = show_time
-			if cur != "iron":
-				burst3d(top + Vector3(0, 0.3, 0), Color(1.0, 0.85, 0.3) if cur == "gold" else Color(0.85, 0.9, 1.0), 12)
-				sfx("coin", 1.3 if cur == "gold" else 1.6)
-	elif st == "show":
-		var ax3: Node3D = axes[cur]
-		ax3.global_position = top + Vector3(0, sin(anim_t * 4.0) * 0.05, 0)
-		ax3.rotation = Vector3(0, sin(anim_t * 2.5) * 0.6, 0.2)
-		if float(w["timer"]) <= 0.0:
-			if cur == "iron":
-				# 쇠도끼를 놓쳤어요
-				mg_lives -= 1
-				mg_perfect = false
-				sfx("bad")
-				shake(10)
-				float_text("쇠도끼를 놓쳤어요!", cam.unproject_position(top), Color(1, 0.55, 0.45), 1.1)
-				axe_info()
-			axe_sink()
-	elif st == "sink":
-		var ax4: Node3D = axes[cur]
-		var k2 := 1.0 - clampf(float(w["timer"]) / 0.3, 0.0, 1.0)
-		ax4.global_position = top.lerp(sp + Vector3(0, -0.3, 0), k2)
-		if float(w["timer"]) <= 0.0:
-			ax4.visible = false
-			w["state"] = "gap"
-			w["timer"] = rng.randf_range(0.35, 0.7)
-	elif st == "fly":
-		var ax5: Node3D = axes[cur]
-		var k3 := 1.0 - clampf(float(w["timer"]) / 0.35, 0.0, 1.0)
-		ax5.global_position = (w["fly_from"] as Vector3).lerp(player.global_position + Vector3(0, 1.2, 0), k3 * k3)
-		ax5.rotation = Vector3(0, k3 * TAU, 0.2)
-		ax5.scale = Vector3.ONE * 1.5 * (1.0 - k3 * 0.6)
-		if float(w["timer"]) <= 0.0:
-			ax5.visible = false
-			ax5.scale = Vector3.ONE * 1.5
-			w["state"] = "gap"
-			w["timer"] = 0.6
-	var sansin: Node3D = npcs["sansin"]
-	sansin.position.y = sin(anim_t * 1.8) * 0.06 + 0.1
-
-func axe_sink() -> void:
-	w["state"] = "sink"
-	w["timer"] = 0.3
-	splash3d((w["sansin"] as Vector3) + Vector3(0, 0.05, 0))
-
-func axe_tap() -> void:
-	var st: String = w.get("state", "")
-	if st != "show" and st != "rise":
-		return
-	var cur: String = w["cur"]
-	var ax: Node3D = w["axes"][cur]
-	var at := ax.global_position
-	if cur == "iron":
-		mg_count += 1
-		sfx("good")
-		shake(6)
-		hit_stop(0.05)
-		cam_kick = 0.15
-		burst3d(at, Color(0.6, 0.9, 1.0), 16)
-		float_text(["정직하구나!", "옳지!", "바로 그거다!"][mg_count % 3], cam.unproject_position(at), Color(1, 0.95, 0.7), 1.3)
-		# 도끼가 내 손으로 날아와요
-		w["state"] = "fly"
-		w["timer"] = 0.35
-		w["fly_from"] = at
-	else:
-		mg_lives -= 1
-		mg_perfect = false
-		sfx("bad")
-		shake(14)
-		flash(Color(1, 0.3, 0.3))
-		float_text("욕심이로구나!", cam.unproject_position(at), Color(1, 0.5, 0.4), 1.3)
-		axe_sink()
-	axe_info()
-
-func axe_game_done(ok: bool, _good: bool) -> void:
-	if not ok:
-		axe_lie()
-		return
-	axe_done = true
-	earn(30)
-	say([
-		["산신령", "참으로 정직하구나! 쇠도끼는 물론이고, 금도끼와 은도끼도 모두 주마."],
-		["나무꾼", "고맙다, 얘야! 네 덕분이야. 이건 내 마음이니 받아 줘."],
-		["", "엽전 30냥을 받았다!"],
-	], func(): get_piece_id(6, "산신령이 책에 이야기 한 조각을 새겨 주었다."))
-
-func axe_lie() -> void:
-	axe_lied = true
-	var sansin: Node3D = npcs["sansin"]
-	sansin.visible = false
-	sfx("bad")
-	shake(8)
-	say([
-		["산신령", "허허, 욕심에 눈이 흐려졌구나. 정직하지 못한 자에겐 아무것도 줄 수 없다."],
-		["", "산신령이 연못 속으로 사라졌다. 나무꾼에게 다시 말을 걸어 보자."],
-	], Callable())
 
 # ---------- 감나무: 장대로 감 따기 (꼭대기 까치밥은 남겨요) ----------
 
@@ -8649,233 +5581,6 @@ const GAM_GOAL := 8
 var persimmon_ctr := Vector3(3, 3.7, 2.5)
 var persimmon_rad := 2.0
 var persimmon_fruit_mi: Node3D = null
-
-func start_gam3d() -> void:
-	start_game("gam", {"world": true, "art": "world", "title": "빨갛게 익은 감을 눌러 장대로 톡!\n초록 감과 꼭대기 까치밥은 남겨요"}, job_done)
-	var c := persimmon_ctr
-	var stand := Vector3(c.x + 1.9, 0, c.z + 3.0)
-	world_game_begin(stand, Vector3(c.x, 0, c.z), Vector3(c.x + 0.6, 1.3, c.z + 8.0), Vector3(c.x + 0.5, c.y + 0.15, c.z), job_spot("gam"))
-	if persimmon_fruit_mi != null:
-		world_hide(persimmon_fruit_mi)
-	hold_tool("pole")
-	w["scene"] = "gam"
-	w["swing"] = 0.0
-	# 감이 달릴 자리: 카메라 쪽으로 보이는 나무 앞쪽
-	var slots := []
-	var r := RandomNumberGenerator.new()
-	r.seed = 5
-	var tries := 0
-	while slots.size() < 11 and tries < 400:
-		tries += 1
-		var d := Vector3(r.randf_range(-1, 1), r.randf_range(-0.5, 0.35), r.randf_range(0.6, 1)).normalized()
-		var p := c + d * persimmon_rad * Vector3(1.35, 0.85, 1.45)
-		var ok := true
-		for q in slots:
-			if (q as Vector3).distance_to(p) < 0.75:
-				ok = false
-				break
-		if ok:
-			slots.append(p)
-	var fruits := []
-	for p in slots:
-		var f := blob_node([[Vector3.ZERO, Vector3(0.44, 0.38, 0.44), Color(0.45, 0.65, 0.2)], [Vector3(0, 0.19, 0), Vector3(0.2, 0.06, 0.2), Color(0.25, 0.4, 0.15)]])
-		f.global_position = p
-		f.visible = false
-		fruits.append({"node": f, "pos": p, "state": "empty", "t": r.randf_range(0.3, 6.0), "dur": 0.0})
-	w["fruits"] = fruits
-	# 꼭대기 까치밥 세 알과 까치
-	var top := c + Vector3(0.2, persimmon_rad * 0.75, 0.5)
-	var kk := []
-	for k in 3:
-		var kp := top + Vector3((k - 1) * 0.42, absf(k - 1) * -0.18, 0.1)
-		var kf := blob_node([[Vector3.ZERO, Vector3(0.34, 0.3, 0.34), Color(0.92, 0.3, 0.06)], [Vector3(0, 0.15, 0), Vector3(0.16, 0.05, 0.16), Color(0.25, 0.4, 0.15)]])
-		kf.global_position = kp
-		kk.append(kf)
-	w["kkachi"] = kk
-	var bird := blob_node([
-		[Vector3(0, 0, 0), Vector3(0.26, 0.24, 0.4), Color(0.08, 0.08, 0.12)],
-		[Vector3(0.0, -0.03, 0.04), Vector3(0.2, 0.14, 0.24), Color(0.96, 0.96, 0.96)],
-		[Vector3(0, 0.13, 0.16), Vector3(0.17, 0.16, 0.17), Color(0.08, 0.08, 0.12)],
-		[Vector3(0, 0.12, 0.27), Vector3(0.05, 0.04, 0.09), Color(0.2, 0.2, 0.22)],
-		[Vector3(0, 0.04, -0.34), Vector3(0.08, 0.05, 0.42), Color(0.1, 0.12, 0.25)],
-	])
-	bird.global_position = top + Vector3(0.85, 0.12, 0.0)
-	bird.rotation.y = -0.6
-	w["bird"] = bird
-	# 땅에 놓인 바구니
-	var basket := Node3D.new()
-	world_node(basket)
-	basket.global_position = stand + Vector3(-0.8, 0, 0.4)
-	add_mcyl(basket, thatch_dark_mat, 0.32, 0.24, 0.3, Vector3(0, 0.15, 0))
-	add_blobs(basket, [[Vector3(0, 0.29, 0), Vector3(0.6, 0.08, 0.6), Color(0.9, 0.78, 0.5)]], thatch_blob_mat)
-	w["basket"] = basket
-	w["in_basket"] = 0
-	gam_info()
-
-func gam_info() -> void:
-	mg_progress = float(mg_count) / GAM_GOAL
-	mg_info.text = "감 %d/%d | 남은 기회 %d" % [mg_count, GAM_GOAL, mg_lives]
-
-func gam_ripe_color(k: float) -> Color:
-	return Color(0.45, 0.65, 0.2).lerp(Color(0.98, 0.62, 0.12), clampf(k * 1.4, 0, 1)).lerp(Color(0.94, 0.32, 0.05), clampf(k * 1.4 - 0.4, 0, 1))
-
-func update_gam(delta: float) -> void:
-	var fruits: Array = w["fruits"]
-	var speed := 1.0 + mg_count * 0.04
-	var growing := 0
-	for f in fruits:
-		if f["state"] != "empty":
-			growing += 1
-	for f in fruits:
-		var n: Node3D = f["node"]
-		f["t"] = float(f["t"]) - delta * speed
-		match f["state"]:
-			"empty":
-				if float(f["t"]) <= 0.0 and growing < 4:
-					f["state"] = "green"
-					f["dur"] = 0.0
-					f["t"] = rng.randf_range(3.2, 5.0)
-					n.visible = true
-					n.scale = Vector3.ONE * 0.01
-					n.global_position = f["pos"]
-					gam_color(n, 0.0)
-					growing += 1
-			"green":
-				f["dur"] = float(f["dur"]) + delta * speed
-				var k := clampf(float(f["dur"]) / (float(f["dur"]) + maxf(float(f["t"]), 0.001)), 0, 1)
-				n.scale = Vector3.ONE * minf(1.0, float(f["dur"]) * 4.0)
-				gam_color(n, k * 0.75)
-				n.global_position = (f["pos"] as Vector3) + Vector3(0, sin(anim_t * 2.0 + n.position.x) * 0.02, 0)
-				if float(f["t"]) <= 0.0:
-					f["state"] = "ripe"
-					f["t"] = 3.0
-					gam_color(n, 1.0)
-					add_target_marker(n)
-					pop3d(n)
-			"ripe":
-				var left := clampf(float(f["t"]) / 3.0, 0, 1)
-				n.scale = Vector3.ONE * (1.0 + sin(anim_t * 9.0) * 0.06)
-				update_target_marker(n, f["pos"], 1.0 - left)
-				if float(f["t"]) <= 0.0:
-					# 너무 익어서 툭 떨어졌어요
-					hide_target_marker(n)
-					f["state"] = "drop"
-					f["vy"] = 0.0
-					mg_lives -= 1
-					mg_perfect = false
-					sfx("bad")
-					shake(8)
-					float_text("홍시가 떨어졌어요!", cam.unproject_position(f["pos"]), Color(1, 0.55, 0.45), 1.0)
-					gam_info()
-			"drop":
-				f["vy"] = float(f["vy"]) - 12.0 * delta
-				n.global_position.y += float(f["vy"]) * delta
-				if n.global_position.y <= 0.4:
-					splash_gam(n.global_position)
-					gam_reset(f)
-			"pick":
-				# 장대에 맞아 포물선을 그리며 바구니로
-				var u := clampf(float(f["dur"]) + delta * 2.4, 0, 1)
-				f["dur"] = u
-				var a: Vector3 = f["from"]
-				var b: Vector3 = (w["basket"] as Node3D).global_position + Vector3(0, 0.35, 0)
-				n.global_position = a.lerp(b, u) + Vector3(0, sin(u * PI) * 0.8, 0)
-				n.rotation.x += delta * 9.0
-				if u >= 1.0:
-					sfx("coin", 1.0 + mg_count * 0.05)
-					w["in_basket"] = int(w["in_basket"]) + 1
-					var bk: Node3D = w["basket"]
-					var heap := blob_node([[Vector3.ZERO, Vector3(0.24, 0.21, 0.24), Color(0.94, 0.38, 0.06)]])
-					var ib: int = w["in_basket"]
-					heap.global_position = bk.global_position + Vector3(cos(ib * 2.4) * 0.14, 0.33 + ib * 0.025, sin(ib * 2.4) * 0.14)
-					pop3d(bk)
-					gam_reset(f)
-	var bird: Node3D = w["bird"]
-	bird.rotation.x = -0.4 * maxf(0.0, sin(anim_t * 5.0))
-	gam_info()
-
-func gam_color(n: Node3D, k: float) -> void:
-	for mm in n.find_children("*", "MultiMeshInstance3D", true, false):
-		var mmi := mm as MultiMeshInstance3D
-		mmi.multimesh.set_instance_color(0, gam_ripe_color(k))
-		return
-
-func gam_reset(f: Dictionary) -> void:
-	var n: Node3D = f["node"]
-	n.visible = false
-	n.rotation = Vector3.ZERO
-	f["state"] = "empty"
-	f["t"] = rng.randf_range(1.5, 3.0)
-
-func splash_gam(at: Vector3) -> void:
-	burst3d(at, Color(0.95, 0.4, 0.1), 12)
-	sfx("pop", 0.6)
-
-func gam_tap(pos: Vector2) -> void:
-	var best := -1
-	var best_d := short_side * 0.12
-	var fruits: Array = w["fruits"]
-	for i in fruits.size():
-		var f: Dictionary = fruits[i]
-		if f["state"] != "green" and f["state"] != "ripe":
-			continue
-		var sp := cam.unproject_position(f["pos"])
-		var d := sp.distance_to(pos)
-		if d < best_d:
-			best_d = d
-			best = i
-	var kk: Array = w["kkachi"]
-	for k in kk.size():
-		var kn: Node3D = kk[k]
-		if not kn.visible:
-			continue
-		var d2 := cam.unproject_position(kn.global_position).distance_to(pos)
-		if d2 < best_d:
-			best_d = d2
-			best = 100 + k
-	if best >= 100:
-		var kn2: Node3D = kk[best - 100]
-		mg_lives -= 1
-		mg_perfect = false
-		sfx("bad")
-		shake(10)
-		w["swing"] = 1.0
-		float_text("까치밥은 남겨 둬야지!", cam.unproject_position(kn2.global_position), Color(1, 0.5, 0.4), 1.2)
-		var bird: Node3D = w["bird"]
-		pop3d(bird)
-		sfx("chirp", 0.8)
-		gam_info()
-		return
-	if best >= 0:
-		gam_pick(best)
-
-func gam_pick(i: int) -> void:
-	var f: Dictionary = w["fruits"][i]
-	var n: Node3D = f["node"]
-	w["swing"] = 1.0
-	if f["state"] == "green":
-		mg_lives -= 1
-		mg_perfect = false
-		sfx("bad")
-		shake(8)
-		float_text("아직 떫어요!", cam.unproject_position(f["pos"]), Color(1, 0.55, 0.45), 1.1)
-		pop3d(n)
-		gam_info()
-		return
-	if f["state"] != "ripe":
-		return
-	hide_target_marker(n)
-	mg_count += 1
-	sfx("crack", 1.5)
-	shake(4)
-	hit_stop(0.04)
-	cam_kick = 0.1
-	burst3d(n.global_position, Color(1.0, 0.7, 0.2), 10)
-	float_text(["톡!", "쏙!", "잘 익었다!"][mg_count % 3], cam.unproject_position(n.global_position), Color(1, 0.95, 0.7), 1.2)
-	f["state"] = "pick"
-	f["dur"] = 0.0
-	f["from"] = n.global_position
-	gam_info()
 
 # ---------- 미니게임 공통 ----------
 
@@ -9513,6 +6218,193 @@ func _physics_process(delta: float) -> void:
 		action_button.visible = true
 	jump_button.visible = not busy
 	turn_button.visible = not busy
+
+# ---------- 장마다 덮어쓰는 훅 (빈 함수: 각 장 스크립트가 실제 내용을 채워요) ----------
+
+# 맵과 마을을 지어요 (주인공과 화면을 만들기 전에 불려요)
+func build_chapter() -> void:
+	pass
+
+# 화면 부품을 만든 뒤 물건을 흩어 놓는 등 마무리해요
+func after_ui() -> void:
+	pass
+
+# 첫 이야기 카드를 보여 주며 장을 시작해요
+func start_chapter() -> void:
+	pass
+
+func make_world() -> void:
+	pass
+
+func make_village() -> void:
+	pass
+
+func herb_kinds_done() -> int:
+	return 0
+
+func pick_wild(t: Dictionary) -> void:
+	pass
+
+func read_story(i: int) -> void:
+	pass
+
+func scatter_items() -> void:
+	pass
+
+func story_count() -> int:
+	return 0
+
+func get_piece_id(id: int, extra: String) -> void:
+	pass
+
+func world_game_end() -> void:
+	pass
+
+func world_node(n: Node3D) -> Node3D:
+	return null
+
+func bone_world(bn: String) -> Vector3:
+	return Vector3.ZERO
+
+func place_tool(dir: Vector3) -> void:
+	pass
+
+func pose_custom(arm_l: Vector3, arm_r: Vector3, lean: float, crouch: float) -> void:
+	pass
+
+func world_pose(delta: float) -> void:
+	pass
+
+
+func splash3d(pos: Vector3, big: bool = false) -> void:
+	pass
+
+func chips3d(pos: Vector3) -> void:
+	pass
+
+func wood_marker() -> float:
+	return 0.0
+
+func wood_zone() -> float:
+	return 0.0
+
+func update_wood3d(delta: float) -> void:
+	pass
+
+func wood_strike() -> void:
+	pass
+
+func update_well3d(delta: float) -> void:
+	pass
+
+func well_drag(dy: float, dt_ms: float) -> void:
+	pass
+
+func update_fish_world(delta: float) -> void:
+	pass
+
+func fish_leap(kind: int) -> void:
+	pass
+
+func draw_reel_meter(ci: CanvasItem) -> void:
+	pass
+
+func scene_setup(scene: String) -> void:
+	pass
+
+func plant_world_pos(row: int, col: int) -> Vector3:
+	return Vector3.ZERO
+
+func update_south(delta: float) -> void:
+	pass
+
+func farm_action_text() -> String:
+	return ""
+
+
+func load_south() -> void:
+	pass
+
+
+func fish_kinds_found() -> int:
+	return 0
+
+func start_fishing() -> void:
+	pass
+
+func fish_tap() -> void:
+	pass
+
+func update_fish(delta: float) -> void:
+	pass
+
+func draw_fish2d(ci: CanvasItem, c: Vector2, s: float, kind: int, rot: float, shadow: bool) -> void:
+	pass
+
+func draw_pond_scene(ci: CanvasItem) -> void:
+	pass
+
+
+func plant_slot(row: int, col: int) -> Vector2:
+	return Vector2.ZERO
+
+func plant_cursor_x() -> float:
+	return 0.0
+
+func plant_tap() -> void:
+	pass
+
+func update_plant(delta: float) -> void:
+	pass
+
+func draw_plant_scene(ci: CanvasItem) -> void:
+	pass
+
+
+func draw_sparrow2d(ci: CanvasItem, c: Vector2, s: float, danger: float, flap: float) -> void:
+	pass
+
+func draw_scarecrow2d(ci: CanvasItem, c: Vector2, s: float) -> void:
+	pass
+
+func draw_rice_field(ci: CanvasItem) -> void:
+	pass
+
+func farm_action() -> void:
+	pass
+
+func make_decor() -> void:
+	pass
+
+func make_forest() -> void:
+	pass
+
+func update_quest_text() -> void:
+	pass
+
+func talk_to(id: String) -> void:
+	pass
+
+func start_snake() -> void:
+	pass
+
+func start_saw() -> void:
+	pass
+
+func start_job(id: String) -> void:
+	pass
+
+func update_axe(delta: float) -> void:
+	pass
+
+func axe_tap() -> void:
+	pass
+
+func update_gam(delta: float) -> void:
+	pass
+
+func gam_tap(pos: Vector2) -> void:
+	pass
 
 # ---------- 글꼴 데이터 (주아체, SIL OFL 라이선스, 압축됨) ----------
 const FONT_B64 := "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"
