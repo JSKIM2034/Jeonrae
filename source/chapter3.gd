@@ -985,7 +985,10 @@ func apply_story_state() -> void:
 		var rp0: Vector3 = rabbit_route[rabbit_hop]
 		rabbit.position = on_ground(rp0.x, rp0.z)
 	if follow_on:
-		jara.position = player.position + Vector3(1.6, 0, 1.4)
+		if quest >= S_DIVE:
+			jara.position = player.position + Vector3(1.6, 0, 1.4)
+		else:
+			jara.position = on_ground(JARA_BEACH.x, JARA_BEACH.z)
 		rabbit.position = player.position + Vector3(-1.6, 0, 1.4)
 	if quest == S_COURT or quest == S_FEAST:
 		jara.position = Vector3(-2.5, PALACE_Y + 0.25, -111)
@@ -1179,7 +1182,13 @@ func update_followers(delta: float) -> void:
 		var n := npc(id)
 		var body := body_of(n)
 		var speed := 0.0
-		if follow_on and n.visible and not event_lock and not mg_active:
+		# 토끼를 데려가는 동안 자라는 바닷가 바위에서 기다려요
+		var waits := id == "jara" and quest < S_DIVE
+		if waits and n.position.distance_to(player.position) < 9.0:
+			# 다가오면 반갑게 고개를 돌려요
+			var tp := player.position - n.position
+			n.rotation.y = lerp_angle(n.rotation.y, atan2(tp.x, tp.z), minf(1.0, delta * 4.0))
+		if follow_on and n.visible and not event_lock and not mg_active and not waits:
 			var side := Vector3(1.8 if k == 0 else -1.8, 0, 0).rotated(Vector3.UP, player.rotation.y)
 			var goal := player.position + side - Vector3(sin(player.rotation.y), 0, cos(player.rotation.y)) * 1.2
 			if quest == S_DIVE and id == "jara" and ring_next < rings.size():
