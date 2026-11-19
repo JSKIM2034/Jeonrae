@@ -3079,7 +3079,8 @@ func pose_rig(body: Node3D, swing: float, arm_up: float) -> void:
 		var fwd := clampf((opp - 10.0) / 20.0, -1.0, 1.0) * amt
 		var amp := lerpf(0.42, 0.5, run)
 		var arm_swing := -fwd * amp * lerpf(1.35, 1.1, run) * (1.0 if fwd > 0.0 else 0.6) - 0.06 - run * 0.08 * amt
-		var down := -sx * lerpf(lerpf(0.44, 0.52, run * amt), 0.25, a)
+		var arm_down: float = body.get_meta("arm_down", 0.44)
+		var down := -sx * lerpf(lerpf(arm_down, arm_down + 0.08, run * amt), 0.25, a)
 		var twist: Vector3 = (bones["arm" + side] as Array)[3] if bones.has("arm" + side) else Vector3.UP
 		turn_bone(skel, bones, "arm" + side, [[Vector3.RIGHT, lerpf(arm_swing, -0.35, a)], [Vector3.BACK, down], [twist, sx * 0.9]])
 		var elbow := lerpf(-0.3 - maxf(fwd, 0.0) * 0.5, -1.35 + maxf(fwd, 0.0) * 0.2, run * amt)
@@ -3096,7 +3097,23 @@ func gait_bob(phase: float, run: float) -> float:
 	var run_b := cos((phase - 0.45) * TAU * 2.0) * 0.05
 	return lerpf(walk_b, run_b, run)
 
+# 뼈대를 넣은 Meshy 인물 모델: 모델 크기, 팔을 얼마나 내리는지(A자 자세가 모델마다 달라요)
+const RIGGED_PEOPLE := {
+	"heungbu": {"scale": 1.25, "arm_down": 0.3},
+	"nolbu": {"scale": 1.0, "arm_down": 0.22},
+}
+
 func make_person_model(parent: Node3D, kind: String, c: Color) -> Node3D:
+	if RIGGED_PEOPLE.has(kind):
+		var rp: Dictionary = RIGGED_PEOPLE[kind]
+		var rb := make_rigged_model(parent, kind)
+		if rb != null:
+			(rb.get_child(0) as Node3D).scale = Vector3.ONE * float(rp["scale"])
+			(rb.get_child(0) as Node3D).position.y = float(rp["scale"]) - 1.0
+			rb.set_meta("arm_down", rp["arm_down"])
+			# 서 있는 사람: 걸음 없이 숨만 쉬어요
+			rb.set_meta("gait", [0.0, 0.0, 0.0])
+			return rb
 	if kind == "hero":
 		var rigged := make_rigged_model(parent, "hero")
 		if rigged != null:
