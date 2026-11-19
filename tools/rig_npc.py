@@ -92,7 +92,7 @@ zs = [v.co.z for v in mesh.data.vertices]
 zmin, zmax = min(zs), max(zs)
 S = 2.0 / (zmax - zmin)
 for v in mesh.data.vertices:
-    v.co = Vector((v.co.x * S, v.co.y * S, (v.co.z - zmin) * S - 1.0))
+    v.co = Vector((v.co.x * S + C.get("shift_x", 0.0), v.co.y * S, (v.co.z - zmin) * S - 1.0))
 
 # 3) 뼈대
 def P(a, sx=1.0):

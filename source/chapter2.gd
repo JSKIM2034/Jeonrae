@@ -550,15 +550,36 @@ func make_story() -> void:
 	make_spot(tree_pos + Vector3(-1.4, 0, 1.6), "pray", "", "", true)
 	make_tiger()
 
-# 호랑이: 전용 모델이 오기 전까지 둥글둥글한 덩어리로 만들어요
+# 호랑이: Meshy 모델(호랑이, 엄마 옷 입은 호랑이)이 있으면 그걸 쓰고, 없으면 둥글둥글한 덩어리로 만들어요
+var tiger_plain: Node3D
+var tiger_models: Array = []   # 뼈대 있는 몸 (걸음 자세용)
+
+func set_disguise(on: bool) -> void:
+	tiger_disguise.visible = on
+	if tiger_plain != null:
+		tiger_plain.visible = not on
+
 func make_tiger() -> void:
 	tiger = Node3D.new()
 	tiger.visible = false
 	add_child(tiger)
 	var body := Node3D.new()
 	body.name = "Body"
-	body.scale = Vector3.ONE * 1.25
 	tiger.add_child(body)
+	tiger_tail = Node3D.new()
+	if ResourceLoader.exists("res://models/tiger.glb"):
+		body.add_child(tiger_tail)
+		tiger_plain = Node3D.new()
+		body.add_child(tiger_plain)
+		tiger_disguise = Node3D.new()
+		tiger_disguise.visible = false
+		body.add_child(tiger_disguise)
+		for pair in [[tiger_plain, "tiger"], [tiger_disguise, "tigermom"]]:
+			var mdl := make_person(pair[0], pair[1], Color.WHITE, false)
+			if mdl != null and mdl.has_meta("skel"):
+				tiger_models.append(mdl)
+		return
+	body.scale = Vector3.ONE * 1.25
 	var org := Color(0.96, 0.56, 0.18)
 	var wht := Color(0.99, 0.96, 0.9)
 	var blk := Color(0.14, 0.11, 0.1)
@@ -584,7 +605,6 @@ func make_tiger() -> void:
 	for k in 3:
 		items.append([Vector3(0, 1.66, 0.7 + k * 0.12), Vector3(0.08 + k * 0.04, 0.06, 0.1), blk])
 	add_blobs(body, items, blob_gloss())
-	tiger_tail = Node3D.new()
 	tiger_tail.position = Vector3(0, 1.0, -0.78)
 	body.add_child(tiger_tail)
 	var tail := []
@@ -773,12 +793,32 @@ func update_tiger(delta: float) -> void:
 			tiger.position += to.normalized() * minf(tiger_speed * delta, to.length())
 			tiger.rotation.y = lerp_angle(tiger.rotation.y, atan2(to.x, to.z), minf(1.0, delta * 6.0))
 	tiger.position.y = height_at(tiger.position.x, tiger.position.z)
+	var chasing := run_active and run_wait <= 0.0
+	pose_tiger(delta, 4.5 if moving else (5.0 if chasing else 0.0))
+	if chasing:
+		return
+	if not tiger_models.is_empty():
+		body.rotation.x = 0.0
+		body.position.y = 0.0
+		return
 	if moving:
 		body.position.y = absf(sin(anim_t * 9.0)) * 0.12
 		body.rotation.x = sin(anim_t * 9.0) * 0.05
 	else:
 		body.position.y = sin(anim_t * 2.0) * 0.03
 		body.rotation.x = 0.0
+
+# 뼈대 있는 호랑이는 사람처럼 걸어요
+var tiger_phase := 0.0
+var tiger_amt := 0.0
+
+func pose_tiger(delta: float, speed: float) -> void:
+	tiger_amt = lerpf(tiger_amt, clampf(speed / 2.0, 0.0, 1.0), minf(1.0, delta * 8.0))
+	tiger_phase += delta * speed / 2.0
+	for mdl in tiger_models:
+		if (mdl as Node3D).is_visible_in_tree():
+			mdl.set_meta("gait", [fposmod(tiger_phase, 1.0), tiger_amt, clampf((speed - 3.5) / 3.0, 0.0, 1.0)])
+			pose_person(mdl, 0.0, 0.0)
 
 # ---------- 말 걸기 ----------
 
@@ -1041,7 +1081,8 @@ func update_run(delta: float) -> void:
 			tiger.position.z = nv.y
 			tiger.rotation.y = lerp_angle(tiger.rotation.y, atan2(tgt.x - cur.x, tgt.y - cur.y), minf(1.0, delta * 8.0))
 			left = 0.0
-	(tiger.get_node("Body") as Node3D).position.y = absf(sin(anim_t * 10.0)) * 0.14
+	if tiger_models.is_empty():
+		(tiger.get_node("Body") as Node3D).position.y = absf(sin(anim_t * 10.0)) * 0.14
 	if tiger.position.distance_to(player.position) < 1.8 or run_i >= run_path.size():
 		run_active = false
 		sfx("fail")
@@ -1067,7 +1108,7 @@ func tiger_show_disguised() -> void:
 	tiger.position = on_ground(gate.x, gate.z)
 	tiger.rotation.y = PI
 	tiger.visible = true
-	tiger_disguise.visible = true
+	set_disguise(true)
 	tiger_goal = Vector3.ZERO
 
 func door_scene() -> void:
@@ -1093,7 +1134,7 @@ func door_choice(i: int) -> void:
 
 func after_door() -> void:
 	tiger.visible = false
-	tiger_disguise.visible = false
+	set_disguise(false)
 	for k in ["oppa", "nui"]:
 		var kid := npc(k)
 		kid.position = tree_pos + (Vector3(-0.9, 0, 0.9) if k == "oppa" else Vector3(-1.5, 0, 0.3))
@@ -1114,7 +1155,7 @@ func climb_done(ok: bool, _good: bool) -> void:
 	tiger.position = on_ground(well_pos.x - 1.4, well_pos.z + 0.6)
 	tiger.rotation.y = atan2(well_pos.x - tiger.position.x, well_pos.z - tiger.position.z)
 	tiger.visible = true
-	tiger_disguise.visible = false
+	set_disguise(false)
 	say([
 		["오빠", "너는 저 장독 뒤에 숨어! 어서!"],
 		["", "(장독 뒤에 몸을 숨겼다. 호랑이가 우물가로 어슬렁어슬렁 다가온다.)"],
