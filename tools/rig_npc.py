@@ -31,13 +31,61 @@ mesh.select_set(True)
 bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
 # 1) 면 줄이기 (Meshy 원본은 수십만~백만 면이라 폰에서 무거워요)
+# 그냥 줄이면 그림 이음매가 뭉개져 얼굴과 옷 무늬가 찌그러져요.
+# 그래서 줄인 모양에 새로 그림 자리를 펴고, 원본의 색을 그대로 구워 옮겨요.
 n = len(mesh.data.polygons)
 target = C.get("polys", 16000)
+baked_img = None
 if n > target * 1.2:
+    high = mesh
+    bpy.ops.object.duplicate()
+    mesh = bpy.context.view_layer.objects.active
     mod = mesh.modifiers.new("dec", "DECIMATE")
     mod.ratio = target / n
+    mod.use_collapse_triangulate = True
     bpy.ops.object.modifier_apply(modifier="dec")
-print("POLYS", n, "->", len(mesh.data.polygons))
+    # 매끈하게: 모서리 각이 큰 곳만 각지게
+    for poly in mesh.data.polygons:
+        poly.use_smooth = True
+    # 새 그림 자리
+    while len(mesh.data.uv_layers) > 0:
+        mesh.data.uv_layers.remove(mesh.data.uv_layers[0])
+    mesh.data.uv_layers.new(name="UVMap")
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.004)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    size = C.get("tex", 2048)
+    baked_img = bpy.data.images.new("baked", size, size)
+    mat = bpy.data.materials.new(C.get("name", "Npc") + "Skin")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    bsdf = [nd for nd in nt.nodes if nd.type == "BSDF_PRINCIPLED"][0]
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = baked_img
+    nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.nodes.active = tex
+    mesh.data.materials.clear()
+    mesh.data.materials.append(mat)
+    sc = bpy.context.scene
+    sc.render.engine = "CYCLES"
+    sc.cycles.device = "CPU"
+    sc.cycles.samples = 1
+    sc.render.bake.use_pass_direct = False
+    sc.render.bake.use_pass_indirect = False
+    sc.render.bake.use_pass_color = True
+    sc.render.bake.use_selected_to_active = True
+    sc.render.bake.cage_extrusion = C.get("cage", 0.02)
+    sc.render.bake.max_ray_distance = C.get("ray", 0.06)
+    sc.render.bake.margin = 6
+    for o in bpy.data.objects:
+        o.select_set(o in (high, mesh))
+    bpy.context.view_layer.objects.active = mesh
+    bpy.ops.object.bake(type="DIFFUSE")
+    bpy.data.objects.remove(high)
+    bpy.context.view_layer.objects.active = mesh
+    mesh.select_set(True)
+print("POLYS", n, "->", len(mesh.data.polygons), "baked" if baked_img else "")
 
 # 2) 키 2.0, 발바닥 z=-1 로 맞춰요
 zs = [v.co.z for v in mesh.data.vertices]
@@ -103,7 +151,7 @@ for v in mesh.data.vertices:
     p = v.co
     side = "L" if p.x < 0 else "R"
     lim = C["arm_x_hi"] if p.z >= C["arm_split_z"] else C["arm_x_lo"]
-    if p.z > C["arm_min_z"] and abs(p.x) > lim:
+    if C["arm_min_z"] < p.z < C.get("arm_max_z", C["shoulder"][2] + 0.12) and abs(p.x) > lim:
         cands = {}
         for b in ("arm", "fore", "hand"):
             d = seg_dist(p, J[b + side][0], J[b + side][1])
@@ -147,7 +195,7 @@ mod = mesh.modifiers.new("Armature", "ARMATURE")
 mod.object = rig
 mesh.name = C.get("name", "NpcMesh")
 
-# 5) 웹용: 색 텍스처만 1024 로, 노멀·금속 텍스처는 빼요
+# 5) 웹용: 색 텍스처만 남기고, 노멀·금속 텍스처는 빼요
 mat = mesh.data.materials[0]
 nt = mat.node_tree
 bsdf = [n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"][0]
@@ -164,7 +212,10 @@ for nd in list(nt.nodes):
         nt.nodes.remove(nd)
 bsdf.inputs["Metallic"].default_value = 0.0
 bsdf.inputs["Roughness"].default_value = 0.75
-base_img.scale(1024, 1024)
+# 갓 챙, 소매, 치맛자락처럼 얇은 곳은 뒷면도 보이게
+mat.use_backface_culling = False
+if base_img is not None and base_img.size[0] > C.get("tex", 1024):
+    base_img.scale(C.get("tex", 1024), C.get("tex", 1024))
 mat.name = C.get("name", "Npc") + "Skin"
 
 bpy.ops.object.select_all(action="DESELECT")
