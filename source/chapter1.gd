@@ -2,6 +2,65 @@ extends "res://core.gd"
 
 # 1장: 흥부와 놀부. 맵 배치, 이야기 진행, 1장 미니게임.
 
+var treasure_pos: Array = []   # 박을 탄 자리 (쌀, 비단, 금은보화 순서)
+
+func chapter_id() -> String:
+	return "ch1"
+
+func chapter_state() -> Dictionary:
+	var vis := []
+	for t in things:
+		vis.append((t["node"] as Node3D).visible)
+	return {
+		"quest": quest, "herbs_found": herbs_found, "gourds_done": gourds_done, "pieces_found": pieces_found,
+		"mischief": mischief, "mischief_done": mischief_done, "laundry_found": laundry_found,
+		"hide_state": hide_state, "hiders_found": hiders_found, "axe_done": axe_done, "axe_lied": axe_lied,
+		"helped_nolbu": helped_nolbu, "ending_id": ending_id, "treasure_pos": treasure_pos,
+		"things_vis": vis,
+	}
+
+func restore_chapter_state(d: Dictionary) -> void:
+	quest = d.get("quest", Q_NOLBU)
+	herbs_found = d.get("herbs_found", 0)
+	gourds_done = d.get("gourds_done", 0)
+	pieces_found = d.get("pieces_found", 0)
+	mischief = d.get("mischief", {})
+	mischief_done = d.get("mischief_done", 0)
+	laundry_found = d.get("laundry_found", 0)
+	hide_state = d.get("hide_state", 0)
+	hiders_found = d.get("hiders_found", 0)
+	axe_done = d.get("axe_done", false)
+	axe_lied = d.get("axe_lied", false)
+	helped_nolbu = d.get("helped_nolbu", false)
+	ending_id = d.get("ending_id", "")
+	# 줍거나 나타난 물건들 (조각, 약초, 박, 빨래, 숨은 동생, 덤불)
+	var vis: Array = d.get("things_vis", [])
+	if vis.size() == things.size():
+		for i in things.size():
+			var t: Dictionary = things[i]
+			var node: Node3D = t["node"]
+			node.visible = vis[i]
+			if t["kind"] == "bush" and not node.visible and bush_col != null:
+				bush_col.disabled = true
+	# 이야기에 따라 바뀐 마을 모습
+	if quest == Q_RICE:
+		(npcs["heungbu"] as Node3D).position = Vector3(12.2, 0, 9.8)
+	if nolbu_gourd != null:
+		nolbu_gourd.visible = quest == Q_NOLBU2
+	(npcs["dokkaebi"] as Node3D).visible = quest >= Q_DOKKAEBI
+	(npcs["sansin"] as Node3D).visible = axe_done
+	if mischief.get("ong", 0) == 2:
+		for c in ong_cracks:
+			(c as Node3D).visible = false
+	var tp: Array = d.get("treasure_pos", [])
+	treasure_pos = []
+	for i in tp.size():
+		treasure_pos.append(tp[i])
+		spawn_treasure(i, tp[i])
+	# 계절이 바뀌는 사이에 멈췄다면 박이 열린 뒤로 이어가요
+	if quest == Q_SEASON or quest == Q_SEED:
+		after_seed()
+
 func build_chapter() -> void:
 	load_south()
 	make_world()
@@ -13,6 +72,9 @@ func after_ui() -> void:
 	scatter_items()
 
 func start_chapter() -> void:
+	if resumed:
+		show_card("지난번 이야기에 이어서\n책장을 다시 펼쳐요...", 0.6, 1.6, Callable())
+		return
 	show_card("흥부와 놀부, 해와 달이 된 오누이...\n\n점점 잊혀 가는 옛이야기들이\n이 책 속에 잠들어 있어요.\n\n우리 이야기를 다시 세상에 들려줄\n첫 장을 펼쳐 볼까요?", 1.0, 8.0, func():
 		if not walk_hint_seen:
 			show_walk_hint())
@@ -2428,6 +2490,8 @@ func talk_nolbu() -> void:
 			["놀부", "자, 봐라. 내 박은 흥부네 것보다 훨씬 크지? 슬근슬근 톱질하세..."],
 			["놀부", "어? 어어? 박 속에서 뭐가 나온다!"],
 		], after_nolbu_boast)
+	elif quest == Q_DOKKAEBI:
+		ask("놀부", "얘야... 염치없다만, 흥부한테 내 얘기 좀 잘 해 주겠느냐?", ["도와준다", "모른 척한다"], on_nolbu_choice)
 	elif quest >= Q_RETURN:
 		if helped_nolbu:
 			say([["놀부", "네가 내 편을 들어 주다니... 박대해서 미안했다, 얘야. 이제 심술은 안 부리마."]], Callable())
@@ -2633,6 +2697,7 @@ func saw_done(ok: bool, _good: bool) -> void:
 	flash(Color(1, 1, 1))
 	burst3d(g.position + Vector3(0, 1.2, 0), PAPER, 30)
 	spawn_treasure(gourds_done, g.position)
+	treasure_pos.append(g.position)
 	var all_lines := [
 		[
 			["흥부", "아이고, 쌀이다! 하얀 쌀이 끝도 없이 쏟아지는구나!"],
@@ -3330,6 +3395,6 @@ func splat_forest(_x: float, z: float) -> float:
 
 # 남쪽 이정표: 2장 미리 보기 (만드는 중인 맵을 걸어 볼 수 있어요)
 func on_gate() -> void:
-	ask("", "“이 길을 따라가면 해와 달이 된 오누이 이야기”\n2장은 아직 만드는 중이에요. 만드는 중인 땅을 미리 걸어 볼까요?\n(돌아오면 1장 이야기는 처음부터 다시 시작해요. 도감과 엔딩 기록은 남아요.)", ["미리 걸어 보기", "다음에 올게요"], func(i: int):
+	ask("", "“이 길을 따라가면 해와 달이 된 오누이 이야기”\n2장은 아직 만드는 중이에요. 만드는 중인 땅을 미리 걸어 볼까요?\n(1장 이야기는 저장돼요. 돌아오면 이어서 할 수 있어요.)", ["미리 걸어 보기", "다음에 올게요"], func(i: int):
 		if i == 0:
-			get_tree().change_scene_to_file("res://chapter2.tscn"))
+			go_to_chapter("ch2"))

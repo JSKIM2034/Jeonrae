@@ -10,7 +10,7 @@ extends "res://core.gd"
 const C2_X0 := -50.0
 const C2_X1 := 50.0
 const C2_Z0 := -140.0
-const C2_Z1 := 58.0
+const C2_Z1 := 72.0
 const C2_STEP := 2.0
 
 const VILLAGE_C := Vector3(0, 0, 28)
@@ -30,6 +30,15 @@ const FIELD_ROAD := [Vector2(5, -104), Vector2(12, -108), Vector2(18, -111)]
 
 var height_noise := FastNoiseLite.new()
 var road_pts: PackedVector2Array
+
+func chapter_id() -> String:
+	return "ch2"
+
+func chapter_state() -> Dictionary:
+	return {"time": time_of_day}
+
+func restore_chapter_state(d: Dictionary) -> void:
+	time_of_day = d.get("time", 0.0)
 
 func build_chapter() -> void:
 	height_noise.seed = 21
@@ -54,10 +63,13 @@ func build_chapter() -> void:
 	add_ridge_ring(200.0, 50.0, 28.0, 56.0, Color(0.34, 0.48, 0.5), Color(0.46, 0.58, 0.64), 37, mid)
 
 func after_ui() -> void:
-	player.position = Vector3(0, height_at(0, 50) + 0.2, 50)
+	player.position = Vector3(0, height_at(0, 46) + 0.2, 46)
 
 func start_chapter() -> void:
-	set_time_of_day(0.0)
+	set_time_of_day(time_of_day)
+	if resumed:
+		show_card("2장 해와 달이 된 오누이\n이어서 걸어요...", 0.6, 1.6, Callable())
+		return
 	show_card("2장\n해와 달이 된 오누이\n\n(만드는 중인 땅을 미리 걸어 봐요.\n북쪽 고개를 넘을수록 해가 저물어요.)", 1.0, 5.0, Callable())
 
 func update_quest_text() -> void:
@@ -76,11 +88,14 @@ func _process(delta: float) -> void:
 		t = remap(z, -50.0, -96.0, 0.68, 1.0)
 	set_time_of_day(lerpf(time_of_day, clampf(t, 0.0, 1.0), minf(1.0, delta * 2.0)))
 
+func cam_ground(x: float, z: float) -> float:
+	return height_at(x, z)
+
 # 남쪽 끝 이정표: 1장 마을로 돌아가요
 func on_gate() -> void:
 	ask("", "1장 흥부네 마을로 돌아갈까요?", ["돌아가기", "더 둘러볼래요"], func(i: int):
 		if i == 0:
-			get_tree().change_scene_to_file("res://main.tscn"))
+			go_to_chapter("ch1"))
 
 # ---------- 땅 높이 ----------
 
@@ -96,7 +111,7 @@ func height_at(x: float, z: float) -> float:
 		h += hh * across * side
 	# 양옆과 남북 끝은 산으로 막혀 있어요
 	h += 22.0 * smoothstep(30.0, 46.0, absf(x))
-	h += 18.0 * smoothstep(50.0, 58.0, z)
+	h += 18.0 * smoothstep(58.0, 70.0, z)
 	h += 18.0 * smoothstep(-126.0, -138.0, z)
 	# 잔잔한 굴곡
 	h += height_noise.get_noise_2d(x, z) * 1.2
@@ -185,10 +200,10 @@ func make_terrain() -> void:
 	body.add_child(col)
 	# 보이지 않는 울타리 (산 너머로 못 가게)
 	var none := Color(0, 0, 0, 0)
-	add_solid(Vector3(0, 10, C2_Z1 - 2), Vector3(100, 40, 1), none)
-	add_solid(Vector3(0, 10, C2_Z0 + 8), Vector3(100, 40, 1), none)
-	add_solid(Vector3(C2_X0 + 8, 10, -42), Vector3(1, 40, 200), none)
-	add_solid(Vector3(C2_X1 - 8, 10, -42), Vector3(1, 40, 200), none)
+	add_solid(Vector3(0, 10, 52), Vector3(100, 40, 1), none)
+	add_solid(Vector3(0, 10, C2_Z0 + 10), Vector3(100, 40, 1), none)
+	add_solid(Vector3(-36, 10, -42), Vector3(1, 40, 220), none)
+	add_solid(Vector3(36, 10, -42), Vector3(1, 40, 220), none)
 
 func paint_ground_splat() -> void:
 	for i in road_pts.size() - 1:
@@ -272,7 +287,7 @@ func make_feast_village() -> void:
 	make_jangseung(on_ground(-8.5, 12), false)
 	make_jangseung(on_ground(-1.2, 12), true)
 	# 남쪽 끝 이정표 (1장으로 돌아가기)
-	var gate := make_spot(on_ground(3.2, 47.0), "gate", "", "", true)
+	var gate := make_spot(on_ground(3.2, 49.0), "gate", "", "", true)
 	add_mcyl(gate, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
 	add_tag(gate, "1장 마을로 가는 길", 2.6)
