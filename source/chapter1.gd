@@ -295,61 +295,7 @@ func make_gourd_at(pos: Vector3, c: Color, radius: float) -> Node3D:
 
 func make_world() -> void:
 	make_surface_materials()
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-46, 36, 0)
-	# 늦은 오후 같은 따뜻한 햇빛
-	sun.light_color = Color(1.0, 0.9, 0.74)
-	sun.light_energy = 0.82
-	# 부드러운 그림자 (가까운 곳만 그려서 가볍게)
-	sun.shadow_enabled = SHADOWS_ON
-	sun.shadow_blur = 2.2
-	sun.shadow_bias = 0.04
-	sun.shadow_normal_bias = 1.0
-	sun.shadow_opacity = 0.85
-	if light_mode:
-		# 가까운 곳만 한 장으로 그림자 그리기
-		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-		sun.directional_shadow_max_distance = 22.0
-		RenderingServer.directional_shadow_atlas_set_size(1024, true)
-	else:
-		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-		sun.directional_shadow_max_distance = 42.0
-		RenderingServer.directional_shadow_atlas_set_size(2048, true)
-	add_child(sun)
-	var env := WorldEnvironment.new()
-	var e := Environment.new()
-	e.background_mode = Environment.BG_SKY
-	var sky := Sky.new()
-	var sky_mat := ProceduralSkyMaterial.new()
-	# 위는 맑은 파랑, 지평선은 따뜻한 크림빛
-	sky_mat.sky_top_color = Color(0.33, 0.58, 0.9)
-	sky_mat.sky_horizon_color = Color(0.93, 0.9, 0.82)
-	sky_mat.sky_curve = 0.12
-	sky_mat.ground_horizon_color = Color(0.8, 0.84, 0.72)
-	sky_mat.ground_bottom_color = Color(0.5, 0.62, 0.45)
-	sky_mat.sun_angle_max = 20.0
-	sky.sky_material = sky_mat
-	e.sky = sky
-	# 하늘빛으로 은은하게 밝혀서, 그늘은 살짝 푸르고 해 드는 곳은 따뜻해요
-	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	e.ambient_light_sky_contribution = 0.55
-	e.ambient_light_color = Color(1.0, 0.95, 0.86)
-	e.ambient_light_energy = 0.62
-	# 멀리는 따뜻하게 뿌옇게 (공기감)
-	e.fog_enabled = true
-	e.fog_light_color = Color(0.86, 0.88, 0.86)
-	e.fog_light_energy = 1.0
-	e.fog_sun_scatter = 0.18
-	e.fog_density = 0.0024
-	e.fog_sky_affect = 0.0
-	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 1.04
-	e.tonemap_white = 5.0
-	e.adjustment_enabled = true
-	e.adjustment_saturation = 1.1
-	e.adjustment_contrast = 1.04
-	env.environment = e
-	add_child(env)
+	make_light_and_sky()
 
 	var full := MAP_HALF * 2.0
 	var none := Color(0, 0, 0, 0)
@@ -3337,3 +3283,53 @@ func gam_pick(i: int) -> void:
 	f["from"] = n.global_position
 	gam_info()
 
+# ---------- 1장 땅 얼룩: 흙길, 마당, 개울가 진흙 ----------
+
+func paint_ground_splat() -> void:
+	# 흙길
+	for pl in path_lines:
+		var line: Array = pl[0]
+		var w: float = pl[1]
+		for i in line.size():
+			var p: Vector2 = line[i]
+			splat_stamp(splat_r, p.x, p.y, w * 0.2, w * 0.72)
+	# 집 마당 (흥부네, 놀부네)은 흙이 드러나요
+	for yard in [Rect2(-17.5, -5.2, 9.0, 8.0), Rect2(7.0, -3.0, 14.0, 9.5)]:
+		var y := 0.0
+		while y <= yard.size.y:
+			var x := 0.0
+			while x <= yard.size.x:
+				splat_stamp(splat_r, yard.position.x + x, yard.position.y + y, 0.6, 2.2, 0.62)
+				x += 1.2
+			y += 1.2
+	# 개울가 진흙
+	var cx := -50.0
+	while cx <= 50.0:
+		splat_stamp(splat_g, cx, creek_z(cx), creek_half(cx) + 0.2, creek_half(cx) + 1.4)
+		cx += 0.6
+	# 연못 둘레
+	for i in 48:
+		var a := TAU * i / 48.0
+		splat_stamp(splat_g, POND_C.x + cos(a) * 5.4, POND_C.z + sin(a) * 3.9, 0.4, 1.6)
+	# 논두렁 둘레
+	for fc in [[FARM_C, 9.0, 7.0], [Vector3(-34.5, 0, -3), 6.0, 6.0]]:
+		var c: Vector3 = fc[0]
+		var w2: float = fc[1] / 2.0 + 0.5
+		var d2: float = fc[2] / 2.0 + 0.5
+		var t := -1.0
+		while t <= 1.0:
+			splat_stamp(splat_g, c.x + t * w2, c.z - d2, 0.3, 1.1, 0.8)
+			splat_stamp(splat_g, c.x + t * w2, c.z + d2, 0.3, 1.1, 0.8)
+			splat_stamp(splat_g, c.x - w2, c.z + t * d2, 0.3, 1.1, 0.8)
+			splat_stamp(splat_g, c.x + w2, c.z + t * d2, 0.3, 1.1, 0.8)
+			t += 0.12
+
+# 개울 건너 숲 바닥은 살짝 짙게
+func splat_forest(_x: float, z: float) -> float:
+	return clampf((-17.5 - z) / 4.0, 0.0, 1.0)
+
+# 남쪽 이정표: 2장 미리 보기 (만드는 중인 맵을 걸어 볼 수 있어요)
+func on_gate() -> void:
+	ask("", "“이 길을 따라가면 해와 달이 된 오누이 이야기”\n2장은 아직 만드는 중이에요. 만드는 중인 땅을 미리 걸어 볼까요?\n(돌아오면 1장 이야기는 처음부터 다시 시작해요. 도감과 엔딩 기록은 남아요.)", ["미리 걸어 보기", "다음에 올게요"], func(i: int):
+		if i == 0:
+			get_tree().change_scene_to_file("res://chapter2.tscn"))
