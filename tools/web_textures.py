@@ -7,7 +7,7 @@ for imp in glob.glob(os.path.join(root, "models", "*.jpg.import")):
     src = imp[:-7]
     s = open(imp).read()
     t = re.sub(r"compress/mode=\d", "compress/mode=1", s)
-    t = re.sub(r"compress/lossy_quality=[\d.]+", "compress/lossy_quality=0.85", t)
+    t = re.sub(r"compress/lossy_quality=[\d.]+", "compress/lossy_quality=0.82", t)
     if t != s:
         open(imp, "w").write(t)
         n += 1
