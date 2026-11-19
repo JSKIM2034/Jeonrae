@@ -104,9 +104,12 @@ J = {
     "head": (Vector((0, 0, C["spine_top"])), Vector((0, 0, C["head_top"])), "spine"),
 }
 for side, sx in (("L", -1.0), ("R", 1.0)):
-    J["arm" + side] = (P(C["shoulder"], sx), P(C["elbow"], sx), "spine")
-    J["fore" + side] = (P(C["elbow"], sx), P(C["wrist"], sx), "arm" + side)
-    J["hand" + side] = (P(C["wrist"], sx), P(C["tip"], sx), "fore" + side)
+    # 양팔 자세가 다르면 "shoulder_L" 처럼 왼쪽(-x)을 따로 적어요 (x 를 뒤집지 않고 그대로)
+    def A(k):
+        return P(C[k + "_L"]) if side == "L" and (k + "_L") in C else P(C[k], sx)
+    J["arm" + side] = (A("shoulder"), A("elbow"), "spine")
+    J["fore" + side] = (A("elbow"), A("wrist"), "arm" + side)
+    J["hand" + side] = (A("wrist"), A("tip"), "fore" + side)
     J["thigh" + side] = (P(C["hip_joint"], sx), P(C["knee"], sx), "hips")
     J["shin" + side] = (P(C["knee"], sx), P(C["ankle"], sx), "thigh" + side)
     J["foot" + side] = (P(C["ankle"], sx), P(C["toe"], sx), "shin" + side)
@@ -150,8 +153,23 @@ counts = {"arm": 0, "leg": 0, "body": 0}
 for v in mesh.data.vertices:
     p = v.co
     side = "L" if p.x < 0 else "R"
-    lim = C["arm_x_hi"] if p.z >= C["arm_split_z"] else C["arm_x_lo"]
-    if C["arm_min_z"] < p.z < C.get("arm_max_z", C["shoulder"][2] + 0.12) and abs(p.x) > lim:
+    if "arm_lim" in C:
+        # 높이별 팔 경계선 [[z, x], ...] (위에서 아래로), 사이는 이어서 써요
+        L = C["arm_lim"]
+        lim = L[0][1] if p.z >= L[0][0] else L[-1][1]
+        for (z0, x0), (z1, x1) in zip(L, L[1:]):
+            if z1 <= p.z < z0:
+                lim = x0 + (x1 - x0) * (z0 - p.z) / (z0 - z1)
+    else:
+        lim = C["arm_x_hi"] if p.z >= C["arm_split_z"] else C["arm_x_lo"]
+    prop = None
+    for bx in C.get("props", []):
+        # 손에 든 물건(주걱, 방망이, 지팡이): [xmin, xmax, ymin, ymax, zmin, zmax, 뼈]
+        if bx[0] <= p.x <= bx[1] and bx[2] <= p.y <= bx[3] and bx[4] <= p.z <= bx[5]:
+            prop = bx[6]
+    if prop:
+        w = {prop: 1.0}
+    elif C["arm_min_z"] < p.z < C.get("arm_max_z", C["shoulder"][2] + 0.12) and abs(p.x) > lim:
         cands = {}
         for b in ("arm", "fore", "hand"):
             d = seg_dist(p, J[b + side][0], J[b + side][1])
@@ -190,6 +208,19 @@ for v in mesh.data.vertices:
             vg[k].add([v.index], x / tot, "REPLACE")
 print("WEIGHTS", counts)
 
+# 옷 색을 바꿀 수 있게: 꼭짓점 색 R = 윗옷, G = 아래옷(치마·바지) 자리 (손, 얼굴, 신발은 0)
+if "cloth" in C:
+    top_hi, split, low = C["cloth"]
+    ca = mesh.data.color_attributes.new("Col", "BYTE_COLOR", "POINT")
+    gidx = {g.index: g.name for g in mesh.vertex_groups}
+    for v in mesh.data.vertices:
+        hand = sum(g.weight for g in v.groups if gidx[g.group].startswith("hand"))
+        z = v.co.z
+        k = (1.0 - smooth(top_hi - 0.03, top_hi + 0.01, z)) * smooth(low - 0.02, low + 0.02, z) * (1.0 - smooth(0.7, 0.95, hand))
+        up = smooth(split - 0.03, split + 0.03, z)
+        ca.data[v.index].color = (k * up, k * (1.0 - up), 0.0, 1.0)
+    mesh.data.color_attributes.active_color = ca
+
 mesh.parent = rig
 mod = mesh.modifiers.new("Armature", "ARMATURE")
 mod.object = rig
@@ -222,5 +253,6 @@ bpy.ops.object.select_all(action="DESELECT")
 rig.select_set(True)
 mesh.select_set(True)
 bpy.ops.export_scene.gltf(filepath=dst, export_format="GLB", use_selection=True, export_skins=True, export_animations=False,
-                          export_image_format="JPEG", export_jpeg_quality=88)
+                          export_image_format="JPEG", export_jpeg_quality=88,
+                          **({"export_vertex_color": "ACTIVE"} if "cloth" in C else {}))
 print("EXPORTED", dst)

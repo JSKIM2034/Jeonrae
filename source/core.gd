@@ -3189,9 +3189,152 @@ const RIGGED_PEOPLE := {
 	"hero": {"scale": 1.27, "offset": -1.0, "arm_down": 0.44, "arm_adj": 0.31, "idle_clip": true},
 	"heungbu": {"scale": 1.25, "arm_down": 0.3},
 	"nolbu": {"scale": 1.0, "arm_down": 0.22},
+	"wife": {"scale": 1.2, "arm_down": 0.04},
+	"dokkaebi": {"scale": 1.0, "arm_down": 0.08},
+	"sansin": {"scale": 1.1, "arm_down": 0.0},
 }
 
+# 마을 사람: 기본 체형 5개(Meshy)를 옷 색, 모자, 수염만 바꿔 여러 사람으로 써요
+# hat_y: 머리카락 꼭대기 높이, chin/front: 턱 높이와 얼굴 앞쪽 (모델 키 2, 발 -1 기준)
+const VIL_BASE := {
+	"vil_man": {"arm_down": 0.2, "hat_y": 0.83, "head_r": 0.31, "chin": 0.3, "front": 0.26},
+	"vil_woman": {"arm_down": 0.2, "hat_y": 0.98, "head_r": 0.37, "chin": 0.28, "front": 0.3},
+	"vil_grandpa": {"arm_down": 0.16, "hat_y": 0.86, "head_r": 0.35, "chin": 0.22, "front": 0.3},
+	"vil_grandma": {"arm_down": 0.2, "hat_y": 0.98, "head_r": 0.38, "chin": 0.3, "front": 0.33},
+	"vil_child": {"arm_down": 0.2, "hat_y": 0.98, "head_r": 0.4, "chin": 0.28, "front": 0.31},
+}
+const VILLAGERS := {
+	"suni": {"base": "vil_woman", "scale": 1.2, "bottom": Color(0.6, 0.7, 0.9)},
+	"ong": {"base": "vil_grandma", "scale": 1.15, "bottom": Color(0.66, 0.56, 0.62)},
+	"kim": {"base": "vil_man", "scale": 1.2, "bottom": Color(0.72, 0.64, 0.48), "hat": "straw"},
+	"merchant": {"base": "vil_man", "scale": 1.2, "top": Color(0.45, 0.68, 0.5), "hat": "pae"},
+	"woodman": {"base": "vil_man", "scale": 1.32, "top": Color(0.78, 0.62, 0.45), "bottom": Color(0.6, 0.5, 0.4), "hat": "band"},
+	"park": {"base": "vil_grandpa", "scale": 1.2, "top": Color(0.6, 0.72, 0.9), "hat": "gat", "beard": 0.8},
+	"fisher": {"base": "vil_grandpa", "scale": 1.2, "top": Color(0.62, 0.74, 0.62), "hat": "sat", "beard": 1.0},
+	"choi": {"base": "vil_grandpa", "scale": 1.22, "top": Color(0.42, 0.7, 0.64), "hat": "tang", "beard": 1.4},
+	"kid1": {"base": "vil_child", "scale": 1.25, "bottom": Color(0.8, 0.7, 0.55)},
+	"kid2": {"base": "vil_child", "scale": 1.25, "top": Color(1.0, 0.72, 0.8), "bottom": Color(0.98, 0.88, 0.6)},
+	"dori": {"base": "vil_child", "scale": 1.25, "top": Color(0.62, 0.78, 1.0)},
+	"kid": {"base": "vil_child", "scale": 1.25, "top": Color(1.0, 0.9, 0.6)},
+}
+const CLOTH_SHADER := """
+shader_type spatial;
+render_mode cull_disabled;
+uniform sampler2D tex : source_color, filter_linear_mipmap;
+uniform vec3 top_c : source_color = vec3(1.0);
+uniform vec3 bot_c : source_color = vec3(1.0);
+void fragment() {
+	vec3 c = texture(tex, UV).rgb;
+	vec3 g = sqrt(c);
+	float skin = smoothstep(0.09, 0.15, g.r - g.g);
+	float l = min(dot(c, vec3(0.3, 0.5, 0.2)) / 0.8, 1.0);
+	vec3 o = mix(c, top_c * l, COLOR.r * (1.0 - skin));
+	ALBEDO = mix(o, bot_c * l, COLOR.g * (1.0 - skin));
+	ROUGHNESS = 0.78;
+}
+"""
+var cloth_shader: Shader
+
+func make_villager(parent: Node3D, kind: String) -> Node3D:
+	var v: Dictionary = VILLAGERS[kind]
+	var base: String = v["base"]
+	var bd: Dictionary = VIL_BASE[base]
+	var rb := make_rigged_model(parent, base)
+	if rb == null:
+		return null
+	var sc: float = v["scale"]
+	(rb.get_child(0) as Node3D).scale = Vector3.ONE * sc
+	(rb.get_child(0) as Node3D).position.y = sc - 1.0
+	rb.set_meta("arm_down", bd["arm_down"])
+	rb.set_meta("arm_adj", 0.0)
+	rb.set_meta("gait", [0.0, 0.0, 0.0])
+	# 옷 색 (흰 옷 자리에만 물을 들여요. 얼굴·손은 그대로)
+	if v.has("top") or v.has("bottom"):
+		if cloth_shader == null:
+			cloth_shader = Shader.new()
+			cloth_shader.code = CLOTH_SHADER
+		for mi in rb.find_children("*", "MeshInstance3D", true, false):
+			var mesh := (mi as MeshInstance3D).mesh
+			var old := mesh.surface_get_material(0) as BaseMaterial3D
+			if old == null:
+				continue
+			var sm := ShaderMaterial.new()
+			sm.shader = cloth_shader
+			sm.set_shader_parameter("tex", old.albedo_texture)
+			sm.set_shader_parameter("top_c", v.get("top", Color.WHITE))
+			sm.set_shader_parameter("bot_c", v.get("bottom", Color.WHITE))
+			(mi as MeshInstance3D).set_surface_override_material(0, sm)
+	# 모자와 수염은 머리뼈에 붙여요 (고개를 돌리면 같이 돌아요)
+	if v.has("hat") or v.has("beard"):
+		var skel: Skeleton3D = rb.get_meta("skel")
+		var hi := skel.find_bone("head")
+		if hi >= 0:
+			var att := BoneAttachment3D.new()
+			att.bone_name = "head"
+			skel.add_child(att)
+			var holder := Node3D.new()
+			att.add_child(holder)
+			holder.transform = skel.get_bone_global_rest(hi).affine_inverse()
+			if v.has("hat"):
+				add_villager_hat(holder, v["hat"], bd)
+			if v.has("beard"):
+				var bl: float = v["beard"]
+				var bm := MeshInstance3D.new()
+				var sp := SphereMesh.new()
+				sp.radius = 0.08
+				sp.height = 0.16
+				bm.mesh = sp
+				bm.material_override = make_color(Color(0.95, 0.95, 0.93))
+				bm.scale = Vector3(0.8, 1.5 * bl, 0.55)
+				bm.position = Vector3(0, float(bd["chin"]) - 0.04 - 0.07 * bl, float(bd["front"]) - 0.03)
+				holder.add_child(bm)
+	return rb
+
+func add_villager_hat(holder: Node3D, hat: String, bd: Dictionary) -> void:
+	var y: float = bd["hat_y"]
+	var r: float = bd["head_r"]
+	var parts := []   # [메시, 위치, 색]
+	match hat:
+		"gat":
+			parts.append([cyl(r + 0.26, r + 0.26, 0.02), y - 0.04, Color(0.08, 0.07, 0.07)])
+			parts.append([cyl(0.15, 0.18, 0.3), y + 0.1, Color(0.1, 0.08, 0.08)])
+		"tang":
+			parts.append([cyl(0.17, 0.22, 0.2), y + 0.03, Color(0.12, 0.1, 0.1)])
+		"straw":
+			parts.append([cyl(r + 0.3, r + 0.3, 0.03), y - 0.08, Color(0.9, 0.78, 0.48)])
+			parts.append([cyl(r - 0.02, r + 0.02, 0.2), y + 0.0, Color(0.88, 0.75, 0.45)])
+			parts.append([cyl(r + 0.025, r + 0.025, 0.05), y - 0.05, Color(0.55, 0.25, 0.2)])
+		"pae":
+			parts.append([cyl(r + 0.17, r + 0.17, 0.03), y - 0.06, Color(0.82, 0.7, 0.46)])
+			parts.append([cyl(0.12, r, 0.24), y + 0.04, Color(0.8, 0.67, 0.42)])
+		"sat":
+			parts.append([cyl(0.02, r + 0.32, 0.34), y + 0.02, Color(0.78, 0.66, 0.42)])
+		"band":
+			var t := TorusMesh.new()
+			t.inner_radius = r - 0.03
+			t.outer_radius = r + 0.03
+			parts.append([t, y - 0.12, Color(0.96, 0.95, 0.9)])
+	for p in parts:
+		var mi := MeshInstance3D.new()
+		mi.mesh = p[0]
+		mi.position = Vector3(0, p[1], 0)
+		mi.material_override = make_color(p[2])
+		holder.add_child(mi)
+
+func cyl(top: float, bottom: float, h: float) -> CylinderMesh:
+	var m := CylinderMesh.new()
+	m.top_radius = top
+	m.bottom_radius = bottom
+	m.height = h
+	m.radial_segments = 20
+	m.rings = 1
+	return m
+
 func make_person_model(parent: Node3D, kind: String, c: Color) -> Node3D:
+	if VILLAGERS.has(kind):
+		var vb := make_villager(parent, kind)
+		if vb != null:
+			return vb
 	if RIGGED_PEOPLE.has(kind):
 		var rp: Dictionary = RIGGED_PEOPLE[kind]
 		var rb := make_rigged_model(parent, kind)

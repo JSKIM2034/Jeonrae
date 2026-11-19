@@ -59,3 +59,8 @@
 글꼴: 주아체 © 우아한형제들 (SIL Open Font License 1.1)
 일부 3D 모델: Model created with Meshy – CC BY 4.0 License (https://www.meshy.ai)
 ```
+
+## 마을 사람 (2026-11-19)
+- 기본 체형 5종(아저씨·아줌마·할아버지·할머니·아이): ChatGPT 원화 → Meshy 유료 플랜 3D. 옷 색·모자·수염은 게임 코드로 바꿔 12명에 씀.
+- 놀부 마누라, 도깨비, 산신령: ChatGPT 원화 → Meshy 유료 플랜 3D.
+- 뼈대·가볍게 줄이기: tools/rig_npc.py (설정: tools/rig_cfg/*.json)
