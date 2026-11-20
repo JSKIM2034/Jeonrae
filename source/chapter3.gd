@@ -1762,7 +1762,7 @@ func clam_done(ok: bool, _good: bool) -> void:
 	], func(): save_progress())
 
 func start_drum() -> void:
-	start_game("rhythm", {"world": true, "scene": "drum", "art": "world", "title": "둥둥! 용궁 잔치 북을 박자에 맞춰 톡!\n꽃게 집게(빨간 ✕)가 올 땐 멈춰요", "goal": 16, "bpm": 112, "bad_ratio": 0.18, "note": "둥", "bad_text": "앗, 꽃게 집게!", "unit": "북"}, drum_done)
+	start_game("rhythm", {"world": true, "scene": "drum", "art": "world", "title": "둥둥! 용궁 잔치 북을 박자에 맞춰 톡!\n꽃게 집게(빨간 X)가 올 땐 멈춰요", "goal": 16, "bpm": 112, "bad_ratio": 0.18, "note": "둥", "bad_text": "앗, 꽃게 집게!", "unit": "북"}, drum_done)
 
 func drum_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -1817,13 +1817,20 @@ func scene_setup(scene: String) -> void:
 			w["depth"] = cam_depth_of(stand + Vector3(0, 2.4, 0), b + Vector3(0.0, 2.3, 7.4))
 		"chest":
 			var cc := chest_c
-			world_game_begin(cc + Vector3(0, 0, 1.4), cc, cc + Vector3(-1.4, 2.1, 3.4), cc + Vector3(0, 0.5, 0))
+			world_game_begin(cc + Vector3(1.5, 0, 0.6), cc, cc + Vector3(-0.6, 2.3, 3.6), cc + Vector3(0, 0.3, 0.8))
+			var sp5 := []
+			for k in 5:
+				var px := -1.0 + k * 0.5
+				sp5.append(Vector3(cc.x + px, height_at(cc.x + px, cc.z + 1.3 - absf(px) * 0.3) + 0.04, cc.z + 1.3 - absf(px) * 0.3))
+			w["simon_pts"] = sp5
 		"dance":
 			var jp := Vector3(-2.5, PALACE_Y + 0.25, -111)
 			var stand := jp + Vector3(2.0, 0, 0)
 			world_game_begin(stand, jp + Vector3(1.0, 0, 3.0), jp + Vector3(1.0, 2.4, 6.4), jp + Vector3(1.0, 1.0, 0))
 			npc("jara").rotation.y = 0.0
 			w["jara_y"] = npc("jara").position.y
+			w["dance_a"] = npc("jara")
+			w["dance_b"] = player
 			w["me_y"] = player.position.y
 
 func scene_spawn_target() -> Vector3:
@@ -2054,6 +2061,7 @@ func make_breath_hud() -> void:
 	breath_fill.anchor_right = 1.0
 	breath_box.add_child(breath_fill)
 	breath_label = Label.new()
+	style(breath_label, 0.9)
 	breath_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	breath_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	breath_label.set_anchors_preset(Control.PRESET_FULL_RECT)

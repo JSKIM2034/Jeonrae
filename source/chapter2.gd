@@ -719,8 +719,8 @@ func update_quest_text() -> void:
 		S_ARRIVE:
 			t = "잔칫집 마당에서 일하는 아주머니 찾기"
 		S_FEAST:
-			var a := "✓" if feast["pound"] else " "
-			var b := "✓" if feast["tteok"] else " "
+			var a := "끝" if feast["pound"] else "  "
+			var b := "끝" if feast["tteok"] else "  "
 			t = "잔치 일 돕기: 떡메치기 [%s] · 떡 받기 [%s] · 떡 돌리기 %d/3" % [a, b, delivered.size()]
 			if feast["pound"] and feast["tteok"] and delivered.size() >= 3:
 				t = "엄마에게 돌아가기"
@@ -927,11 +927,7 @@ func make_stack_table() -> void:
 	for lx in [-0.55, 0.55]:
 		for lz in [-0.35, 0.35]:
 			add_mbox(t, dark_wood_mat, Vector3(0.08, 0.7, 0.08), Vector3(lx, 0.35, lz))
-	var cols := [Color(0.98, 0.97, 0.92), Color(0.55, 0.72, 0.4), Color(1.0, 0.75, 0.8), Color(0.98, 0.85, 0.45)]
-	var items := []
-	for k in 5:
-		items.append([Vector3(0, 0.82 + k * 0.1, 0), Vector3(0.62 - k * 0.05, 0.09, 0.46 - k * 0.04), cols[k % 4]])
-	add_blobs(t, items)
+	add_mcyl(t, make_color(Color(0.85, 0.82, 0.75)), 0.45, 0.4, 0.04, Vector3(0, 0.77, 0))
 	add_solid(STACK_POS + Vector3(0, 0.5, 0), Vector3(1.4, 1.0, 0.9), Color(0, 0, 0, 0))
 
 func start_stack() -> void:
@@ -1139,6 +1135,7 @@ func start_sneak() -> void:
 	tiger.rotation.y = atan2(mom.position.x - tiger.position.x, mom.position.z - tiger.position.z)
 	if sneak_banner == null:
 		sneak_banner = Label.new()
+		style(sneak_banner, 1.6)
 		sneak_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		sneak_banner.add_theme_font_size_override("font_size", int(font_size * 1.6))
 		sneak_banner.add_theme_constant_override("outline_size", 10)
@@ -1201,7 +1198,7 @@ func sneak_caught() -> void:
 
 # ---------- 솔방울 던지기 (나무 위로 올라오는 호랑이) ----------
 func start_pine() -> void:
-	start_game("aim", {"world": true, "scene": "pine", "art": "world", "title": "호랑이가 도끼로 콕콕 나무를 올라와요!\n솔방울을 던져 맞히면 미끄러져요", "goal": 6, "climb_speed": 0.05, "knock": 0.16, "target_r": 0.1, "hit_text": "딱! 아야!", "lose_text": "호랑이가 너무 높이 올라왔어요!", "unit": "명중"}, pine_done)
+	start_game("aim", {"world": true, "scene": "pine", "art": "world", "title": "호랑이가 도끼로 콕콕 나무를 올라와요!\n새총을 뒤로 당겼다 놓아 솔방울을 맞혀요", "goal": 6, "climb_speed": 0.05, "knock": 0.16, "target_r": 0.1, "hit_text": "딱! 아야!", "lose_text": "호랑이가 너무 높이 올라왔어요!", "unit": "명중"}, pine_done)
 
 func pine_done(ok: bool, _good: bool) -> void:
 	tiger.position = on_ground(tree_pos.x - 0.9, tree_pos.z + 0.9)
@@ -1335,7 +1332,7 @@ func talk_kids(id: String) -> void:
 # ---------- 잔치 일: 떡메치기, 떡 받기 ----------
 
 func start_pound() -> void:
-	start_game("rhythm", {"world": true, "scene": "pound", "art": "world", "title": "쿵덕쿵덕 떡메치기! 박자에 맞춰 톡!\n영감님이 떡을 뒤집을 땐(빨간 ✕) 멈춰요", "goal": 14, "bpm": 100, "bad_ratio": 0.2, "note": "쿵", "bad_text": "앗, 영감님 손!", "unit": "떡메"}, pound_done)
+	start_game("rhythm", {"world": true, "scene": "pound", "art": "world", "title": "쿵덕쿵덕 떡메치기! 박자에 맞춰 톡!\n영감님이 떡을 뒤집을 땐(빨간 X) 멈춰요", "goal": 14, "bpm": 100, "bad_ratio": 0.2, "note": "쿵", "bad_text": "앗, 영감님 손!", "unit": "떡메"}, pound_done)
 
 func pound_done(ok: bool, good: bool) -> void:
 	if not ok:
@@ -1769,13 +1766,16 @@ func scene_setup(scene: String) -> void:
 	match scene:
 		"stack":
 			var sp := STACK_POS
-			world_game_begin(sp + Vector3(0, 0, 1.2), sp, sp + Vector3(1.6, 2.4, 3.6), sp + Vector3(0, 0.9, 0))
+			world_game_begin(sp + Vector3(-1.3, 0, 0.7), sp, sp + Vector3(0.5, 2.0, 3.1), sp + Vector3(0, 1.15, 0))
+			w["stack_base"] = sp + Vector3(0, 0.79, 0)
+			w["stack_span"] = 1.3
 		"pine":
 			var tp3 := tree_pos
 			var st3 := tp3 + Vector3(2.4, 0, 3.2)
 			st3.y = height_at(st3.x, st3.z)
 			world_game_begin(st3, tp3, tp3 + Vector3(4.2, 2.0, 8.4), tp3 + Vector3(0, 2.6, 0))
 			w["tiger_base"] = tiger.position
+			w["aim3d"] = func() -> Vector3: return tiger.global_position + Vector3(0, 1.6, 0)
 		"pound":
 			var a := ANBAN_POS
 			var stand := a + Vector3(0, 0, 1.15)

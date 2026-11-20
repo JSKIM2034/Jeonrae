@@ -669,7 +669,7 @@ func get_piece_id(id: int, extra: String) -> void:
 		found.append(["", extra])
 	found.append(["이야기 조각 “%s”" % st["title"], st["text"]])
 	if first:
-		found.append(["", "새 이야기 조각을 찾았어요! 도감의 ‘이야기’에서 다시 읽을 수 있어요. (%d/%d)" % [story_count(), STORY.size()]])
+		found.append(["", "새 이야기 조각을 찾았어요! 도감의 '이야기'에서 다시 읽을 수 있어요. (%d/%d)" % [story_count(), STORY.size()]])
 	if pieces_found >= PIECE_TOTAL:
 		found.append(["이야기 조각", "일곱 조각이 하나로 이어졌어요.\n놀부의 욕심 뒤에는, 동생들을 지키고 싶었던 겁 많은 형이 있었어요."])
 	say(found, Callable())
