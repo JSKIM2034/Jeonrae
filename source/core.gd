@@ -3931,6 +3931,7 @@ func load_controls() -> void:
 	left_handed = cf.get_value("ui", "left_handed", false)
 	walk_hint_seen = cf.get_value("ui", "walk_hint_seen", false)
 	cam_hint_seen = cf.get_value("ui", "cam_hint_seen", false)
+	auto_cam = cf.get_value("ui", "auto_cam", true)
 
 func save_controls() -> void:
 	var cf := ConfigFile.new()
@@ -3938,6 +3939,7 @@ func save_controls() -> void:
 	cf.set_value("ui", "left_handed", left_handed)
 	cf.set_value("ui", "walk_hint_seen", walk_hint_seen)
 	cf.set_value("ui", "cam_hint_seen", cam_hint_seen)
+	cf.set_value("ui", "auto_cam", auto_cam)
 	cf.set_value("ui", "music_on", music_on)
 	cf.set_value("ui", "sfx_on", sfx_on)
 	cf.save("user://save.cfg")
@@ -3981,10 +3983,18 @@ func make_settings_ui() -> void:
 		hand_buttons[val] = b
 		x += 0.46
 	var again := Button.new()
-	again.text = "걷기 안내 다시 보기"
-	skin_button(again, make_round(Color(0.9, 0.84, 0.7), font_size * 0.35), INK, 0.8)
+	again.text = "걷기 안내 보기"
+	skin_button(again, make_round(Color(0.9, 0.84, 0.7), font_size * 0.35), INK, 0.78)
 	page.add_child(again)
-	place(again, 0.15, 0.645, 0.85, 0.725)
+	place(again, 0.06, 0.645, 0.48, 0.725)
+	cam_btn = Button.new()
+	page.add_child(cam_btn)
+	place(cam_btn, 0.52, 0.645, 0.94, 0.725)
+	cam_btn.pressed.connect(func():
+		auto_cam = not auto_cam
+		save_controls()
+		refresh_hand_buttons()
+		sfx("tap"))
 	var restart := Button.new()
 	restart.text = "처음부터 다시 하기..."
 	skin_button(restart, make_round(Color(0.93, 0.78, 0.72), font_size * 0.35), Color(0.55, 0.18, 0.12), 0.75)
@@ -4031,6 +4041,7 @@ func make_settings_ui() -> void:
 
 var music_btn: Button
 var sfx_btn: Button
+var cam_btn: Button
 
 func refresh_hand_buttons() -> void:
 	if music_btn != null:
@@ -4038,6 +4049,9 @@ func refresh_hand_buttons() -> void:
 		skin_button(music_btn, make_round(Color(0.95, 0.72, 0.3) if music_on else Color(0.85, 0.8, 0.72), font_size * 0.35), INK, 0.78)
 		sfx_btn.text = "효과음 켜짐" if sfx_on else "효과음 꺼짐"
 		skin_button(sfx_btn, make_round(Color(0.95, 0.72, 0.3) if sfx_on else Color(0.85, 0.8, 0.72), font_size * 0.35), INK, 0.78)
+	if cam_btn != null:
+		cam_btn.text = "카메라 따라오기 켜짐" if auto_cam else "카메라 따라오기 꺼짐"
+		skin_button(cam_btn, make_round(Color(0.95, 0.72, 0.3) if auto_cam else Color(0.85, 0.8, 0.72), font_size * 0.35), INK, 0.7)
 	for key in hand_buttons:
 		var on: bool = key == left_handed
 		skin_button(hand_buttons[key], make_round(Color(0.95, 0.72, 0.3) if on else Color(0.9, 0.84, 0.7), font_size * 0.35), INK, 0.8)
@@ -5415,6 +5429,12 @@ func make_ui() -> void:
 	turn_button.add_child(icon)
 	place(icon, 0, 0, 1, 1)
 	icon.draw.connect(func(): draw_turn_icon(icon))
+	# 손가락 닿은 자리에 보이는 조이스틱
+	stick_view = Control.new()
+	stick_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui_layer.add_child(stick_view)
+	stick_view.set_anchors_preset(Control.PRESET_FULL_RECT)
+	stick_view.draw.connect(draw_stick)
 	action_button = add_hud_button("", 0.28, 0.72, on_action)
 	jump_button = add_hud_button("점프", 0.75, 0.97, on_jump)
 	action_button.visible = false
@@ -8320,6 +8340,32 @@ func stretch_player(shape: Vector3) -> void:
 	player_body.scale = shape
 	player_body.create_tween().tween_property(player_body, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
+var stick_view: Control
+var stick_alpha := 0.0
+var auto_cam := true          # 걸어가는 쪽으로 카메라가 천천히 따라 돌아요
+
+func draw_stick() -> void:
+	if stick_alpha <= 0.01:
+		return
+	var r := drag_range
+	var a := stick_alpha
+	stick_view.draw_circle(touch_start, r * 1.05, Color(0, 0, 0, 0.18 * a))
+	stick_view.draw_arc(touch_start, r, 0, TAU, 48, Color(1, 1, 1, 0.55 * a), maxf(3.0, r * 0.05), true)
+	var knob := touch_start + move_input * r
+	stick_view.draw_circle(knob, r * 0.42, Color(1, 0.97, 0.88, 0.75 * a))
+	stick_view.draw_arc(knob, r * 0.42, 0, TAU, 32, Color(0.45, 0.32, 0.2, 0.6 * a), maxf(2.0, r * 0.03), true)
+
+func update_stick_and_cam(delta: float) -> void:
+	var want := 1.0 if touching and stick_index != -1 else 0.0
+	stick_alpha = move_toward(stick_alpha, want, delta * (8.0 if want > 0.0 else 4.0))
+	if stick_view != null:
+		stick_view.queue_redraw()
+	# 옆으로 걸으면 카메라가 천천히 주인공 뒤로 돌아와요 (뒤로 걸을 땐 그대로)
+	if auto_cam and touching and move_input.length() > 0.35 and not swimming:
+		var a := atan2(move_input.x, -move_input.y)
+		if absf(a) < 2.2:
+			cam_yaw_target -= a * minf(1.0, delta * 0.6) * move_input.length()
+
 func on_turn() -> void:
 	cam_yaw_target += PI / 2.0
 
@@ -8491,6 +8537,7 @@ func _physics_process(delta: float) -> void:
 		touching = false
 		btn_touches.clear()
 		pinch_points.clear()
+	update_stick_and_cam(delta)
 	cam_yaw = lerp_angle(cam_yaw, cam_yaw_target, minf(1.0, delta * 8.0))
 	var speed := SPEED
 	if has_shoes:
