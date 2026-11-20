@@ -23,7 +23,7 @@ func chapter_id() -> String:
 	return "ch3"
 
 func chapter_state() -> Dictionary:
-	return {"quest": quest, "lured": lured, "backed": backed, "ginseng": has_ginseng, "clams": clams_done, "pearls": pearls, "fish": fish_seen, "ending": ending}
+	return {"quest": quest, "lured": lured, "backed": backed, "ginseng": has_ginseng, "clams": clams_done, "pearls": pearls, "fish": fish_seen, "ending": ending, "mulji": mulji_done, "octo": octo_found, "chest": chest_done}
 
 func restore_chapter_state(d: Dictionary) -> void:
 	quest = d.get("quest", 0)
@@ -34,6 +34,9 @@ func restore_chapter_state(d: Dictionary) -> void:
 	pearls = d.get("pearls", [false, false, false])
 	fish_seen = d.get("fish", [false, false, false, false])
 	ending = d.get("ending", "")
+	mulji_done = d.get("mulji", false)
+	octo_found = d.get("octo", [false, false, false, false, false])
+	chest_done = d.get("chest", false)
 
 func build_chapter() -> void:
 	height_noise.seed = 31
@@ -1047,6 +1050,10 @@ func make_story() -> void:
 	make_npc("octopus", "문어 장군", Color.WHITE, Vector3(OCTOPUS_POS.x, PALACE_Y + 0.25, OCTOPUS_POS.z), 1.0, false)
 	make_npc("crab", "꽃게 신하", Color.WHITE, Vector3(CRAB_POS.x, PALACE_Y + 0.25, CRAB_POS.z), 0.9, true)
 	npc("jara").rotation.y = PI * 0.15
+	make_mulji_items()
+	make_octos()
+	make_chest()
+	make_ink_trail()
 
 # 이야기 단계에 맞춰 사람들 자리 정하기 (껐다 켜도 이어지게)
 func apply_story_state() -> void:
@@ -1083,6 +1090,11 @@ func apply_story_state() -> void:
 	if quest >= S_END:
 		rabbit.visible = false
 		jara.position = on_ground(JARA_BEACH.x, JARA_BEACH.z)
+	for i in octos.size():
+		octos[i][1] = octo_found[i]
+		(octos[i][0] as Node3D).visible = not octo_found[i]
+	if chest_lid != null:
+		chest_lid.rotation.x = -1.6 if chest_done else 0.0
 	update_quest_text()
 
 func resumed_in_sea() -> bool:
@@ -1106,7 +1118,7 @@ func update_quest_text() -> void:
 		S_COURT:
 			t = "용궁 전각 앞 용왕님 뵙기"
 		S_FEAST:
-			t = "용궁 잔치 돕기: 꽃게 신하의 북 · 문어 장군의 큰 조개, 다 하면 용왕님께"
+			t = "용궁 잔치 돕기: 꽃게 신하의 북 · 문어 장군의 큰 조개 · 자라와 용궁 춤, 다 하면 용왕님께"
 		S_ESCAPE:
 			t = "문어 장군이 쫓아와요! 남쪽 물가까지 헤엄쳐 올라가기"
 		S_END:
@@ -1117,12 +1129,17 @@ func update_quest_text() -> void:
 	var fc := 0
 	for b2 in fish_seen:
 		fc += 1 if b2 else 0
-	quest_label.text = "할 일: %s\n엽전 %d냥 | 진주 %d/3 | 물고기 도감 %d/4" % [t, shown_coins, pc, fc]
+	if dive_on:
+		t = "해녀 물질: 숨을 참고 들어가 반짝이는 전복·소라 줍기 (%d/%d) | 위로 버튼으로 숨 쉬기" % [mulji_got, mulji_items.size()]
+	var extra := ""
+	if quest >= S_DIVE:
+		extra = " | 새끼 문어 %d/5" % octo_count()
+	quest_label.text = "할 일: %s\n엽전 %d냥 | 진주 %d/3 | 물고기 도감 %d/4%s" % [t, shown_coins, pc, fc, extra]
 
 # ---------- 헤엄치기 ----------
 
 func is_swimming() -> bool:
-	if player == null or quest < S_DIVE:
+	if player == null or (quest < S_DIVE and not dive_on):
 		return false
 	# 물가에서 걷기/헤엄치기가 번갈아 깜빡이지 않게, 나올 때는 더 얕아져야 걸어요
 	var limit := -0.6 if swimming else -1.0
@@ -1188,6 +1205,7 @@ func _process(delta: float) -> void:
 		sea_uv_t += delta
 		(sea_under.material_override as StandardMaterial3D).uv1_offset = Vector3(sea_uv_t * 0.01, sea_uv_t * 0.007, 0)
 	update_underwater_look()
+	apply_ink_look()
 	if cam != null and not gate_parts.is_empty():
 		var near_gate := absf(cam.global_position.z - GATE_Z) < 2.6 and absf(cam.global_position.x) < 5.5
 		for gp in gate_parts:
@@ -1307,6 +1325,8 @@ func update_followers(delta: float) -> void:
 func update_story(delta: float) -> void:
 	if is_busy() or event_lock:
 		return
+	update_mulji(delta)
+	update_octos(delta)
 	match quest:
 		S_FIND:
 			update_rabbit_chase(delta)
@@ -1324,6 +1344,7 @@ func update_story(delta: float) -> void:
 					set_quest(S_GATE))
 		S_ESCAPE:
 			update_chase(delta)
+			update_ink(delta)
 
 # 토끼 잡기: 다가가면 깡충깡충 지그재그로 도망쳐요. 오래 뛰면 지쳐서 느려지고 숨을 골라요.
 # 바짝 붙거나, 점프해서 덮치면 잡혀요!
@@ -1435,6 +1456,7 @@ func update_rings() -> void:
 				["자라", "잘 따라오셨소! 이제 물살이 잔잔하니 마음껏 헤엄쳐도 되오."],
 				["자라", "용궁은 북쪽 깊은 곳에 있소. 산호 숲, 해초 숲, 깊은 골짜기를 지나야 하오."],
 				["자라", "골짜기의 빛나는 해파리는 건드리면 찌릿하니 조심하시오!"],
+				["자라", "참, 해초 숲엔 길 잃은 새끼 문어 다섯이 모래빛으로 숨어 있다 하오. 가까이 가면 꼼지락거린다오."],
 			], func(): set_quest(S_DEEP))
 
 # ---------- 말 걸기 ----------
@@ -1480,6 +1502,11 @@ func talk_jara() -> void:
 				["", "물방울 구슬을 받았다! 머리에 투명한 거품이 씌워졌다."],
 				["자라", "내 뒤를 따라 빛나는 물살 고리를 지나 오시오. 위로 버튼을 누르면 떠오르고, 떼면 가라앉소."],
 			], start_dive)
+		S_FEAST:
+			if not feast_done("dance"):
+				say([["자라", "잔치에 춤이 빠질 수 있소? 내가 먼저 출 테니 똑같이 따라 추시오!"]], start_dance)
+			else:
+				say([["자라", "허허, 그대 춤 솜씨에 용왕님 얼굴이 다 밝아지셨소."]], Callable())
 		S_END:
 			if ending == "ginseng":
 				say([["자라", "산삼 덕에 용왕님 병이 씻은 듯 나으셨다오. 그대의 고마움은 잊지 않겠소."]], Callable())
@@ -1528,6 +1555,14 @@ func talk_haenyeo() -> void:
 			["해녀", "저기 갯벌 숨구멍에서 조개가 뽀글뽀글 올라온단다. 좀 캐다 줄래?"],
 			["해녀", "다 캐면 바닷속에서 쓰는 좋은 걸 하나 알려 주마."],
 		], Callable())
+	elif dive_on:
+		say([["해녀", "반짝이는 게 전복이랑 소라야. 숨이 차면 위로 올라와서 쉬렴!"]], Callable())
+	elif not mulji_done and quest < S_DIVE:
+		say([
+			["해녀", "조개 캐는 솜씨가 좋던걸? 이번엔 물질 한번 해 볼래?"],
+			["해녀", "숨을 꾹 참고 들어가서 바닥에 반짝이는 전복이랑 소라 여섯 개만 주워 오렴."],
+			["해녀", "숨이 모자라면 위로 버튼을 눌러 물 위로 올라와서 숨을 쉬어야 해!"],
+		], start_mulji)
 	elif quest < S_DIVE:
 		say([["해녀", "바닷속에선 숨이 제일이야. 자라가 물방울 구슬을 준다면 꼭 받으렴."]], Callable())
 	elif quest == S_END:
@@ -1579,7 +1614,7 @@ func talk_yongwang() -> void:
 				["토끼", "토끼 간은 영험해서, 사흘에 한 번 꺼내 햇볕에 말려야 하거든요."],
 			], func(): ask("용왕", "(용왕이 그대를 바라본다) 정말 그러하냐?", ["\"네! 바위에 간이 널려 있는 걸 봤어요\"", "(아무 말 없이 고개를 숙인다)"], on_back))
 		S_FEAST:
-			if feast_done("drum") and feast_done("pearl"):
+			if feast_done("drum") and feast_done("pearl") and feast_done("dance"):
 				say([
 					["용왕", "잔치가 흥겨웠소. 이제 자라와 함께 가서 간을 가져오시오."],
 					["문어 장군", "(소곤) 수상하다... 간을 꺼내 말리는 짐승이 어디 있어?"],
@@ -1587,7 +1622,7 @@ func talk_yongwang() -> void:
 					["자라", "(소곤) 서두르시오! 문어 장군이 쫓아오기 전에 물 위로 올라갑시다!"],
 				], start_escape)
 			else:
-				say([["용왕", "떠나기 전에 잔치를 열어 주겠소. 꽃게와 문어 장군을 도와주시오."]], Callable())
+				say([["용왕", "떠나기 전에 잔치를 열어 주겠소. 꽃게와 문어 장군을 돕고, 자라와 춤도 춰 주시오."]], Callable())
 		S_END:
 			say([["용왕", "(멀리서 들려오는 듯한 목소리) 고맙소, 뭍의 아이여..."]], Callable())
 		_:
@@ -1645,6 +1680,8 @@ func is_active(t: Dictionary) -> bool:
 			return quest == S_FEAST and not feast_done("drum")
 		"bigclam":
 			return quest == S_FEAST and not feast_done("pearl")
+		"chest":
+			return not chest_done
 	return super(t)
 
 func action_text(t: Dictionary) -> String:
@@ -1659,6 +1696,8 @@ func action_text(t: Dictionary) -> String:
 			return "북 치기"
 		"bigclam":
 			return "진주 받기"
+		"chest":
+			return "보물 상자 열기"
 	return super(t)
 
 func on_action() -> void:
@@ -1696,6 +1735,9 @@ func on_action() -> void:
 		"bigclam":
 			sfx("tap")
 			start_pearl()
+		"chest":
+			sfx("tap")
+			start_shell()
 		"gate":
 			sfx("tap")
 			on_gate()
@@ -1773,6 +1815,16 @@ func scene_setup(scene: String) -> void:
 			w["center"] = stand
 			w["ground_y"] = b.y
 			w["depth"] = cam_depth_of(stand + Vector3(0, 2.4, 0), b + Vector3(0.0, 2.3, 7.4))
+		"chest":
+			var cc := chest_c
+			world_game_begin(cc + Vector3(0, 0, 1.4), cc, cc + Vector3(-1.4, 2.1, 3.4), cc + Vector3(0, 0.5, 0))
+		"dance":
+			var jp := Vector3(-2.5, PALACE_Y + 0.25, -111)
+			var stand := jp + Vector3(2.0, 0, 0)
+			world_game_begin(stand, jp + Vector3(1.0, 0, 3.0), jp + Vector3(1.0, 2.4, 6.4), jp + Vector3(1.0, 1.0, 0))
+			npc("jara").rotation.y = 0.0
+			w["jara_y"] = npc("jara").position.y
+			w["me_y"] = player.position.y
 
 func scene_spawn_target() -> Vector3:
 	match w["scene"]:
@@ -1853,6 +1905,27 @@ var clam_node: Node3D
 
 func cg_event(kind: String, info: Dictionary = {}) -> void:
 	match w.get("scene", ""):
+		"chest":
+			if kind == "pad":
+				var k := int(info.get("k", 0))
+				burst3d(chest_c + Vector3(-0.44 + k * 0.22, 0.35, 0.45), SIMON_COLS[k], 8)
+			elif kind == "round":
+				cam_kick = 0.12
+				if chest_lid != null:
+					var tw := chest_lid.create_tween()
+					tw.tween_property(chest_lid, "rotation:x", -0.25, 0.1)
+					tw.tween_property(chest_lid, "rotation:x", 0.0, 0.15)
+			elif kind == "wrong":
+				shake(8)
+		"dance":
+			if kind == "show":
+				dance_hop(npc("jara"), String(info.get("dir", "")), float(w.get("jara_y", PALACE_Y + 0.25)))
+			elif kind == "step":
+				dance_hop(player, String(info.get("dir", "")), float(w.get("me_y", PALACE_Y + 0.25)))
+				burst3d(player.position + Vector3(0, 0.2, 0), Color(0.8, 0.95, 1.0), 6)
+			elif kind == "round":
+				cam_kick = 0.12
+				burst3d(player.position + Vector3(0, 1.2, 0), Color(1, 0.85, 0.5), 18)
 		"clam":
 			var c := on_ground(CLAM_POS.x, CLAM_POS.z)
 			if kind == "tap":
@@ -1922,6 +1995,364 @@ func scene_pose() -> bool:
 			return true
 	return super()
 
+# ---------- 해녀 물질 (숨 참고 전복·소라 줍기) ----------
+const MULJI_PTS := [Vector3(19.5, 0, -10), Vector3(24, 0, -12.5), Vector3(28, 0, -15), Vector3(21, 0, -17.5), Vector3(25.5, 0, -20), Vector3(29, 0, -22.5)]
+var dive_on := false
+var mulji_done := false
+var breath := 1.0
+var mulji_items: Array = []    # [노드, 주웠는지]
+var mulji_got := 0
+var mulji_warn := 0.0
+var breath_box: Control
+var breath_fill: ColorRect
+var breath_label: Label
+
+func make_mulji_items() -> void:
+	var shine := StandardMaterial3D.new()
+	shine.albedo_color = Color(0.85, 0.95, 1.0)
+	shine.emission_enabled = true
+	shine.emission = Color(0.6, 0.9, 1.0)
+	shine.emission_energy_multiplier = 1.4
+	for i in MULJI_PTS.size():
+		var p: Vector3 = MULJI_PTS[i]
+		var n := Node3D.new()
+		n.position = on_ground(p.x, p.z, 0.05)
+		add_child(n)
+		if i % 2 == 0:
+			# 전복: 납작한 껍데기, 안쪽은 무지갯빛
+			add_blobs(n, [[Vector3(0, 0.08, 0), Vector3(0.5, 0.14, 0.36), Color(0.45, 0.36, 0.3)], [Vector3(0, 0.12, 0.02), Vector3(0.36, 0.06, 0.24), Color(0.7, 0.85, 0.9)]], blob_gloss())
+		else:
+			# 소라: 뾰족한 고깔
+			var shell := add_mcyl(n, make_color(Color(0.92, 0.75, 0.6)), 0.02, 0.2, 0.42, Vector3(0, 0.2, 0))
+			shell.rotation.z = 1.2
+			add_blobs(n, [[Vector3(0.12, 0.12, 0), Vector3(0.22, 0.2, 0.2), Color(0.98, 0.85, 0.78)]], blob_gloss())
+		var sp := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.05
+		sm.height = 0.1
+		sp.mesh = sm
+		sp.material_override = shine
+		sp.position = Vector3(0, 0.45, 0)
+		n.add_child(sp)
+		n.visible = false
+		mulji_items.append([n, false])
+
+func make_breath_hud() -> void:
+	breath_box = Control.new()
+	breath_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui_layer.add_child(breath_box)
+	place(breath_box, 0.25, 0.3, 0.75, 0.33)
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.1, 0.18, 0.7)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	breath_box.add_child(bg)
+	breath_fill = ColorRect.new()
+	breath_fill.color = Color(0.45, 0.85, 1.0)
+	breath_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	breath_fill.anchor_bottom = 1.0
+	breath_fill.anchor_right = 1.0
+	breath_box.add_child(breath_fill)
+	breath_label = Label.new()
+	breath_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	breath_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	breath_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	breath_label.add_theme_font_size_override("font_size", int(font_size * 0.9))
+	breath_label.add_theme_constant_override("outline_size", 6)
+	breath_label.add_theme_color_override("font_outline_color", Color(0.05, 0.1, 0.2))
+	breath_box.add_child(breath_label)
+	breath_box.visible = false
+
+func start_mulji() -> void:
+	dive_on = true
+	breath = 1.0
+	sea_wall.set_deferred("disabled", true)
+	for it in mulji_items:
+		(it[0] as Node3D).visible = not bool(it[1])
+	if breath_box == null:
+		make_breath_hud()
+	float_text("바다로 들어가 반짝이는 전복·소라를 주워요!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(0.8, 0.95, 1.0), 2.2)
+	update_quest_text()
+
+func update_mulji(delta: float) -> void:
+	if not dive_on:
+		return
+	mulji_warn = maxf(0.0, mulji_warn - delta)
+	var under := swimming and player.position.y < swim_ceiling() - 0.35
+	if under:
+		breath -= delta / 10.0
+	else:
+		breath = minf(1.0, breath + delta * 0.6)
+	breath_box.visible = swimming
+	breath_fill.anchor_right = clampf(breath, 0.0, 1.0)
+	breath_fill.color = Color(0.45, 0.85, 1.0) if breath > 0.3 else Color(1.0, 0.45, 0.4).lerp(Color(1, 0.8, 0.5), absf(sin(anim_t * 8.0)))
+	breath_label.text = "숨 %d%%  |  전복·소라 %d/%d%s" % [int(breath * 100.0), mulji_got, mulji_items.size(), "  (위로 버튼으로 숨 쉬기!)" if breath < 0.3 else ""]
+	if breath <= 0.0:
+		sfx("bad")
+		flash(Color(0.6, 0.8, 1.0))
+		float_text("숨이 차요! 물 위로 올라왔어요", get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.7, 0.6), 1.8)
+		player.position = on_ground(20, SHORE_Z + 2.5, 0.3)
+		player.velocity = Vector3.ZERO
+		breath = 1.0
+		return
+	# 너무 멀리 가지 않게
+	var p := player.position
+	if swimming and (p.z < -26.0 or p.x < 6.0 or p.x > 37.0):
+		player.position.x = clampf(p.x, 6.2, 36.8)
+		player.position.z = maxf(p.z, -25.8)
+		player.velocity = Vector3.ZERO
+		if mulji_warn <= 0.0:
+			mulji_warn = 2.0
+			float_text("해녀: 너무 멀리 가면 위험해!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.36), Color(1, 0.9, 0.7), 1.5)
+	for it in mulji_items:
+		if bool(it[1]):
+			continue
+		var n: Node3D = it[0]
+		n.rotation.y += delta * 0.6
+		if n.position.distance_to(p + Vector3(0, 0.5, 0)) < 1.5:
+			it[1] = true
+			mulji_got += 1
+			sfx("good", 1.0 + mulji_got * 0.06)
+			burst3d(n.position + Vector3(0, 0.3, 0), Color(0.8, 0.95, 1.0), 14)
+			breath = minf(1.0, breath + 0.1)
+			var tw := n.create_tween()
+			tw.tween_property(n, "position", n.position + Vector3(0, 1.2, 0), 0.35).set_ease(Tween.EASE_OUT)
+			tw.parallel().tween_property(n, "scale", Vector3.ONE * 0.01, 0.35)
+			tw.tween_callback(func(): n.visible = false)
+			float_text("%s! (%d/%d)" % ["전복" if mulji_items.find(it) % 2 == 0 else "소라", mulji_got, mulji_items.size()], cam.unproject_position(n.position), Color(0.85, 1.0, 1.0), 1.0)
+			if mulji_got >= mulji_items.size():
+				end_mulji()
+			return
+
+func end_mulji() -> void:
+	dive_on = false
+	mulji_done = true
+	breath_box.visible = false
+	earn(20)
+	say([
+		["해녀", "(물 위로 고개를 내밀며) 호오이~ 숨비소리 한 번 시원하구나!"],
+		["해녀", "처음인데 여섯 개나? 너 해녀 해도 되겠다! 자, 수고비다."],
+	], func():
+		player.position = on_ground(HAENYEO_POS.x - 1.5, HAENYEO_POS.z - 1.0, 0.3)
+		player.velocity = Vector3.ZERO
+		if quest < S_DIVE:
+			sea_wall.set_deferred("disabled", false)
+		update_quest_text()
+		save_progress())
+
+# ---------- 새끼 문어 찾기 (해초 숲에 숨은 다섯 마리) ----------
+const OCTO_PTS := [Vector3(-14, 0, -44), Vector3(9, 0, -49), Vector3(-25, 0, -57), Vector3(27, 0, -63), Vector3(-4, 0, -67)]
+var octos: Array = []          # [노드, 찾았는지]
+var octo_found := [false, false, false, false, false]
+
+func make_octos() -> void:
+	for i in OCTO_PTS.size():
+		var p: Vector3 = OCTO_PTS[i]
+		var n := Node3D.new()
+		n.position = on_ground(p.x, p.z, 0.02)
+		add_child(n)
+		var sand := Color(0.72, 0.66, 0.5)
+		var items := [[Vector3(0, 0.22, 0), Vector3(0.36, 0.32, 0.34), sand], [Vector3(-0.08, 0.28, 0.15), Vector3(0.06, 0.06, 0.04), Color(0.1, 0.08, 0.08)], [Vector3(0.08, 0.28, 0.15), Vector3(0.06, 0.06, 0.04), Color(0.1, 0.08, 0.08)]]
+		for k in 6:
+			var a := k * TAU / 6.0
+			items.append([Vector3(cos(a) * 0.2, 0.05, sin(a) * 0.2), Vector3(0.24, 0.07, 0.08), sand.darkened(0.1), Vector3(0, -rad_to_deg(a), 0)])
+		var b := blob_node(items)
+		mg_nodes.erase(b)
+		b.reparent(n, false)
+		b.position = Vector3.ZERO
+		n.set_meta("body", b)
+		octos.append([n, octo_found[i]])
+		n.visible = not octo_found[i]
+
+func octo_count() -> int:
+	var c := 0
+	for b in octo_found:
+		c += 1 if b else 0
+	return c
+
+func update_octos(delta: float) -> void:
+	if quest < S_DIVE or quest == S_ESCAPE or not swimming:
+		return
+	var p := player.position + Vector3(0, 0.5, 0)
+	for i in octos.size():
+		var o: Array = octos[i]
+		if bool(o[1]):
+			continue
+		var n: Node3D = o[0]
+		var d := n.position.distance_to(p)
+		var b: Node3D = n.get_meta("body")
+		if d < 5.0:
+			# 가까이 오면 꼼지락꼼지락 (몸빛이 살짝 붉어져요)
+			var k := 1.0 - d / 5.0
+			b.scale = Vector3(1.0 + sin(anim_t * 14.0) * 0.12 * k, 1.0 + cos(anim_t * 11.0) * 0.1 * k, 1.0)
+			b.rotation.y = sin(anim_t * 6.0) * 0.4 * k
+		else:
+			b.scale = Vector3.ONE
+		if d < 1.7:
+			o[1] = true
+			octo_found[i] = true
+			var c := octo_count()
+			sfx("good", 1.1 + c * 0.05)
+			burst3d(n.position + Vector3(0, 0.4, 0), Color(1.0, 0.55, 0.6), 16)
+			var tw := n.create_tween()
+			tw.tween_property(b, "scale", Vector3.ONE * 1.3, 0.15)
+			tw.tween_property(n, "position", n.position + Vector3(0, 3.0, -1.5), 0.9).set_ease(Tween.EASE_IN)
+			tw.parallel().tween_property(n, "scale", Vector3.ONE * 0.01, 0.9)
+			tw.tween_callback(func(): n.visible = false)
+			float_text("꼬물꼬물! 새끼 문어를 찾았다 (%d/5)" % c, cam.unproject_position(n.position), Color(1, 0.75, 0.78), 1.4)
+			earn(3)
+			if c >= 5:
+				earn(15)
+				float_text("새끼 문어들: 찾아 줘서 고마워요~!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.34), Color(1, 0.85, 0.85), 2.2)
+			update_quest_text()
+			save_progress()
+			return
+
+# ---------- 난파선 보물 상자 (조개 소리 따라 하기) ----------
+var chest_done := false
+var chest_lid: Node3D
+var chest_c := Vector3.ZERO
+
+func make_chest() -> void:
+	chest_c = on_ground(WRECK_C.x - 5.0, WRECK_C.z + 6.5)
+	var n := make_spot(chest_c, "chest", "", "보물 상자", true)
+	var wood := make_color(Color(0.42, 0.26, 0.14))
+	var gold := make_color(Color(0.9, 0.72, 0.3))
+	add_mbox(n, wood, Vector3(1.1, 0.55, 0.7), Vector3(0, 0.28, 0))
+	add_mbox(n, gold, Vector3(1.14, 0.08, 0.74), Vector3(0, 0.5, 0))
+	chest_lid = Node3D.new()
+	chest_lid.position = Vector3(0, 0.56, -0.35)
+	n.add_child(chest_lid)
+	add_mbox(chest_lid, wood, Vector3(1.1, 0.22, 0.7), Vector3(0, 0.11, 0.35))
+	add_mbox(chest_lid, gold, Vector3(0.16, 0.16, 0.06), Vector3(0, 0.05, 0.71))
+	# 자물쇠 둘레의 조개 다섯 개
+	for k in 5:
+		var c: Color = SIMON_COLS[k]
+		add_blobs(n, [[Vector3(-0.44 + k * 0.22, 0.3, 0.37), Vector3(0.14, 0.12, 0.04), c]], blob_gloss())
+	if chest_done:
+		chest_lid.rotation.x = -1.6
+
+func start_shell() -> void:
+	start_game("simon", {"world": true, "scene": "chest", "art": "world", "title": "상자 자물쇠는 조개 소리로 열려요!\n울리는 순서를 기억했다가 똑같이 눌러요", "goal": 4, "start_len": 3, "lives": 3, "unit": "소리"}, shell_done)
+
+func shell_done(ok: bool, _good: bool) -> void:
+	if not ok:
+		say([["", "철컥... 자물쇠가 다시 잠겼다. 조개 소리를 다시 들어 보자."]], Callable())
+		return
+	chest_done = true
+	sfx("good")
+	burst3d(chest_c + Vector3(0, 0.9, 0), Color(1, 0.9, 0.5), 30)
+	if chest_lid != null:
+		chest_lid.create_tween().tween_property(chest_lid, "rotation:x", -1.6, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	earn(30)
+	say([["", "끼이익- 상자가 열렸다! 주먹만 한 흑진주와 엽전이 가득하다!"]], func(): update_quest_text(); save_progress())
+
+# ---------- 용궁 춤 따라 하기 (잔치 셋째 일) ----------
+func start_dance() -> void:
+	start_game("dance", {"world": true, "scene": "dance", "art": "world", "title": "자라가 추는 용궁 춤을 잘 보고\n화살표 순서대로 휙휙 따라 해요", "goal": 4, "start_len": 3, "lives": 3, "unit": "마디"}, dance_done)
+
+func dance_done(ok: bool, _good: bool) -> void:
+	var jara := npc("jara")
+	jara.position = Vector3(-2.5, PALACE_Y + 0.25, -111)
+	jara.rotation.y = PI
+	if not ok:
+		say([["자라", "허허, 발이 꼬였구려. 다시 한 번 춰 봅시다!"]], Callable())
+		return
+	feast_flags["dance"] = true
+	earn(10)
+	say([["자라", "얼씨구 좋다! 용궁 물고기들도 덩실덩실 따라 추는구려!"]], func(): update_quest_text())
+
+func dance_hop(n: Node3D, dir: String, base_y: float) -> void:
+	var v: Vector2 = ARROW_VEC.get(dir, Vector2.ZERO)
+	var tw := n.create_tween()
+	if dir == "up":
+		tw.tween_property(n, "position:y", base_y + 0.7, 0.14).set_ease(Tween.EASE_OUT)
+		tw.tween_property(n, "position:y", base_y, 0.16).set_ease(Tween.EASE_IN)
+	elif dir == "down":
+		tw.tween_property(n, "scale", Vector3(1.15, 0.7, 1.15), 0.12)
+		tw.tween_property(n, "scale", Vector3.ONE, 0.16)
+	else:
+		tw.tween_property(n, "rotation:y", n.rotation.y + v.x * 0.9, 0.14)
+		tw.parallel().tween_property(n, "position:y", base_y + 0.3, 0.14)
+		tw.tween_property(n, "rotation:y", n.rotation.y, 0.16)
+		tw.parallel().tween_property(n, "position:y", base_y, 0.16)
+
+# ---------- 먹물 미로 (탈출 중 깊은 골짜기) ----------
+var ink_amt := 0.0
+var ink_left := 0.0
+var ink_fired := false
+var ink_trail: Array = []      # [노드, 주웠는지]
+
+func make_ink_trail() -> void:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(1.0, 0.98, 0.9)
+	m.emission_enabled = true
+	m.emission = Color(1.0, 0.95, 0.75)
+	m.emission_energy_multiplier = 3.0
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.disable_fog = true
+	var sm := SphereMesh.new()
+	sm.radius = 0.16
+	sm.height = 0.32
+	for i in 14:
+		var z := -86.0 + i * 2.2
+		var x := sin(i * 0.75) * 5.0
+		var n := MeshInstance3D.new()
+		n.mesh = sm
+		n.material_override = m
+		n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		n.position = on_ground(x, z, 1.4)
+		n.visible = false
+		add_child(n)
+		ink_trail.append([n, false])
+
+func update_ink(delta: float) -> void:
+	if not ink_fired and player.position.z > -88.0 and player.position.z < -80.0:
+		ink_fired = true
+		ink_left = 9.0
+		sfx("splash", 0.5)
+		shake(10)
+		spawn_ink(player.position + Vector3(0, 1.0, -2.0))
+		float_text("문어 장군의 먹물이다! 앞이 캄캄해요\n진주 불빛을 따라 남쪽으로!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.36), Color(1, 0.95, 0.75), 2.6)
+		for t in ink_trail:
+			t[1] = false
+			(t[0] as Node3D).visible = true
+			(t[0] as Node3D).scale = Vector3.ONE
+	if ink_left > 0.0:
+		ink_left -= delta
+		ink_amt = minf(1.0, ink_amt + delta * 2.5)
+		for t in ink_trail:
+			if bool(t[1]):
+				continue
+			var n: Node3D = t[0]
+			n.scale = Vector3.ONE * (1.0 + sin(anim_t * 5.0 + n.position.z) * 0.2)
+			if n.position.distance_to(player.position + Vector3(0, 0.6, 0)) < 1.6:
+				t[1] = true
+				sfx("tick", 1.5)
+				earn(1)
+				burst3d(n.position, Color(1, 0.95, 0.8), 6)
+				n.visible = false
+	else:
+		ink_amt = maxf(0.0, ink_amt - delta * 0.8)
+		if ink_fired and ink_amt <= 0.0:
+			for t in ink_trail:
+				(t[0] as Node3D).visible = false
+
+func apply_ink_look() -> void:
+	if ink_amt <= 0.0 or env_ref == null:
+		return
+	env_ref.fog_light_color = env_ref.fog_light_color.lerp(Color(0.02, 0.02, 0.05), ink_amt)
+	env_ref.fog_density = lerpf(env_ref.fog_density, 0.2, ink_amt)
+	env_ref.ambient_light_color = env_ref.ambient_light_color.lerp(Color(0.08, 0.08, 0.12), ink_amt * 0.8)
+
+func reset_ink() -> void:
+	ink_fired = false
+	ink_left = 0.0
+	ink_amt = 0.0
+	for t in ink_trail:
+		(t[0] as Node3D).visible = false
+
+
 # ---------- 탈출: 문어 장군을 따돌리고 물 위로 ----------
 
 func start_escape() -> void:
@@ -1959,7 +2390,7 @@ func update_chase(delta: float) -> void:
 	var tgt := player.position + Vector3(0, 0.4, 0)
 	var to := tgt - oc.position
 	var d := to.length()
-	var sp := 3.7
+	var sp := 2.0 if ink_amt > 0.3 else 3.7
 	oc.position += to.normalized() * minf(sp * delta, d)
 	var gh := height_at(oc.position.x, oc.position.z)
 	oc.position.y = maxf(oc.position.y, gh)
@@ -1981,6 +2412,7 @@ func update_chase(delta: float) -> void:
 			player.position = Vector3(0, PALACE_Y + 0.6, GATE_Z + 3.0)
 			player.velocity = Vector3.ZERO
 			oc.position = Vector3(OCTOPUS_POS.x, PALACE_Y + 0.25, OCTOPUS_POS.z)
+			reset_ink()
 			chase_on = true
 			chase_wait = 3.0)
 

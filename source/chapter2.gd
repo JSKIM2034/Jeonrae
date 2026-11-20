@@ -101,6 +101,10 @@ func on_gate() -> void:
 
 # ---------- 땅 높이 ----------
 
+const STREAM_Z := -30.0
+const STREAM_HALF := 3.6
+const STREAM_DEPTH := 2.4
+
 func height_at(x: float, z: float) -> float:
 	var h := 0.0
 	for rd in RIDGES:
@@ -127,6 +131,8 @@ func height_at(x: float, z: float) -> float:
 	var road_soft := smoothstep(1.5, 6.0, road_d)
 	h = h * flat + (1.0 - flat) * 0.0
 	h -= height_noise.get_noise_2d(x, z) * 1.2 * (1.0 - road_soft) * flat
+	# 둘째·셋째 고개 사이 개울 (징검다리로 건너요)
+	h -= STREAM_DEPTH * (1.0 - smoothstep(STREAM_HALF - 0.6, STREAM_HALF + 0.8, absf(z - STREAM_Z)))
 	return h
 
 func road_distance(p: Vector2) -> float:
@@ -554,6 +560,10 @@ func make_story() -> void:
 	make_spot(tree_pos + Vector3(-1.2, 0, 1.4), "climb", "", "", true)
 	make_spot(tree_pos + Vector3(-1.4, 0, 1.6), "pray", "", "", true)
 	make_tiger()
+	make_stack_table()
+	make_fireflies()
+	make_stream()
+	make_lantern()
 
 # 호랑이: Meshy 모델(호랑이, 엄마 옷 입은 호랑이)이 있으면 그걸 쓰고, 없으면 둥글둥글한 덩어리로 만들어요
 var tiger_plain: Node3D
@@ -660,6 +670,7 @@ func apply_story_state() -> void:
 	if quest >= S_LEAVE and quest <= S_RUN:
 		quest = S_LEAVE
 		basket = BASKET_FULL
+		reset_fireflies()
 		player.position = on_ground(-4.5, 13.5, 0.3)
 	var mom := npc("mom")
 	mom.visible = quest <= S_RUN
@@ -733,7 +744,9 @@ func update_quest_text() -> void:
 			t = "2장 끝! 마을과 고갯길을 둘러보세요"
 	var extra := ""
 	if quest >= S_LEAVE and quest <= S_PASS3:
-		extra = " | 떡 광주리 %d개" % basket
+		extra = " | 떡 광주리 %d개 | 반딧불 %d/%d" % [basket, fireflies_got, FIREFLY_N]
+	if sneak_on:
+		t = "호랑이가 돌아보면 꼼짝 마! 살금살금 호랑이 뒤로 지나가기"
 	var st := 0
 	for b2 in stones:
 		if b2:
@@ -746,6 +759,10 @@ func update_story(delta: float) -> void:
 	update_mom(delta)
 	update_tiger(delta)
 	update_rocks(delta)
+	update_fireflies(delta)
+	update_stream(delta)
+	if sneak_on and not is_busy():
+		update_sneak(delta)
 	if is_busy() or event_lock:
 		return
 	var z := player.position.z
@@ -753,7 +770,7 @@ func update_story(delta: float) -> void:
 		event_pass(0)
 	elif quest == S_PASS2 and z < TRIGGER_Z[1]:
 		event_pass(1)
-	elif quest == S_PASS3 and z < TRIGGER_Z[2]:
+	elif quest == S_PASS3 and z < TRIGGER_Z[2] and not sneak_on:
 		event_pass(2)
 	elif quest == S_RUN:
 		update_run(delta)
@@ -842,7 +859,7 @@ func nearest_road_i(p: Vector3) -> int:
 	return best
 
 func update_rocks(delta: float) -> void:
-	var on := mom_follow and quest >= S_LEAVE and quest <= S_PASS3 and not event_lock and not is_busy() and player.position.z < 16.0
+	var on := mom_follow and quest >= S_LEAVE and quest <= S_PASS3 and not event_lock and not is_busy() and player.position.z < 16.0 and absf(player.position.z - STREAM_Z) > 7.0
 	if on:
 		rock_t -= delta
 		if rock_t <= 0.0:
@@ -899,6 +916,309 @@ func update_rocks(delta: float) -> void:
 			if rock_hits % 2 == 1:
 				float_text("엄마: 얘야, 조심하렴! 돌이 굴러온다!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.3), Color(1, 0.95, 0.85), 1.0)
 			r[2] = idx
+
+# ---------- 떡 쌓기 (잔칫집 곁가지) ----------
+const STACK_POS := Vector3(-7.6, 0, 35.2)
+var stack_best := 0
+
+func make_stack_table() -> void:
+	var t := make_spot(STACK_POS, "stack", "", "떡 쌓기", true)
+	add_mbox(t, plank_mat, Vector3(1.4, 0.1, 0.9), Vector3(0, 0.7, 0))
+	for lx in [-0.55, 0.55]:
+		for lz in [-0.35, 0.35]:
+			add_mbox(t, dark_wood_mat, Vector3(0.08, 0.7, 0.08), Vector3(lx, 0.35, lz))
+	var cols := [Color(0.98, 0.97, 0.92), Color(0.55, 0.72, 0.4), Color(1.0, 0.75, 0.8), Color(0.98, 0.85, 0.45)]
+	var items := []
+	for k in 5:
+		items.append([Vector3(0, 0.82 + k * 0.1, 0), Vector3(0.62 - k * 0.05, 0.09, 0.46 - k * 0.04), cols[k % 4]])
+	add_blobs(t, items)
+	add_solid(STACK_POS + Vector3(0, 0.5, 0), Vector3(1.4, 1.0, 0.9), Color(0, 0, 0, 0))
+
+func start_stack() -> void:
+	start_game("stack", {"world": true, "scene": "stack", "art": "world", "title": "떡 쌓기! 움직이는 떡판을 톡 눌러 쌓아요\n딱 맞으면 퍼펙트, 어긋나면 잘려요", "goal": 12, "base_w": 0.5, "speed": 0.5, "lives": 3, "unit": "층"}, stack_done)
+
+func stack_done(ok: bool, _good: bool) -> void:
+	var h := mg_count
+	var first := h > stack_best
+	stack_best = maxi(stack_best, h)
+	earn(h)
+	var l := [["떡집 할머니", "%d층이나 쌓았구나!%s" % [h, " 잔칫상에 올려야겠다!" if ok else " 다음엔 더 높이 쌓아 보렴."]]]
+	if first and ok:
+		l.append(["", "가장 높이 쌓은 기록: %d층" % stack_best])
+	say(l, Callable())
+
+# ---------- 반딧불 모으기 (첫째→둘째 고개, 해 질 녘) ----------
+const FIREFLY_N := 16
+var fireflies: Array = []      # [노드, 처음 자리, 위상, (잡으면 true)]
+var fireflies_got := 0
+var lantern: Node3D
+var lantern_light: OmniLight3D
+
+func make_fireflies() -> void:
+	var glow := StandardMaterial3D.new()
+	glow.albedo_color = Color(0.95, 1.0, 0.6)
+	glow.emission_enabled = true
+	glow.emission = Color(0.85, 1.0, 0.4)
+	glow.emission_energy_multiplier = 3.0
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var sm := SphereMesh.new()
+	sm.radius = 0.09
+	sm.height = 0.18
+	sm.radial_segments = 8
+	sm.rings = 4
+	var r := RandomNumberGenerator.new()
+	r.seed = 55
+	var cands := []
+	for k in road_pts.size():
+		var p := road_pts[k]
+		if p.y < 0.0 and p.y > -19.0:
+			cands.append(p)
+	for i in FIREFLY_N:
+		var p: Vector2 = cands[int(float(i) / FIREFLY_N * cands.size())]
+		var off := Vector2(r.randf_range(-5, 5), r.randf_range(-1.5, 1.5))
+		var base := on_ground(p.x + off.x, p.y + off.y, r.randf_range(0.8, 1.8))
+		var n := MeshInstance3D.new()
+		n.mesh = sm
+		n.material_override = glow
+		n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		n.position = base
+		n.visible = false
+		add_child(n)
+		fireflies.append([n, base, r.randf() * TAU])
+
+func make_lantern() -> void:
+	# 엄마가 든 청사초롱: 반딧불을 모을수록 환해져요
+	lantern = Node3D.new()
+	var mom := npc("mom")
+	mom.add_child(lantern)
+	lantern.position = Vector3(0.55, 1.25, 0.35)
+	var paper := StandardMaterial3D.new()
+	paper.albedo_color = Color(1.0, 0.85, 0.55)
+	paper.emission_enabled = true
+	paper.emission = Color(1.0, 0.75, 0.4)
+	paper.emission_energy_multiplier = 0.6
+	add_mcyl(lantern, paper, 0.16, 0.16, 0.34, Vector3.ZERO)
+	add_mcyl(lantern, make_color(Color(0.25, 0.3, 0.6)), 0.17, 0.17, 0.08, Vector3(0, 0.2, 0))
+	add_mcyl(lantern, make_color(Color(0.8, 0.25, 0.25)), 0.17, 0.17, 0.08, Vector3(0, -0.2, 0))
+	add_mcyl(lantern, dark_wood_mat, 0.015, 0.015, 0.5, Vector3(0, 0.45, 0))
+	lantern_light = OmniLight3D.new()
+	lantern_light.light_color = Color(1.0, 0.8, 0.5)
+	lantern_light.omni_range = 5.0
+	lantern_light.light_energy = 0.4
+	lantern.add_child(lantern_light)
+	lantern.visible = false
+
+func update_fireflies(delta: float) -> void:
+	var on := quest >= S_LEAVE and quest <= S_PASS3
+	if lantern != null:
+		lantern.visible = on and npc("mom").visible
+		var target := 0.35 + 0.12 * fireflies_got
+		lantern_light.light_energy = lerpf(lantern_light.light_energy, target if on else 0.0, minf(1.0, delta * 3.0))
+		lantern_light.omni_range = 4.0 + fireflies_got * 0.35
+	for f in fireflies:
+		var n: MeshInstance3D = f[0]
+		if f.size() > 3:
+			continue
+		n.visible = on
+		if not on:
+			continue
+		var base: Vector3 = f[1]
+		var ph: float = f[2]
+		n.position = base + Vector3(sin(anim_t * 0.8 + ph) * 0.8, sin(anim_t * 1.3 + ph * 2.0) * 0.35, cos(anim_t * 0.7 + ph) * 0.8)
+		n.scale = Vector3.ONE * (0.8 + 0.4 * absf(sin(anim_t * 3.0 + ph)))
+		if n.position.distance_to(player.position + Vector3(0, 1.0, 0)) < 1.6:
+			f.append(true)
+			fireflies_got += 1
+			sfx("tick", 1.4 + fireflies_got * 0.03)
+			burst3d(n.position, Color(0.9, 1.0, 0.5), 8)
+			var tw := n.create_tween()
+			tw.tween_property(n, "global_position", npc("mom").global_position + Vector3(0.55, 1.25, 0.35), 0.4).set_ease(Tween.EASE_IN)
+			tw.tween_callback(func(): n.visible = false)
+			float_text("반딧불 %d/%d" % [fireflies_got, FIREFLY_N], cam.unproject_position(n.position), Color(0.9, 1.0, 0.6), 0.9)
+			if fireflies_got == FIREFLY_N:
+				earn(15)
+				float_text("엄마: 초롱이 대낮처럼 환하구나! 고맙다.", get_viewport().get_visible_rect().size * Vector2(0.5, 0.32), Color(1, 0.95, 0.75), 2.0)
+			update_quest_text()
+
+func reset_fireflies() -> void:
+	fireflies_got = 0
+	for f in fireflies:
+		while f.size() > 3:
+			f.pop_back()
+
+# ---------- 징검다리 (둘째→셋째 고개 사이 개울) ----------
+var stones_move: Array = []   # [몸, 위 높이, 아래 높이, 위상]
+var stream_side := 1
+var stream_cool := 0.0
+
+func water_y(x: float) -> float:
+	return minf(height_at(x, STREAM_Z + STREAM_HALF + 1.2), height_at(x, STREAM_Z - STREAM_HALF - 1.2)) - 0.55
+
+func make_stream() -> void:
+	# 물줄기: 개울을 따라 휘는 띠
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var x := -36.0
+	while x < 36.0:
+		var x2 := x + 2.0
+		var q := [Vector3(x, water_y(x), STREAM_Z - STREAM_HALF - 0.4), Vector3(x2, water_y(x2), STREAM_Z - STREAM_HALF - 0.4), Vector3(x2, water_y(x2), STREAM_Z + STREAM_HALF + 0.4), Vector3(x, water_y(x), STREAM_Z + STREAM_HALF + 0.4)]
+		for idx in [0, 2, 1, 0, 3, 2]:
+			st.set_normal(Vector3.UP)
+			st.set_uv(Vector2(q[idx].x / 6.0, q[idx].z / 6.0))
+			st.add_vertex(q[idx])
+		x = x2
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = water_material(2, Vector4(0, STREAM_Z, 36.0, STREAM_HALF + 0.4), Color(0.12, 0.35, 0.45), Color(0.35, 0.65, 0.7), Vector2(0.06, 0.0), 0.85)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	# 떴다 가라앉았다 하는 징검돌 다섯 개 (길을 따라)
+	var a := Vector2(9.2, STREAM_Z + STREAM_HALF + 0.3)
+	var b := Vector2(0.8, STREAM_Z - STREAM_HALF - 0.3)
+	for k in 5:
+		var t := (k + 0.5) / 5.0
+		var p := a.lerp(b, t)
+		var wy := water_y(p.x)
+		var body := AnimatableBody3D.new()
+		body.sync_to_physics = true
+		body.position = Vector3(p.x, wy + 0.25, p.y)
+		add_child(body)
+		var col := CollisionShape3D.new()
+		var cyl := CylinderShape3D.new()
+		cyl.radius = 0.62
+		cyl.height = 0.5
+		col.shape = cyl
+		body.add_child(col)
+		add_blobs(body, [[Vector3(0, 0, 0), Vector3(1.35, 0.5, 1.2), Color(0.55, 0.53, 0.5)], [Vector3(0.1, 0.18, 0.05), Vector3(0.9, 0.2, 0.8), Color(0.62, 0.6, 0.56)]], stone_blob_mat)
+		stones_move.append([body, wy + 0.3, wy - 0.55, k * 1.3])
+
+func update_stream(delta: float) -> void:
+	for sm in stones_move:
+		var body: AnimatableBody3D = sm[0]
+		# 떠 있음 2.2초 → 가라앉음 → 잠김 0.6초 → 떠오름
+		var cyc := fposmod(anim_t + float(sm[3]), 3.8)
+		var up := 1.0
+		if cyc > 2.2 and cyc < 2.8:
+			up = 1.0 - (cyc - 2.2) / 0.6
+		elif cyc >= 2.8 and cyc < 3.4:
+			up = 0.0
+		elif cyc >= 3.4:
+			up = (cyc - 3.4) / 0.4
+		var wob := sin(anim_t * 9.0) * 0.03 if (cyc > 1.8 and cyc < 2.2) else 0.0
+		body.position.y = lerpf(float(sm[2]), float(sm[1]), up) + wob
+	stream_cool = maxf(0.0, stream_cool - delta)
+	var pz := player.position.z
+	if pz > STREAM_Z + STREAM_HALF + 0.6:
+		stream_side = 1
+	elif pz < STREAM_Z - STREAM_HALF - 0.6:
+		stream_side = -1
+	if absf(pz - STREAM_Z) < STREAM_HALF + 0.2 and player.position.y < water_y(player.position.x) - 0.05 and stream_cool <= 0.0:
+		stream_cool = 1.0
+		sfx("splash")
+		burst3d(player.position + Vector3(0, 0.5, 0), Color(0.75, 0.9, 1.0), 20)
+		float_text("풍덩! 돌이 떠 있을 때 건너요", get_viewport().get_visible_rect().size * Vector2(0.5, 0.35), Color(0.8, 0.95, 1.0), 1.6)
+		var back := Vector2(9.6, STREAM_Z + STREAM_HALF + 1.4) if stream_side > 0 else Vector2(0.4, STREAM_Z - STREAM_HALF - 1.4)
+		player.position = on_ground(back.x, back.y, 0.3)
+		player.velocity = Vector3.ZERO
+
+# ---------- 무궁화 꽃이 피었습니다 (셋째 고개: 호랑이 몰래 지나가기) ----------
+var sneak_on := false
+var sneak_state := "away"      # away(엄마를 봄) → warn(으르렁) → look(돌아봄)
+var sneak_t := 0.0
+var sneak_start := Vector3.ZERO
+var sneak_banner: Label
+
+func start_sneak() -> void:
+	event_lock = false
+	mom_follow = false
+	sneak_on = true
+	sneak_state = "away"
+	sneak_t = 2.5
+	sneak_start = player.position
+	var mom := npc("mom")
+	tiger.rotation.y = atan2(mom.position.x - tiger.position.x, mom.position.z - tiger.position.z)
+	if sneak_banner == null:
+		sneak_banner = Label.new()
+		sneak_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		sneak_banner.add_theme_font_size_override("font_size", int(font_size * 1.6))
+		sneak_banner.add_theme_constant_override("outline_size", 10)
+		sneak_banner.add_theme_color_override("font_outline_color", Color(0.15, 0.1, 0.05))
+		sneak_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ui_layer.add_child(sneak_banner)
+		place(sneak_banner, 0.0, 0.3, 1.0, 0.38)
+	sneak_banner.visible = true
+	update_quest_text()
+
+func update_sneak(delta: float) -> void:
+	var mom := npc("mom")
+	sneak_t -= delta
+	var face_mom := atan2(mom.position.x - tiger.position.x, mom.position.z - tiger.position.z)
+	var face_me := atan2(player.position.x - tiger.position.x, player.position.z - tiger.position.z)
+	match sneak_state:
+		"away":
+			tiger.rotation.y = lerp_angle(tiger.rotation.y, face_mom, minf(1.0, delta * 8.0))
+			sneak_banner.text = "살금살금 지나가요!"
+			sneak_banner.add_theme_color_override("font_color", Color(0.7, 1.0, 0.6))
+			if sneak_t <= 0.0:
+				sneak_state = "warn"
+				sneak_t = 0.6
+				sfx("crack", 0.5)
+		"warn":
+			sneak_banner.text = "으르렁...?"
+			sneak_banner.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+			tiger_tail.rotation.y = sin(anim_t * 20.0) * 0.6
+			if sneak_t <= 0.0:
+				sneak_state = "look"
+				sneak_t = rng.randf_range(1.2, 2.0)
+		"look":
+			tiger.rotation.y = lerp_angle(tiger.rotation.y, face_me, minf(1.0, delta * 10.0))
+			sneak_banner.text = "멈춰! 꼼짝 마!"
+			sneak_banner.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4))
+			var mv := Vector2(player.velocity.x, player.velocity.z).length()
+			if mv > 0.6 and absf(angle_difference(tiger.rotation.y, face_me)) < 0.4:
+				sneak_caught()
+				return
+			if sneak_t <= 0.0:
+				sneak_state = "away"
+				sneak_t = rng.randf_range(1.6, 3.2)
+	# 호랑이 뒤로 다 지나가면 성공
+	if player.position.z < tiger.position.z - 5.0:
+		sneak_on = false
+		sneak_banner.visible = false
+		sfx("good")
+		float_text("지나갔다! 이제 달려요!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.9, 0.4), 1.6)
+		start_run()
+
+func sneak_caught() -> void:
+	sfx("bad")
+	shake(16)
+	flash(Color(1, 0.6, 0.5))
+	float_text("어흥! 들켰다!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.55, 0.45), 1.5)
+	player.position = sneak_start
+	player.velocity = Vector3.ZERO
+	sneak_state = "away"
+	sneak_t = 2.2
+
+# ---------- 솔방울 던지기 (나무 위로 올라오는 호랑이) ----------
+func start_pine() -> void:
+	start_game("aim", {"world": true, "scene": "pine", "art": "world", "title": "호랑이가 도끼로 콕콕 나무를 올라와요!\n솔방울을 던져 맞히면 미끄러져요", "goal": 6, "climb_speed": 0.05, "knock": 0.16, "target_r": 0.1, "hit_text": "딱! 아야!", "lose_text": "호랑이가 너무 높이 올라왔어요!", "unit": "명중"}, pine_done)
+
+func pine_done(ok: bool, _good: bool) -> void:
+	tiger.position = on_ground(tree_pos.x - 0.9, tree_pos.z + 0.9)
+	if not ok:
+		say([["누이", "으앙, 다시 던져 줘! 호랑이를 막아 줘!"]], start_pine)
+		return
+	say([
+		["호랑이", "아이고 머리야! 솔방울이 우박처럼 쏟아지네!"],
+		["오빠", "지금이야! 하느님, 저희를 살리시려거든 튼튼한 동아줄을 내려 주세요!"],
+	], func():
+		make_sky_rope()
+		start_rope())
+
+func aim_target() -> Vector2:
+	if w.get("scene", "") == "pine" and tiger != null:
+		return cam.unproject_position(tiger.global_position + Vector3(0, 1.6, 0))
+	return super()
 
 # ---------- 말 걸기 ----------
 
@@ -1105,7 +1425,9 @@ func pass3_choice(i: int) -> void:
 		l.append(["엄마", "착하기도 하지. 하지만 아이들이 기다린단다. 어서!"])
 	else:
 		l.append(["엄마", "그래, 약속하마. 어서 가거라!"])
-	say(l, start_run)
+	l.append(["엄마", "(소곤소곤) 엄마가 호랑이 눈을 끄는 사이에 호랑이 뒤로 살금살금 지나가렴."])
+	l.append(["엄마", "호랑이가 뒤돌아보면 꼼짝 말고 멈춰 있어야 한다!"])
+	say(l, start_sneak)
 
 # 호랑이보다 먼저 오두막에 닿기
 func start_run() -> void:
@@ -1247,12 +1569,11 @@ func climb_done(ok: bool, _good: bool) -> void:
 		["누이", "바보, 도끼로 콕콕 찍으면서 올라오면 되는데!"],
 		["오빠", "쉿! 누이야!"],
 		["호랑이", "옳거니! 도끼로 콕, 콕!"],
-		["오빠", "하느님, 저희를 살리시려거든 튼튼한 동아줄을 내려 주세요!"],
+		["", "(장독 뒤에서 솔방울을 한 움큼 주웠다. 호랑이를 막아야 해!)"],
 	], func():
 		set_quest(S_ROPE)
 		tiger_climb_shake()
-		make_sky_rope()
-		start_rope())
+		start_pine())
 
 func tiger_climb_shake() -> void:
 	tiger.position = on_ground(tree_pos.x - 0.9, tree_pos.z + 0.9)
@@ -1369,6 +1690,8 @@ func is_active(t: Dictionary) -> bool:
 	match kind:
 		"pound":
 			return quest == S_FEAST and not feast["pound"]
+		"stack":
+			return quest <= S_FEAST or quest == S_END
 		"stone":
 			return not stones[int(t["id"])]
 		"climb":
@@ -1381,6 +1704,8 @@ func action_text(t: Dictionary) -> String:
 	match t["kind"]:
 		"pound":
 			return "떡메 치기"
+		"stack":
+			return "떡 쌓기"
 		"stone":
 			return "돌 얹기"
 		"climb":
@@ -1397,6 +1722,9 @@ func on_action() -> void:
 		"pound":
 			sfx("tap")
 			start_pound()
+		"stack":
+			sfx("tap")
+			start_stack()
 		"stone":
 			sfx("tap")
 			var i := int(t["id"])
@@ -1439,6 +1767,15 @@ func scene_setup(scene: String) -> void:
 	w["count0"] = mg_count
 	w["lives0"] = mg_lives
 	match scene:
+		"stack":
+			var sp := STACK_POS
+			world_game_begin(sp + Vector3(0, 0, 1.2), sp, sp + Vector3(1.6, 2.4, 3.6), sp + Vector3(0, 0.9, 0))
+		"pine":
+			var tp3 := tree_pos
+			var st3 := tp3 + Vector3(2.4, 0, 3.2)
+			st3.y = height_at(st3.x, st3.z)
+			world_game_begin(st3, tp3, tp3 + Vector3(4.2, 2.0, 8.4), tp3 + Vector3(0, 2.6, 0))
+			w["tiger_base"] = tiger.position
 		"pound":
 			var a := ANBAN_POS
 			var stand := a + Vector3(0, 0, 1.15)
@@ -1638,6 +1975,10 @@ func scene_update(delta: float) -> void:
 				var p := b.lerp(top, minf(1.0, prog * 2.0))
 				p.y = b.y + prog * (3.4 if k == "oppa" else 3.0)
 				kid.position = kid.position.lerp(p, minf(1.0, delta * 6.0))
+		"pine":
+			var tb: Vector3 = w["tiger_base"]
+			tiger.position = tb + Vector3(0, float(cg.get("climb", 0.0)) * 3.4, 0)
+			(tiger.get_node("Body") as Node3D).rotation.z = sin(anim_t * 6.0) * 0.06
 		"rope":
 			var sw: float = w.get("swing", 0.0)
 			var tilt: float = cg.get("tilt", 0.0)
@@ -1651,6 +1992,15 @@ func scene_update(delta: float) -> void:
 # 새 미니게임의 3D 연출
 func cg_event(kind: String, info: Dictionary = {}) -> void:
 	match w.get("scene", ""):
+		"stack":
+			if kind in ["drop", "perfect"]:
+				cam_kick = 0.08
+		"pine":
+			if kind == "throw":
+				w["swing"] = 1.0
+			elif kind == "hit":
+				burst3d(tiger.global_position + Vector3(0, 1.8, 0), Color(0.6, 0.42, 0.25), 14)
+				float_text("아야!", cam.unproject_position(tiger.global_position + Vector3(0, 2.6, 0)), Color(1, 0.7, 0.5), 1.0)
 		"pound":
 			if kind in ["perfect", "good"]:
 				w["swing"] = 1.0
@@ -1735,6 +2085,13 @@ func scene_pose() -> bool:
 			pose_custom(arm, arm, lerpf(-0.12, 0.34, t), 0.18 + t * 0.15)
 			var sh := (bone_world("armL") + bone_world("armR")) * 0.5
 			place_tool((((bone_world("handL") + bone_world("handR")) * 0.5) - sh).normalized() + Vector3(0, 0.3 * (1.0 - t), 0))
+			return true
+		"stack":
+			pose_custom(Vector3(-1.2, 0.3, -0.4), Vector3(-1.2, 0.3, -0.4), 0.1, 0.1)
+			return true
+		"pine":
+			var t4 := sw
+			pose_custom(Vector3(-0.4, 0.4, -0.3), Vector3(lerpf(-2.8, -1.0, t4), 0.3, lerpf(-0.4, 0.1, t4)), lerpf(-0.1, 0.25, t4), 0.1)
 			return true
 		"paws", "climb", "rope":
 			var arm3 := Vector3(lerpf(-2.4, -0.9, sw), 0.25, lerpf(-0.6, -0.1, sw))
