@@ -57,6 +57,47 @@ func game(name: String) -> void:
 	await snap(name)
 	m.end_game(true)
 	await settle()
+func touch(pos: Vector2, down: bool) -> void:
+	var ev := InputEventScreenTouch.new()
+	ev.pressed = down
+	ev.position = pos
+	m.on_mg_input(ev)
+func dig_game() -> void:
+	var g := 0
+	while not m.mg_active and g < 200:
+		g += 1
+		await get_tree().process_frame
+	print("GAME dig ", m.mg_type)
+	var kinds := {}
+	var shot := false
+	for f in 3000:
+		if not m.mg_active:
+			break
+		await get_tree().process_frame
+		var tg: Dictionary = m.cg.get("tgt", {})
+		if tg.is_empty() or tg["state"] != "up":
+			continue
+		var pos: Vector2 = m.cam.unproject_position(m.dig_holes()[int(tg["i"])])
+		kinds[tg["kind"]] = true
+		if not shot and tg["kind"] == "big":
+			shot = true
+			touch(pos, true); touch(pos, false)
+			await wait(0.1)
+			await snap("clam")
+		match tg["kind"]:
+			"crab":
+				pass
+			"razor":
+				touch(pos, true)
+				var dr := InputEventScreenDrag.new()
+				dr.position = pos - Vector2(0, 200)
+				m.on_mg_input(dr)
+				touch(pos - Vector2(0, 200), false)
+			_:
+				touch(pos, true); touch(pos, false)
+				await wait(0.05)
+	print("  dig count ", m.mg_count, " lives ", m.mg_lives, " kinds ", kinds.keys(), " active ", m.mg_active)
+	await settle()
 func go(p: Vector3) -> void:
 	m.player.position = p
 	m.player.velocity = Vector3.ZERO
@@ -86,7 +127,7 @@ func run() -> void:
 	await settle()
 	print("Q lure ", m.quest, " follow ", m.follow_on)
 	m.talk_to("haenyeo"); await settle()
-	m.start_clam(); await game("clam")
+	m.start_clam(); await dig_game()
 	m.talk_to("haenyeo"); await settle()
 	print("mulji on ", m.dive_on)
 	await go(m.on_ground(22, -11, 0.4)); await wait(1.0); await snap("mulji")

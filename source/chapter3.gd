@@ -348,7 +348,7 @@ func make_shore_village() -> void:
 			make_leaf_bush(bp, Vector3(r.randf_range(1.5, 2.2), r.randf_range(1.0, 1.4), r.randf_range(1.4, 2.0)), Color(0.32, 0.55, 0.26).lerp(Color(0.42, 0.62, 0.3), r.randf()), int(sp.x * 13.0 + sp.z * 7.0) + k)
 	# 갯벌 (조개 캐기)
 	flat_ellipse(on_ground(CLAM_POS.x, CLAM_POS.z) + Vector3(0, 0.03, 0), 3.2, 2.2, 0.0, make_color(Color(0.42, 0.36, 0.3)))
-	make_spot(on_ground(CLAM_POS.x, CLAM_POS.z), "clam", "", "갯벌", true)
+	clam_spot = make_spot(on_ground(CLAM_POS.x, CLAM_POS.z), "clam", "", "갯벌", true)
 	# 산삼 (뒷산 깊은 곳 나무 아래)
 	var gs := make_spot(on_ground(GINSENG_POS.x, GINSENG_POS.z), "ginseng", "", "", true)
 	add_blobs(gs, [
@@ -1747,7 +1747,7 @@ func on_action() -> void:
 # ---------- 미니게임 ----------
 
 func start_clam() -> void:
-	start_game("mash", {"world": true, "scene": "clam", "art": "world", "title": "갯벌 숨구멍이 뽀글뽀글!\n조개가 깊이 숨기 전에 빠르게 연타해 캐요", "goal": 6, "taps": 9, "round_time": 2.6, "decay": 0.25, "lose_text": "쏙 숨었어요!", "unit": "조개"}, clam_done)
+	start_game("dig", {"world": true, "scene": "clam", "art": "world", "title": "거품이 뽀글뽀글 오르는 숨구멍을 톡!\n바지락은 톡톡, 맛조개는 위로 쓱, 꽃게는 피해요", "goal": 8, "lives": 3, "unit": "조개"}, clam_done)
 
 func clam_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -1784,7 +1784,7 @@ func pearl_done(ok: bool, _good: bool) -> void:
 	say([["문어 장군", "...제법이구나. 진주 하나 흘리지 않다니."]], func(): update_quest_text())
 
 func is_tap_scene(scene: String) -> bool:
-	return scene in ["clam", "drum"] or super(scene)
+	return scene == "drum" or super(scene)
 
 func is_catch_scene(scene: String) -> bool:
 	return scene == "pearl" or super(scene)
@@ -1797,9 +1797,16 @@ func scene_setup(scene: String) -> void:
 	match scene:
 		"clam":
 			var c := on_ground(CLAM_POS.x, CLAM_POS.z)
-			var stand := c + Vector3(-1.4, 0, 2.0)
-			world_game_begin(stand, c, c + Vector3(-2.6, 3.2, 5.0), c + Vector3(0.2, 0.0, 0))
+			var stand := c + Vector3(-0.9, 0, 1.6)
+			world_game_begin(stand, c, c + Vector3(0.0, 5.6, 3.4), c + Vector3(0.0, 0.0, -0.9), clam_spot)
 			hold_tool("shovel")
+			var hs := []
+			for hp2 in [Vector2(-1.3, -1.6), Vector2(0.2, -1.8), Vector2(1.5, -1.3), Vector2(-0.6, -0.8), Vector2(0.9, -0.4), Vector2(-1.6, 0.1), Vector2(0.1, 0.4), Vector2(1.5, 0.8)]:
+				var hp3 := Vector3(c.x + hp2.x, maxf(height_at(c.x + hp2.x, c.z + hp2.y), c.y + 0.035), c.z + hp2.y)
+				hs.append(hp3)
+				var hole := blob_node([[Vector3.ZERO, Vector3(0.34, 0.04, 0.3), Color(0.3, 0.24, 0.18)], [Vector3(0, 0.015, 0), Vector3(0.18, 0.03, 0.16), Color(0.12, 0.09, 0.07)]])
+				hole.global_position = hp3 + Vector3(0, 0.01, 0)
+			w["dig_holes"] = hs
 		"drum":
 			var d := Vector3(DRUM_POS.x, PALACE_Y + 0.25, DRUM_POS.z)
 			var stand := d + Vector3(-1.1, 0, 0.7)
@@ -1909,6 +1916,7 @@ func scene_target_miss(n: Node3D) -> void:
 
 # 새 미니게임의 3D 연출
 var clam_node: Node3D
+var clam_spot: Node3D
 
 func cg_event(kind: String, info: Dictionary = {}) -> void:
 	match w.get("scene", ""):
@@ -1934,32 +1942,10 @@ func cg_event(kind: String, info: Dictionary = {}) -> void:
 				cam_kick = 0.12
 				burst3d(player.position + Vector3(0, 1.2, 0), Color(1, 0.85, 0.5), 18)
 		"clam":
-			var c := on_ground(CLAM_POS.x, CLAM_POS.z)
-			if kind == "tap":
+			if kind == "round":
 				w["swing"] = 1.0
-				burst3d(c + Vector3(0.3, 0.15, 0), Color(0.42, 0.36, 0.3), 4)
-				if clam_node == null or not is_instance_valid(clam_node):
-					clam_node = blob_node([[Vector3.ZERO, Vector3(0.36, 0.16, 0.3), Color(0.85, 0.78, 0.66)], [Vector3(0, 0.07, 0), Vector3(0.3, 0.1, 0.26), Color(0.92, 0.86, 0.75)]])
-					clam_node.global_position = c + Vector3(0.3, -0.12, 0)
-				clam_node.global_position.y = minf(clam_node.global_position.y + 0.03, c.y + 0.12)
-			elif kind == "round":
-				w["swing"] = 1.0
-				cam_kick = 0.15
-				sfx("pop", 1.1)
-				burst3d(c + Vector3(0.3, 0.3, 0), Color(0.45, 0.38, 0.3), 14)
-				if clam_node != null and is_instance_valid(clam_node):
-					var cn := clam_node
-					clam_node = null
-					var tw := cn.create_tween()
-					tw.tween_property(cn, "global_position", cn.global_position + Vector3(-0.4, 1.4, 0.4), 0.3).set_ease(Tween.EASE_OUT)
-					tw.parallel().tween_property(cn, "rotation", Vector3(3, 2, 0), 0.3)
-					tw.tween_property(cn, "scale", Vector3.ONE * 0.01, 0.2)
-					tw.tween_callback(cn.queue_free)
 			elif kind == "escape":
-				if clam_node != null and is_instance_valid(clam_node):
-					clam_node.queue_free()
-					clam_node = null
-				burst3d(c + Vector3(0.3, 0.1, 0), Color(0.9, 0.95, 1.0), 10)
+				burst3d((info.get("at", player.position) as Vector3) + Vector3(0, 0.1, 0), Color(0.9, 0.95, 1.0), 8)
 		"drum":
 			var d := Vector3(DRUM_POS.x, PALACE_Y + 0.25, DRUM_POS.z)
 			if kind in ["perfect", "good"]:
@@ -2221,24 +2207,97 @@ var chest_done := false
 var chest_lid: Node3D
 var chest_c := Vector3.ZERO
 
+func half_cyl_mesh(length: float, r: float, segs: int = 12) -> ArrayMesh:
+	# 둥근 뚜껑: x축으로 누운 반원기둥 (양 끝 막음)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var hx := length / 2.0
+	for k in segs:
+		var a0 := PI * k / segs
+		var a1 := PI * (k + 1) / segs
+		var p0 := Vector3(0, sin(a0) * r, cos(a0) * r)
+		var p1 := Vector3(0, sin(a1) * r, cos(a1) * r)
+		var n0 := Vector3(0, sin(a0), cos(a0))
+		var n1 := Vector3(0, sin(a1), cos(a1))
+		for v in [[p0, n0, -hx], [p1, n1, -hx], [p1, n1, hx], [p0, n0, -hx], [p1, n1, hx], [p0, n0, hx]]:
+			st.set_normal(v[1])
+			st.set_uv(Vector2((float(v[2]) + hx) / length, float(k) / segs))
+			st.add_vertex(Vector3(float(v[2]), 0, 0) + (v[0] as Vector3))
+		for sx in [-hx, hx]:
+			var nn := Vector3(signf(sx), 0, 0)
+			var tri := [Vector3(sx, 0, 0), Vector3(sx, p0.y, p0.z), Vector3(sx, p1.y, p1.z)]
+			if sx > 0.0:
+				tri = [tri[0], tri[2], tri[1]]
+			for q in tri:
+				st.set_normal(nn)
+				st.set_uv(Vector2(0.5, 0.5))
+				st.add_vertex(q)
+	return st.commit()
+
 func make_chest() -> void:
 	chest_c = on_ground(WRECK_C.x - 5.0, WRECK_C.z + 6.5)
 	var n := make_spot(chest_c, "chest", "", "보물 상자", true)
-	var wood := make_color(Color(0.42, 0.26, 0.14))
-	var gold := make_color(Color(0.9, 0.72, 0.3))
-	add_mbox(n, wood, Vector3(1.1, 0.55, 0.7), Vector3(0, 0.28, 0))
-	add_mbox(n, gold, Vector3(1.14, 0.08, 0.74), Vector3(0, 0.5, 0))
-	chest_lid = Node3D.new()
-	chest_lid.position = Vector3(0, 0.56, -0.35)
-	n.add_child(chest_lid)
-	add_mbox(chest_lid, wood, Vector3(1.1, 0.22, 0.7), Vector3(0, 0.11, 0.35))
-	add_mbox(chest_lid, gold, Vector3(0.16, 0.16, 0.06), Vector3(0, 0.05, 0.71))
-	# 자물쇠 둘레의 조개 다섯 개
+	var body := Node3D.new()
+	n.add_child(body)
+	body.rotation = Vector3(0.04, 0.25, -0.05)
+	var wood := make_color(Color(0.45, 0.28, 0.15))
+	var wood_d := make_color(Color(0.3, 0.18, 0.1))
+	var iron := StandardMaterial3D.new()
+	iron.albedo_color = Color(0.36, 0.38, 0.4)
+	iron.metallic = 0.7
+	iron.roughness = 0.4
+	var gold := StandardMaterial3D.new()
+	gold.albedo_color = Color(0.95, 0.75, 0.3)
+	gold.metallic = 0.9
+	gold.roughness = 0.25
+	var L := 1.2
+	var D := 0.76
+	var Hb := 0.56
+	# 몸통: 가로 널빤지 네 장 + 사이 홈
+	for k in 4:
+		add_mbox(body, wood if k % 2 == 0 else make_color(Color(0.5, 0.31, 0.17)), Vector3(L, Hb / 4.0 - 0.012, D), Vector3(0, Hb / 8.0 + k * Hb / 4.0, 0))
+	add_mbox(body, wood_d, Vector3(L - 0.02, Hb - 0.02, D - 0.02), Vector3(0, Hb / 2.0, 0))
+	# 쇠 띠 두 줄 + 모서리 쇠
+	for bx in [-0.36, 0.36]:
+		add_mbox(body, iron, Vector3(0.07, Hb + 0.01, D + 0.03), Vector3(bx, Hb / 2.0, 0))
+	for cx in [-L / 2.0, L / 2.0]:
+		for cz in [-D / 2.0, D / 2.0]:
+			add_mbox(body, gold, Vector3(0.09, Hb + 0.02, 0.09), Vector3(cx, Hb / 2.0, cz))
+	# 앞쪽 자물쇠판 + 조개 무늬 다섯 알
+	add_mbox(body, gold, Vector3(0.22, 0.24, 0.04), Vector3(0, Hb - 0.1, D / 2.0 + 0.02))
+	add_mcyl(body, make_color(Color(0.15, 0.1, 0.05)), 0.03, 0.03, 0.05, Vector3(0, Hb - 0.12, D / 2.0 + 0.04)).rotation.x = PI / 2.0
 	for k in 5:
-		var c: Color = SIMON_COLS[k]
-		add_blobs(n, [[Vector3(-0.44 + k * 0.22, 0.3, 0.37), Vector3(0.14, 0.12, 0.04), c]], blob_gloss())
+		add_blobs(body, [[Vector3(-0.44 + k * 0.22, 0.16, D / 2.0 + 0.02), Vector3(0.11, 0.09, 0.03), SIMON_COLS[k]]], blob_gloss())
+	# 둥근 뚜껑 (뒤쪽 경첩을 축으로 열려요)
+	chest_lid = Node3D.new()
+	chest_lid.position = Vector3(0, Hb, -D / 2.0)
+	body.add_child(chest_lid)
+	var lid := MeshInstance3D.new()
+	lid.mesh = half_cyl_mesh(L, D / 2.0)
+	lid.material_override = wood
+	lid.position = Vector3(0, 0, D / 2.0)
+	chest_lid.add_child(lid)
+	for bx in [-0.36, 0.36]:
+		var band := MeshInstance3D.new()
+		band.mesh = half_cyl_mesh(0.07, D / 2.0 + 0.015)
+		band.material_override = iron
+		band.position = Vector3(bx, 0, D / 2.0)
+		chest_lid.add_child(band)
+	add_mbox(chest_lid, gold, Vector3(0.16, 0.16, 0.04), Vector3(0, 0.02, D + 0.01))
+	# 안쪽 보물 (열리면 보여요)
+	add_blobs(body, [[Vector3(0, Hb - 0.04, 0), Vector3(1.0, 0.1, 0.6), Color(0.95, 0.78, 0.3)], [Vector3(0.15, Hb + 0.02, -0.05), Vector3(0.2, 0.2, 0.2), Color(0.15, 0.12, 0.2)], [Vector3(-0.25, Hb + 0.0, 0.1), Vector3(0.12, 0.12, 0.12), Color(1, 0.98, 0.95)]], blob_gloss())
+	# 둘레에 흩어진 엽전과 따개비
+	var r := RandomNumberGenerator.new()
+	r.seed = 77
+	var bits := []
+	for k in 9:
+		var a := r.randf() * TAU
+		var d := r.randf_range(0.8, 1.4)
+		bits.append([Vector3(cos(a) * d, 0.02, sin(a) * d), Vector3(0.12, 0.025, 0.12), Color(0.9, 0.72, 0.3)])
+	add_blobs(n, bits, blob_gloss())
 	if chest_done:
 		chest_lid.rotation.x = -1.6
+
 
 func start_shell() -> void:
 	start_game("simon", {"world": true, "scene": "chest", "art": "world", "title": "상자 자물쇠는 조개 소리로 열려요!\n울리는 순서를 기억했다가 똑같이 눌러요", "goal": 4, "start_len": 3, "lives": 3, "unit": "소리"}, shell_done)
