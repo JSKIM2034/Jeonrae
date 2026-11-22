@@ -3,7 +3,7 @@ import glob
 p='/home/claude/jeonrae/source/core.gd'
 s=open(p).read()
 s=re.sub(r'\n\n# ---------- 글꼴 데이터.*','',s,flags=re.S).rstrip('\n')
-allsrc=s+'\n'+'\n'.join(open(f).read() for f in sorted(glob.glob('/home/claude/jeonrae/source/chapter*.gd')))
+allsrc=s+'\n'+'\n'.join(open(f).read() for f in sorted(glob.glob('/home/claude/jeonrae/source/chapter*.gd'))+['/home/claude/jeonrae/source/lang_en.gd'])
 lines=[l for l in allsrc.splitlines() if not l.lstrip().startswith('#')]
 chars=sorted(set(c for c in '\n'.join(lines) if ord(c)>127))
 text=''.join(chr(i) for i in range(32,127))+''.join(chars)+'“”♥★☆'
