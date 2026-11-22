@@ -23,7 +23,7 @@ func chapter_id() -> String:
 	return "ch3"
 
 func chapter_state() -> Dictionary:
-	return {"quest": quest, "lured": lured, "backed": backed, "ginseng": has_ginseng, "clams": clams_done, "pearls": pearls, "fish": fish_seen, "ending": ending, "mulji": mulji_done, "octo": octo_found, "chest": chest_done}
+	return {"quest": quest, "lured": lured, "backed": backed, "ginseng": has_ginseng, "clams": clams_done, "pearls": pearls, "fish": fish_seen, "ending": ending, "king_thanked": king_thanked, "mulji": mulji_done, "octo": octo_found, "chest": chest_done}
 
 func restore_chapter_state(d: Dictionary) -> void:
 	quest = d.get("quest", 0)
@@ -34,6 +34,7 @@ func restore_chapter_state(d: Dictionary) -> void:
 	pearls = d.get("pearls", [false, false, false])
 	fish_seen = d.get("fish", [false, false, false, false])
 	ending = d.get("ending", "")
+	king_thanked = d.get("king_thanked", false)
 	mulji_done = d.get("mulji", false)
 	octo_found = d.get("octo", [false, false, false, false, false])
 	chest_done = d.get("chest", false)
@@ -263,7 +264,12 @@ var has_ginseng := false
 var clams_done := false
 var pearls := [false, false, false]
 var fish_seen := [false, false, false, false]
-var ending := ""
+var ending := ""   # "ginseng": 산삼을 줌, "plain": 위로만 함(용왕은 아직 앓음), "late": 나중에 산삼을 가져다줌
+var king_thanked := false
+var ginseng_spot: Node3D
+
+func king_healed() -> bool:
+	return ending == "ginseng" or ending == "late"
 var sea_wall: CollisionShape3D
 var sea_top: MeshInstance3D
 var sea_under: MeshInstance3D
@@ -352,6 +358,7 @@ func make_shore_village() -> void:
 	clam_spot = make_spot(on_ground(CLAM_POS.x, CLAM_POS.z), "clam", "", tr("갯벌"), true)
 	# 산삼 (뒷산 깊은 곳 나무 아래)
 	var gs := make_spot(on_ground(GINSENG_POS.x, GINSENG_POS.z), "ginseng", "", "", true)
+	ginseng_spot = gs
 	add_blobs(gs, [
 		[Vector3(0, 0.25, 0), Vector3(0.06, 0.5, 0.06), Color(0.3, 0.5, 0.2)],
 		[Vector3(0.12, 0.45, 0), Vector3(0.3, 0.04, 0.14), Color(0.35, 0.62, 0.28), Vector3(0, 0, -20)],
@@ -1091,6 +1098,8 @@ func apply_story_state() -> void:
 	if quest >= S_END:
 		rabbit.visible = false
 		jara.position = on_ground(JARA_BEACH.x, JARA_BEACH.z)
+	if ginseng_spot != null:
+		ginseng_spot.visible = not has_ginseng and not king_healed()
 	for i in octos.size():
 		octos[i][1] = octo_found[i]
 		(octos[i][0] as Node3D).visible = not octo_found[i]
@@ -1123,7 +1132,13 @@ func update_quest_text() -> void:
 		S_ESCAPE:
 			t = tr("문어 장군이 쫓아와요! 남쪽 물가까지 헤엄쳐 올라가기")
 		S_END:
-			t = tr("3장 끝! 체험판을 모두 마쳤어요. 바닷속을 마음껏 헤엄쳐 보세요")
+			if ending == "plain":
+				if has_ginseng:
+					t = tr("산삼을 바닷가 자라에게 가져다주기 (용왕님이 아직 앓고 계세요)")
+				else:
+					t = tr("용왕님이 아직 앓고 계세요. 뒷산 깊은 숲 나무 아래에서 약이 될 풀 찾기")
+			else:
+				t = tr("3장 끝! 체험판을 모두 마쳤어요. 바닷속을 마음껏 헤엄쳐 보세요")
 	var pc := 0
 	for b in pearls:
 		pc += 1 if b else 0
@@ -1509,10 +1524,18 @@ func talk_jara() -> void:
 			else:
 				say([[tr("자라"), tr("허허, 그대 춤 솜씨에 용왕님 얼굴이 다 밝아지셨소.")]], Callable())
 		S_END:
-			if ending == "ginseng":
+			if king_healed():
 				say([[tr("자라"), tr("산삼 덕에 용왕님 병이 씻은 듯 나으셨다오. 그대의 고마움은 잊지 않겠소.")]], Callable())
+			elif has_ginseng:
+				ask("", tr("자라에게 산삼을 건넬까?"), [tr("산삼을 건넨다"), tr("나중에")], func(i: int):
+					if i == 0:
+						give_ginseng_late())
 			else:
-				say([[tr("자라"), tr("토끼에게는 속았지만... 그대와 함께한 바닷길은 즐거웠소.")]], Callable())
+				say([
+					[tr("자라"), tr("토끼에게는 속았지만... 그대와 함께한 바닷길은 즐거웠소.")],
+					[tr("자라"), tr("그런데 용왕님께서 아직도 앓아누워 계시오. 이를 어쩌면 좋단 말이오...")],
+					[tr("자라"), tr("뒷산 깊은 숲, 큰 나무 아래에 빨간 열매가 달린 귀한 풀이 자란다는 소문은 들었소만... 내 짧은 다리로는 갈 수가 없구려.")],
+				], func(): update_quest_text())
 		_:
 			say([[tr("자라"), tr("용궁은 북쪽 깊은 바닷속이오. 함께 갑시다.")]], Callable())
 
@@ -1625,7 +1648,25 @@ func talk_yongwang() -> void:
 			else:
 				say([[tr("용왕"), tr("떠나기 전에 잔치를 열어 주겠소. 꽃게와 문어 장군을 돕고, 자라와 춤도 춰 주시오.")]], Callable())
 		S_END:
-			say([[tr("용왕"), tr("(멀리서 들려오는 듯한 목소리) 고맙소, 뭍의 아이여...")]], Callable())
+			if king_healed():
+				if not king_thanked:
+					king_thanked = true
+					say([
+						[tr("용왕"), tr("오오, 뭍의 아이여! 보시오, 이렇게 자리에서 일어났소.")],
+						[tr("용왕"), tr("토끼의 간이 아니라 그대의 마음이 나를 살렸구려. 내가 욕심이 과했소.")],
+						[tr("용왕"), tr("용궁의 보물 상자에서 조금 덜어 주겠소. 사양 말고 받으시오.")],
+						["", tr("엽전 30냥을 받았다!")],
+					], func():
+						earn(30)
+						save_progress())
+				else:
+					say([[tr("용왕"), tr("허허, 또 왔구려! 용궁은 언제든 그대를 반긴다오.")]], Callable())
+			else:
+				say([
+					[tr("용왕"), tr("(이불 속에서) 콜록콜록... 뭍의 아이로구나...")],
+					[tr("용왕"), tr("토끼를 원망하지는 않소. 남의 간으로 살려 한 내 욕심이 컸지...")],
+					[tr("꽃게 신하"), tr("(소곤) 뭍에는 사람을 살리는 귀한 풀이 있다던데... 자라에게 물어보시오.")],
+				], Callable())
 		_:
 			say([[tr("용왕"), tr("콜록... 어서 오시오.")]], Callable())
 
@@ -1674,7 +1715,7 @@ func is_active(t: Dictionary) -> bool:
 		"clam":
 			return not clams_done
 		"ginseng":
-			return not has_ginseng
+			return not has_ginseng and not king_healed()
 		"pearl":
 			return not pearls[int(t["id"])]
 		"drum":
@@ -1715,7 +1756,9 @@ func on_action() -> void:
 			has_ginseng = true
 			node.visible = false
 			burst3d(node.position + Vector3(0, 0.5, 0), Color(0.9, 0.3, 0.3), 16)
-			say([["", tr("빨간 열매가 달린 산삼을 캤다! 귀한 약초다. 언젠가 쓸 데가 있겠지.")]], func(): save_progress())
+			say([["", tr("빨간 열매가 달린 산삼을 캤다! 귀한 약초다. 언젠가 쓸 데가 있겠지.")]], func():
+				update_quest_text()
+				save_progress())
 		"pearl":
 			sfx("good")
 			pearls[int(t["id"])] = true
@@ -2535,13 +2578,49 @@ func on_ginseng(i: int) -> void:
 		ending = "plain"
 		l.append(["", tr("자라의 등딱지를 토닥토닥 두드려 주었다.")])
 		l.append([tr("자라"), tr("...그래도 그대 덕에 용궁 구경은 즐거웠소. 언젠가 또 봅시다.")])
+	record_ch3_ending()
 	say(l, func():
 		var card := tr("자라는 바닷속으로,\n토끼는 뒷산으로 돌아갔어요.\n\n")
 		if ending == "ginseng":
-			card += tr("얼마 뒤 바닷가에 소식이 들려왔어요.\n용왕님이 산삼을 드시고\n씻은 듯이 나으셨대요.")
+			card += tr("얼마 뒤 바닷가에 소식이 들려왔어요.\n용왕님이 산삼을 드시고\n씻은 듯이 나으셨대요.") + "\n\n" + tr("엔딩 “산삼 한 뿌리”")
 		else:
-			card += tr("꾀 많은 토끼 이야기는\n바닷가 마을에 두고두고 전해졌대요.")
+			card += tr("꾀 많은 토끼 이야기는\n바닷가 마을에 두고두고 전해졌대요.\n하지만 용궁의 용왕님은\n아직 자리에서 일어나지 못하셨대요.") + "\n\n" + tr("엔딩 “꾀 많은 토끼”")
+		card += ch3_ending_count_text()
 		show_card(card, 0.0, 5.0, finish_trial))
+
+# 위로만 하고 끝났을 때, 나중에라도 산삼을 가져다주면 용왕님이 나아요 (두 번째 기회)
+func give_ginseng_late() -> void:
+	has_ginseng = false
+	ending = "late"
+	record_ch3_ending()
+	say([
+		[tr("자라"), tr("이, 이건 백 년 묵은 산삼이 아니오?! 이걸 구하러 그 먼 뒷산까지...")],
+		[tr("자라"), tr("늦었지만, 아직 늦지 않았소! 당장 용궁으로 가져가리다. 고맙소, 정말 고맙소!")],
+		["", tr("자라는 산삼을 품에 안고 서둘러 바다로 들어갔다.")],
+	], func():
+		show_card(tr("며칠 뒤 바닷가에 소식이 들려왔어요.\n늦게 도착한 산삼 한 뿌리로\n용왕님이 자리를 털고 일어나셨대요.\n\n엔딩 “늦게 도착한 약”") + ch3_ending_count_text(), 0.0, 5.0, func():
+			earn(20)
+			if ginseng_spot != null:
+				ginseng_spot.visible = false
+			update_quest_text()
+			save_progress()))
+
+# 3장 엔딩 기록 (1장처럼 모은 엔딩 수를 세요)
+const CH3_ENDINGS := ["ginseng", "plain", "late"]
+func record_ch3_ending() -> void:
+	var cf := ConfigFile.new()
+	cf.load(SAVE_PATH)
+	var got: Array = cf.get_value("ch3", "endings", [])
+	if not got.has(ending):
+		got.append(ending)
+		cf.set_value("ch3", "endings", got)
+		cf.save(SAVE_PATH)
+
+func ch3_ending_count_text() -> String:
+	var cf := ConfigFile.new()
+	cf.load(SAVE_PATH)
+	var got: Array = cf.get_value("ch3", "endings", [])
+	return tr("\n(3장 엔딩 %d/%d)") % [got.size(), CH3_ENDINGS.size()]
 
 func finish_trial() -> void:
 	event_lock = false
