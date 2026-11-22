@@ -8453,6 +8453,20 @@ func is_swimming() -> bool:
 func swim_ceiling() -> float:
 	return 0.0
 
+const MOUSE_STICK := -2
+var kb_moving := false
+func keyboard_move() -> Vector2:
+	var v := Vector2.ZERO
+	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
+		v.x -= 1.0
+	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT):
+		v.x += 1.0
+	if Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP):
+		v.y -= 1.0
+	if Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN):
+		v.y += 1.0
+	return v.normalized()
+
 func jump_held() -> bool:
 	return jump_touch >= 0 or jump_mouse or Input.is_physical_key_pressed(KEY_SPACE)
 
@@ -8534,6 +8548,42 @@ func pinch_angle() -> float:
 func _unhandled_input(event: InputEvent) -> void:
 	if player == null:
 		return
+	# ---------- 컴퓨터 조작: WASD/방향키 걷기, 스페이스 점프, E/엔터 말 걸기·행동, Q/R 화면 돌리기 ----------
+	if event is InputEventKey and event.pressed and not event.echo:
+		var k: int = event.physical_keycode
+		# 글 카드와 대화는 스페이스/엔터/E로도 넘겨요
+		if k in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER, KEY_E]:
+			if in_card and card_tween != null and card_tween.is_valid() and card_overlay.modulate.a > 0.6:
+				card_tween.kill()
+				end_card()
+				return
+			if talking and not asking:
+				next_line()
+				return
+		match k:
+			KEY_SPACE:
+				if not is_busy():
+					on_jump()
+			KEY_E, KEY_ENTER, KEY_KP_ENTER:
+				if action_button != null and action_button.visible:
+					on_action()
+			KEY_Q:
+				cam_yaw_target += PI / 4.0
+			KEY_R:
+				cam_yaw_target -= PI / 4.0
+	# 진짜 마우스로 끌기 = 휴대폰의 손가락 끌기와 같은 조이스틱 (터치에서 만든 가짜 마우스는 device -1이라 제외)
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.device != -1:
+		if event.pressed and stick_index == -1:
+			stick_index = MOUSE_STICK
+			touching = true
+			touch_start = event.position
+			move_input = Vector2.ZERO
+		elif not event.pressed and stick_index == MOUSE_STICK:
+			stick_index = -1
+			touching = false
+			move_input = Vector2.ZERO
+	elif event is InputEventMouseMotion and event.device != -1 and stick_index == MOUSE_STICK:
+		move_input = ((event.position - touch_start) / drag_range).limit_length(1.0)
 	# 두 손가락으로 벌리고 오므려 확대/축소, 컴퓨터는 마우스 휠
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -8599,6 +8649,14 @@ func _physics_process(delta: float) -> void:
 		btn_touches.clear()
 		pinch_points.clear()
 	update_stick_and_cam(delta)
+	var kb := keyboard_move() if not busy else Vector2.ZERO
+	if kb != Vector2.ZERO:
+		move_input = kb
+		kb_moving = true
+	elif kb_moving:
+		kb_moving = false
+		if stick_index == -1:
+			move_input = Vector2.ZERO
 	cam_yaw = lerp_angle(cam_yaw, cam_yaw_target, minf(1.0, delta * 8.0))
 	var speed := SPEED
 	if has_shoes:
