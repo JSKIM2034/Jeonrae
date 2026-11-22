@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://dcj20f2bm86fj"
+path="res://.godot/imported/mom_baked.jpg-5dbc89339afb2a9cfa260cd02b556a5c.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "93c5941d0811cb0098a80a4b6bc5d43e"
+}
+
+[deps]
+
+source_file="res://models/mom_baked.jpg"
+dest_files=["res://.godot/imported/mom_baked.jpg-5dbc89339afb2a9cfa260cd02b556a5c.ctex"]
+
+[params]
+
+compress/mode=1
+compress/high_quality=false
+compress/lossy_quality=0.8
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1

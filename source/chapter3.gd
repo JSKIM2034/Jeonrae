@@ -66,9 +66,9 @@ func start_chapter() -> void:
 	above_fog = [env_ref.fog_density, env_ref.fog_light_color, env_ref.ambient_light_color, sun_light.light_energy]
 	apply_story_state()
 	if resumed:
-		show_card("3장 별주부전\n이어서 걸어요...", 0.6, 1.6, Callable())
+		show_card(tr("3장 별주부전\n이어서 걸어요..."), 0.6, 1.6, Callable())
 		return
-	show_card("3장\n별주부전\n\n책장을 넘기자\n짭조름한 바닷바람이 불어왔어요.", 1.0, 4.0, Callable())
+	show_card(tr("3장\n별주부전\n\n책장을 넘기자\n짭조름한 바닷바람이 불어왔어요."), 1.0, 4.0, Callable())
 
 func cam_ground(x: float, z: float) -> float:
 	return height_at(x, z)
@@ -78,7 +78,7 @@ func cam_ceiling() -> float:
 
 # 남쪽 끝 이정표: 2장으로 돌아가요
 func on_gate() -> void:
-	ask("", "2장 오누이네 고갯길로 돌아갈까요?", ["돌아가기", "더 둘러볼래요"], func(i: int):
+	ask("", tr("2장 오누이네 고갯길로 돌아갈까요?"), [tr("돌아가기"), tr("더 둘러볼래요")], func(i: int):
 		if i == 0:
 			go_to_chapter("ch2"))
 
@@ -292,12 +292,13 @@ var gate_parts: Array = []     # 카메라가 지나갈 때 잠깐 숨겨요
 const RING_PTS := [Vector3(2, -2.2, -12), Vector3(-6, -3.4, -19), Vector3(-12, -4.6, -26), Vector3(-7, -5.8, -33),
 	Vector3(3, -6.4, -39), Vector3(11, -7.0, -45), Vector3(7, -8.0, -52), Vector3(-2, -9.0, -59)]
 
-const FISH_KINDS := [
+const FISH_KINDS_KO := [
 	{"name": "줄돔", "col": Color(0.98, 0.85, 0.3), "stripe": Color(0.2, 0.2, 0.25), "c": Vector3(-9, -4.0, -20), "r": 4.5},
 	{"name": "쥐치", "col": Color(0.45, 0.72, 0.98), "stripe": Color(0.95, 0.95, 1.0), "c": Vector3(11, -5.0, -30), "r": 5.0},
 	{"name": "볼락", "col": Color(0.9, 0.45, 0.38), "stripe": Color(0.6, 0.25, 0.25), "c": Vector3(-7, -7.0, -55), "r": 4.0},
 	{"name": "등불고기", "col": Color(0.55, 1.0, 0.9), "stripe": Color(1.0, 1.0, 0.7), "c": Vector3(5, -10.0, -80), "r": 5.0},
 ]
+var FISH_KINDS: Array = trd(FISH_KINDS_KO)
 
 func npc(id: String) -> Node3D:
 	return npcs[id]
@@ -348,7 +349,7 @@ func make_shore_village() -> void:
 			make_leaf_bush(bp, Vector3(r.randf_range(1.5, 2.2), r.randf_range(1.0, 1.4), r.randf_range(1.4, 2.0)), Color(0.32, 0.55, 0.26).lerp(Color(0.42, 0.62, 0.3), r.randf()), int(sp.x * 13.0 + sp.z * 7.0) + k)
 	# 갯벌 (조개 캐기)
 	flat_ellipse(on_ground(CLAM_POS.x, CLAM_POS.z) + Vector3(0, 0.03, 0), 3.2, 2.2, 0.0, make_color(Color(0.42, 0.36, 0.3)))
-	clam_spot = make_spot(on_ground(CLAM_POS.x, CLAM_POS.z), "clam", "", "갯벌", true)
+	clam_spot = make_spot(on_ground(CLAM_POS.x, CLAM_POS.z), "clam", "", tr("갯벌"), true)
 	# 산삼 (뒷산 깊은 곳 나무 아래)
 	var gs := make_spot(on_ground(GINSENG_POS.x, GINSENG_POS.z), "ginseng", "", "", true)
 	add_blobs(gs, [
@@ -361,7 +362,7 @@ func make_shore_village() -> void:
 	var gate := make_spot(on_ground(3.2, 49.0), "gate", "", "", true)
 	add_mcyl(gate, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
-	add_tag(gate, "2장 고갯길로 가는 길", 2.6)
+	add_tag(gate, tr("2장 고갯길로 가는 길"), 2.6)
 
 func make_leaf_bush(pos: Vector3, size: Vector3, c: Color, seed_v: int) -> void:
 	if not tree_tried:
@@ -793,13 +794,13 @@ func update_fish(t: float) -> void:
 		if not fish_seen[fk] and player.position.distance_to(c) < rad + 3.5:
 			fish_seen[fk] = true
 			sfx("good")
-			float_text("물고기 도감: %s!" % FISH_KINDS[fk]["name"], get_viewport().get_visible_rect().size * Vector2(0.5, 0.35), Color(0.7, 0.95, 1.0), 1.6)
+			float_text(tr("물고기 도감: %s!") % FISH_KINDS[fk]["name"], get_viewport().get_visible_rect().size * Vector2(0.5, 0.35), Color(0.7, 0.95, 1.0), 1.6)
 			var all := true
 			for b in fish_seen:
 				all = all and b
 			if all:
 				earn(20)
-				float_text("물고기 도감 완성!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.45), Color(1, 0.9, 0.4), 2.0)
+				float_text(tr("물고기 도감 완성!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.45), Color(1, 0.9, 0.4), 2.0)
 			update_quest_text()
 			save_progress()
 
@@ -855,7 +856,7 @@ func update_jellies(t: float, delta: float) -> void:
 			sfx("bad")
 			shake(10)
 			flash(Color(0.85, 0.6, 1.0))
-			float_text("찌릿!", cam.unproject_position(body_c), Color(0.95, 0.7, 1.0), 1.0)
+			float_text(tr("찌릿!"), cam.unproject_position(body_c), Color(0.95, 0.7, 1.0), 1.0)
 
 # 물 위에서 비쳐 드는 빛줄기: 가운데가 밝고 가장자리·아래로 갈수록 부드럽게 사라지는 판을 십자로
 func make_light_shafts(r: RandomNumberGenerator) -> void:
@@ -978,7 +979,7 @@ func make_palace() -> void:
 		add_solid(Vector3(gx, y + 3.0, GATE_Z), Vector3(0.8, 6.0, 0.8), Color(0, 0, 0, 0))
 	gate_parts.append(add_mbox(self, jade, Vector3(8.4, 0.5, 1.4), Vector3(0, y + 6.2, GATE_Z)))
 	gate_parts.append(add_mbox(self, red, Vector3(7.6, 0.6, 0.6), Vector3(0, y + 5.6, GATE_Z)))
-	add_tag_at(Vector3(0, y + 7.2, GATE_Z), "용궁")
+	add_tag_at(Vector3(0, y + 7.2, GATE_Z), tr("용궁"))
 	# 진주 등불
 	var pearl := StandardMaterial3D.new()
 	pearl.albedo_color = Color(1.0, 0.97, 0.9)
@@ -1020,12 +1021,12 @@ func make_palace() -> void:
 		cspots.append(on_ground(p.x, p.z, -0.05))
 	add_coral_field(cspots, r)
 	# 북 (꽃게와 북 치기)
-	var drum := make_spot(Vector3(DRUM_POS.x, y, DRUM_POS.z), "drum", "", "용궁 북", true)
+	var drum := make_spot(Vector3(DRUM_POS.x, y, DRUM_POS.z), "drum", "", tr("용궁 북"), true)
 	add_mcyl(drum, red, 0.65, 0.65, 0.9, Vector3(0, 1.3, 0)).rotation.x = PI / 2.0
 	add_mcyl(drum, make_color(Color(0.95, 0.9, 0.8)), 0.6, 0.6, 0.92, Vector3(0, 1.3, 0)).rotation.x = PI / 2.0
 	add_mbox(drum, make_color(Color(0.4, 0.28, 0.18)), Vector3(0.2, 0.8, 0.2), Vector3(0, 0.4, 0))
 	# 큰 조개 (진주 받기)
-	var bc := make_spot(Vector3(BIGCLAM_POS.x, y, BIGCLAM_POS.z), "bigclam", "", "커다란 조개", true)
+	var bc := make_spot(Vector3(BIGCLAM_POS.x, y, BIGCLAM_POS.z), "bigclam", "", tr("커다란 조개"), true)
 	add_blobs(bc, [
 		[Vector3(0, 0.4, 0), Vector3(2.2, 0.6, 1.8), Color(0.85, 0.78, 0.9)],
 		[Vector3(0, 1.0, -0.6), Vector3(2.1, 0.4, 1.6), Color(0.88, 0.8, 0.95), Vector3(-40, 0, 0)],
@@ -1041,14 +1042,14 @@ func add_tag_at(pos: Vector3, text: String) -> void:
 # ---------- 사람들 ----------
 
 func make_story() -> void:
-	make_npc("jara", "자라", Color.WHITE, on_ground(JARA_BEACH.x, JARA_BEACH.z), 1.0, false)
-	make_npc("haenyeo", "해녀", Color.WHITE, on_ground(HAENYEO_POS.x, HAENYEO_POS.z), 1.0, true)
+	make_npc("jara", tr("자라"), Color.WHITE, on_ground(JARA_BEACH.x, JARA_BEACH.z), 1.0, false)
+	make_npc("haenyeo", tr("해녀"), Color.WHITE, on_ground(HAENYEO_POS.x, HAENYEO_POS.z), 1.0, true)
 	pick_rabbit_route()
-	make_npc("rabbit", "토끼", Color.WHITE, on_ground(rabbit_route[0].x, rabbit_route[0].z), 0.85, false)
-	make_npc("flatfish", "넙치 문지기", Color.WHITE, Vector3(FLATFISH_POS.x, PALACE_Y + 0.25, FLATFISH_POS.z), 1.0, true)
-	make_npc("yongwang", "용왕", Color.WHITE, Vector3(YONGWANG_POS.x, PALACE_Y + 0.25, YONGWANG_POS.z), 1.0, true)
-	make_npc("octopus", "문어 장군", Color.WHITE, Vector3(OCTOPUS_POS.x, PALACE_Y + 0.25, OCTOPUS_POS.z), 1.0, false)
-	make_npc("crab", "꽃게 신하", Color.WHITE, Vector3(CRAB_POS.x, PALACE_Y + 0.25, CRAB_POS.z), 0.9, true)
+	make_npc("rabbit", tr("토끼"), Color.WHITE, on_ground(rabbit_route[0].x, rabbit_route[0].z), 0.85, false)
+	make_npc("flatfish", tr("넙치 문지기"), Color.WHITE, Vector3(FLATFISH_POS.x, PALACE_Y + 0.25, FLATFISH_POS.z), 1.0, true)
+	make_npc("yongwang", tr("용왕"), Color.WHITE, Vector3(YONGWANG_POS.x, PALACE_Y + 0.25, YONGWANG_POS.z), 1.0, true)
+	make_npc("octopus", tr("문어 장군"), Color.WHITE, Vector3(OCTOPUS_POS.x, PALACE_Y + 0.25, OCTOPUS_POS.z), 1.0, false)
+	make_npc("crab", tr("꽃게 신하"), Color.WHITE, Vector3(CRAB_POS.x, PALACE_Y + 0.25, CRAB_POS.z), 0.9, true)
 	npc("jara").rotation.y = PI * 0.15
 	make_mulji_items()
 	make_octos()
@@ -1104,25 +1105,25 @@ func update_quest_text() -> void:
 	var t := ""
 	match quest:
 		S_ARRIVE:
-			t = "모래사장 바위에 지쳐 있는 자라에게 말 걸기"
+			t = tr("모래사장 바위에 지쳐 있는 자라에게 말 걸기")
 		S_FIND:
-			t = "뒷산 숲에서 토끼를 쫓아가 잡기! (바짝 붙거나 점프해서 덮쳐요)"
+			t = tr("뒷산 숲에서 토끼를 쫓아가 잡기! (바짝 붙거나 점프해서 덮쳐요)")
 		S_LURE:
-			t = "토끼를 데리고 바닷가 자라에게 가기"
+			t = tr("토끼를 데리고 바닷가 자라에게 가기")
 		S_DIVE:
-			t = "자라를 따라 빛나는 물살 고리 지나기 (%d/%d) | 위로 버튼을 누르면 떠올라요" % [ring_next, rings.size()]
+			t = tr("자라를 따라 빛나는 물살 고리 지나기 (%d/%d) | 위로 버튼을 누르면 떠올라요") % [ring_next, rings.size()]
 		S_DEEP:
-			t = "산호 숲과 해초 숲, 깊은 골짜기를 지나 북쪽 용궁 문까지 헤엄치기"
+			t = tr("산호 숲과 해초 숲, 깊은 골짜기를 지나 북쪽 용궁 문까지 헤엄치기")
 		S_GATE:
-			t = "용궁 문 앞의 넙치 문지기에게 말 걸기"
+			t = tr("용궁 문 앞의 넙치 문지기에게 말 걸기")
 		S_COURT:
-			t = "용궁 전각 앞 용왕님 뵙기"
+			t = tr("용궁 전각 앞 용왕님 뵙기")
 		S_FEAST:
-			t = "용궁 잔치 돕기: 꽃게 신하의 북 · 문어 장군의 큰 조개 · 자라와 용궁 춤, 다 하면 용왕님께"
+			t = tr("용궁 잔치 돕기: 꽃게 신하의 북 · 문어 장군의 큰 조개 · 자라와 용궁 춤, 다 하면 용왕님께")
 		S_ESCAPE:
-			t = "문어 장군이 쫓아와요! 남쪽 물가까지 헤엄쳐 올라가기"
+			t = tr("문어 장군이 쫓아와요! 남쪽 물가까지 헤엄쳐 올라가기")
 		S_END:
-			t = "3장 끝! 체험판을 모두 마쳤어요. 바닷속을 마음껏 헤엄쳐 보세요"
+			t = tr("3장 끝! 체험판을 모두 마쳤어요. 바닷속을 마음껏 헤엄쳐 보세요")
 	var pc := 0
 	for b in pearls:
 		pc += 1 if b else 0
@@ -1130,11 +1131,11 @@ func update_quest_text() -> void:
 	for b2 in fish_seen:
 		fc += 1 if b2 else 0
 	if dive_on:
-		t = "해녀 물질: 숨을 참고 들어가 반짝이는 전복·소라 줍기 (%d/%d) | 위로 버튼으로 숨 쉬기" % [mulji_got, mulji_items.size()]
+		t = tr("해녀 물질: 숨을 참고 들어가 반짝이는 전복·소라 줍기 (%d/%d) | 위로 버튼으로 숨 쉬기") % [mulji_got, mulji_items.size()]
 	var extra := ""
 	if quest >= S_DIVE:
-		extra = " | 새끼 문어 %d/5" % octo_count()
-	quest_label.text = "할 일: %s\n엽전 %d냥 | 진주 %d/3 | 물고기 도감 %d/4%s" % [t, shown_coins, pc, fc, extra]
+		extra = tr(" | 새끼 문어 %d/5") % octo_count()
+	quest_label.text = tr("할 일: %s\n엽전 %d냥 | 진주 %d/3 | 물고기 도감 %d/4%s") % [t, shown_coins, pc, fc, extra]
 
 # ---------- 헤엄치기 ----------
 
@@ -1214,10 +1215,10 @@ func _process(delta: float) -> void:
 		bubbles.emitting = swimming
 	if swimming != swim_shown and jump_button != null:
 		swim_shown = swimming
-		jump_button.text = "위로" if swimming else "점프"
+		jump_button.text = tr("위로") if swimming else tr("점프")
 		if swimming and not shown_swim_tip:
 			shown_swim_tip = true
-			float_text("위로 버튼을 누르고 있으면 떠올라요", get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(0.8, 0.95, 1.0), 2.4)
+			float_text(tr("위로 버튼을 누르고 있으면 떠올라요"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(0.8, 0.95, 1.0), 2.4)
 	update_followers(delta)
 	update_story(delta)
 
@@ -1336,9 +1337,9 @@ func update_story(delta: float) -> void:
 			if player.position.z < GATE_Z + 6.0:
 				event_lock = true
 				say([
-					["자라", "저기 붉은 기둥이 보이지요? 용궁 문이오!"],
-					["토끼", "우와... 정말 진주로 지은 궁궐이네? 벼슬 준다는 말도 진짜겠지?"],
-					["자라", "문지기 넙치에게 먼저 아뢰어야 하오. 넙치는 수수께끼를 좋아한다오."],
+					[tr("자라"), tr("저기 붉은 기둥이 보이지요? 용궁 문이오!")],
+					[tr("토끼"), tr("우와... 정말 진주로 지은 궁궐이네? 벼슬 준다는 말도 진짜겠지?")],
+					[tr("자라"), tr("문지기 넙치에게 먼저 아뢰어야 하오. 넙치는 수수께끼를 좋아한다오.")],
 				], func():
 					event_lock = false
 					set_quest(S_GATE))
@@ -1365,7 +1366,7 @@ func update_rabbit_chase(delta: float) -> void:
 		hit_stop(0.1)
 		shake(12)
 		burst3d(rabbit.position + Vector3(0, 1.0, 0), Color(1, 1, 0.95), 24)
-		float_text("잡았다!" if not airborne else "덮쳤다! 잡았다!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.9, 0.4), 1.8)
+		float_text(tr("잡았다!") if not airborne else tr("덮쳤다! 잡았다!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.9, 0.4), 1.8)
 		rabbit.rotation.y = atan2(-to_r.x, -to_r.z)
 		if body != null:
 			body.set_meta("gait", [0.0, 0.0, 0.0])
@@ -1407,10 +1408,10 @@ func update_rabbit_chase(delta: float) -> void:
 		rabbit_stam = maxf(0.0, rabbit_stam - delta * 0.085)
 		if rabbit_stam < 0.3 and rng.randf() < delta * 0.6:
 			rabbit_rest = 0.7
-			float_text("헉헉...", cam.unproject_position(rabbit.position + Vector3(0, 2.2, 0)), Color(1, 1, 0.9), 0.9)
+			float_text(tr("헉헉..."), cam.unproject_position(rabbit.position + Vector3(0, 2.2, 0)), Color(1, 1, 0.9), 0.9)
 		elif rabbit_taunt <= 0.0 and d < 6.0:
 			rabbit_taunt = rng.randf_range(2.5, 4.5)
-			float_text(["메롱~", "나 잡아 봐라!", "느림보~", "여기야 여기!"][rng.randi() % 4], cam.unproject_position(rabbit.position + Vector3(0, 2.2, 0)), Color(1, 1, 0.9), 1.0)
+			float_text([tr("메롱~"), tr("나 잡아 봐라!"), tr("느림보~"), tr("여기야 여기!")][rng.randi() % 4], cam.unproject_position(rabbit.position + Vector3(0, 2.2, 0)), Color(1, 1, 0.9), 1.0)
 	else:
 		rabbit_stam = minf(1.0, rabbit_stam + delta * 0.12)
 	if speed > 0.0:
@@ -1428,10 +1429,10 @@ func update_rabbit_chase(delta: float) -> void:
 
 func on_rabbit_caught() -> void:
 	say([
-		["토끼", "헉헉, 내가 졌다! 너 발 빠르구나. 그런데 무슨 일이야?"],
-		["", "(바닷가에서 자라가 토끼를 찾고 있다고 전했다.)"],
-		["토끼", "자라가 날? 왜?"],
-	], func(): ask("", "자라가 \"용궁 구경시켜 주고 벼슬도 준다\"고 했다고 전할까?", ["\"용궁 구경 가자! 벼슬도 준대\"", "\"...좀 이상하긴 한데, 조심해\""], on_lure))
+		[tr("토끼"), tr("헉헉, 내가 졌다! 너 발 빠르구나. 그런데 무슨 일이야?")],
+		["", tr("(바닷가에서 자라가 토끼를 찾고 있다고 전했다.)")],
+		[tr("토끼"), tr("자라가 날? 왜?")],
+	], func(): ask("", tr("자라가 \"용궁 구경시켜 주고 벼슬도 준다\"고 했다고 전할까?"), [tr("\"용궁 구경 가자! 벼슬도 준대\""), tr("\"...좀 이상하긴 한데, 조심해\"")], on_lure))
 
 func update_rings() -> void:
 	if ring_next >= rings.size():
@@ -1453,10 +1454,10 @@ func update_rings() -> void:
 		if ring_next >= rings.size():
 			earn(10)
 			say([
-				["자라", "잘 따라오셨소! 이제 물살이 잔잔하니 마음껏 헤엄쳐도 되오."],
-				["자라", "용궁은 북쪽 깊은 곳에 있소. 산호 숲, 해초 숲, 깊은 골짜기를 지나야 하오."],
-				["자라", "골짜기의 빛나는 해파리는 건드리면 찌릿하니 조심하시오!"],
-				["자라", "참, 해초 숲엔 길 잃은 새끼 문어 다섯이 모래빛으로 숨어 있다 하오. 가까이 가면 꼼지락거린다오."],
+				[tr("자라"), tr("잘 따라오셨소! 이제 물살이 잔잔하니 마음껏 헤엄쳐도 되오.")],
+				[tr("자라"), tr("용궁은 북쪽 깊은 곳에 있소. 산호 숲, 해초 숲, 깊은 골짜기를 지나야 하오.")],
+				[tr("자라"), tr("골짜기의 빛나는 해파리는 건드리면 찌릿하니 조심하시오!")],
+				[tr("자라"), tr("참, 해초 숲엔 길 잃은 새끼 문어 다섯이 모래빛으로 숨어 있다 하오. 가까이 가면 꼼지락거린다오.")],
 			], func(): set_quest(S_DEEP))
 
 # ---------- 말 걸기 ----------
@@ -1482,38 +1483,38 @@ func talk_jara() -> void:
 	match quest:
 		S_ARRIVE:
 			say([
-				["자라", "헉헉... 뭍은 어찌 이리 덥고 메마르단 말이오..."],
-				["자라", "아, 실례했소. 나는 바닷속 용궁의 신하 별주부라 하오."],
-				["자라", "우리 용왕님께서 큰 병이 드셨는데, 뭍의 토끼라는 짐승이 있어야 낫는다 하오."],
-				["자라", "(자라가 둘둘 만 그림을 펼쳐 보였다. 귀가 길쭉한 하얀 짐승이다.)"],
-				["자라", "그런데 내 다리가 짧아 뒷산까지 오르기가 힘들구려. 토끼를 좀 찾아 주겠소?"],
+				[tr("자라"), tr("헉헉... 뭍은 어찌 이리 덥고 메마르단 말이오...")],
+				[tr("자라"), tr("아, 실례했소. 나는 바닷속 용궁의 신하 별주부라 하오.")],
+				[tr("자라"), tr("우리 용왕님께서 큰 병이 드셨는데, 뭍의 토끼라는 짐승이 있어야 낫는다 하오.")],
+				[tr("자라"), tr("(자라가 둘둘 만 그림을 펼쳐 보였다. 귀가 길쭉한 하얀 짐승이다.)")],
+				[tr("자라"), tr("그런데 내 다리가 짧아 뒷산까지 오르기가 힘들구려. 토끼를 좀 찾아 주겠소?")],
 			], func():
 				pick_rabbit_route()
 				var rp: Vector3 = rabbit_route[0]
 				npc("rabbit").position = on_ground(rp.x, rp.z)
 				set_quest(S_FIND))
 		S_FIND:
-			say([["자라", "토끼는 뒷산 숲 덤불 사이에 산다 하오. 귀가 쫑긋하니 금방 알아볼 게요."]], Callable())
+			say([[tr("자라"), tr("토끼는 뒷산 숲 덤불 사이에 산다 하오. 귀가 쫑긋하니 금방 알아볼 게요.")]], Callable())
 		S_LURE:
 			say([
-				["자라", "오오, 이분이 토끼 선생이시구려! 반갑소."],
-				["토끼", "용궁 구경에 벼슬까지 준다니, 어서 가요 어서!"],
-				["자라", "물속에서도 숨을 쉴 수 있게, 이 물방울 구슬을 하나씩 드리겠소."],
-				["", "물방울 구슬을 받았다! 머리에 투명한 거품이 씌워졌다."],
-				["자라", "내 뒤를 따라 빛나는 물살 고리를 지나 오시오. 위로 버튼을 누르면 떠오르고, 떼면 가라앉소."],
+				[tr("자라"), tr("오오, 이분이 토끼 선생이시구려! 반갑소.")],
+				[tr("토끼"), tr("용궁 구경에 벼슬까지 준다니, 어서 가요 어서!")],
+				[tr("자라"), tr("물속에서도 숨을 쉴 수 있게, 이 물방울 구슬을 하나씩 드리겠소.")],
+				["", tr("물방울 구슬을 받았다! 머리에 투명한 거품이 씌워졌다.")],
+				[tr("자라"), tr("내 뒤를 따라 빛나는 물살 고리를 지나 오시오. 위로 버튼을 누르면 떠오르고, 떼면 가라앉소.")],
 			], start_dive)
 		S_FEAST:
 			if not feast_done("dance"):
-				say([["자라", "잔치에 춤이 빠질 수 있소? 내가 먼저 출 테니 똑같이 따라 추시오!"]], start_dance)
+				say([[tr("자라"), tr("잔치에 춤이 빠질 수 있소? 내가 먼저 출 테니 똑같이 따라 추시오!")]], start_dance)
 			else:
-				say([["자라", "허허, 그대 춤 솜씨에 용왕님 얼굴이 다 밝아지셨소."]], Callable())
+				say([[tr("자라"), tr("허허, 그대 춤 솜씨에 용왕님 얼굴이 다 밝아지셨소.")]], Callable())
 		S_END:
 			if ending == "ginseng":
-				say([["자라", "산삼 덕에 용왕님 병이 씻은 듯 나으셨다오. 그대의 고마움은 잊지 않겠소."]], Callable())
+				say([[tr("자라"), tr("산삼 덕에 용왕님 병이 씻은 듯 나으셨다오. 그대의 고마움은 잊지 않겠소.")]], Callable())
 			else:
-				say([["자라", "토끼에게는 속았지만... 그대와 함께한 바닷길은 즐거웠소."]], Callable())
+				say([[tr("자라"), tr("토끼에게는 속았지만... 그대와 함께한 바닷길은 즐거웠소.")]], Callable())
 		_:
-			say([["자라", "용궁은 북쪽 깊은 바닷속이오. 함께 갑시다."]], Callable())
+			say([[tr("자라"), tr("용궁은 북쪽 깊은 바닷속이오. 함께 갑시다.")]], Callable())
 
 func start_dive() -> void:
 	sea_wall.set_deferred("disabled", true)
@@ -1528,22 +1529,22 @@ func start_dive() -> void:
 func talk_rabbit() -> void:
 	if quest == S_FIND:
 		if not rabbit_caught:
-			say([["토끼", "메롱~ 말로는 안 잡히지! 나 잡아 봐라!"]], Callable())
+			say([[tr("토끼"), tr("메롱~ 말로는 안 잡히지! 나 잡아 봐라!")]], Callable())
 			return
 		on_rabbit_caught()
 	elif quest == S_END:
-		say([["토끼", "히히, 간을 빼놓고 다니는 짐승이 어디 있니? 그래도 너는 고마웠어!"]], Callable())
+		say([[tr("토끼"), tr("히히, 간을 빼놓고 다니는 짐승이 어디 있니? 그래도 너는 고마웠어!")]], Callable())
 	else:
-		say([["토끼", "용궁엔 진주가 산더미래! 벼슬은 무슨 벼슬일까?"]], Callable())
+		say([[tr("토끼"), tr("용궁엔 진주가 산더미래! 벼슬은 무슨 벼슬일까?")]], Callable())
 
 func on_lure(i: int) -> void:
 	lured = i == 0
 	var l := []
 	if lured:
-		l.append(["토끼", "용궁? 벼슬? 우와, 이런 산골에서 풀만 뜯을 수야 없지! 가자 가자!"])
+		l.append([tr("토끼"), tr("용궁? 벼슬? 우와, 이런 산골에서 풀만 뜯을 수야 없지! 가자 가자!")])
 	else:
-		l.append(["토끼", "조심하라고? 에이, 걱정 마. 이 몸은 꾀주머니 토끼라고!"])
-		l.append(["토끼", "그래도 용궁 구경은 놓칠 수 없지. 가 보자!"])
+		l.append([tr("토끼"), tr("조심하라고? 에이, 걱정 마. 이 몸은 꾀주머니 토끼라고!")])
+		l.append([tr("토끼"), tr("그래도 용궁 구경은 놓칠 수 없지. 가 보자!")])
 	say(l, func():
 		follow_on = true
 		set_quest(S_LURE))
@@ -1551,45 +1552,45 @@ func on_lure(i: int) -> void:
 func talk_haenyeo() -> void:
 	if not clams_done:
 		say([
-			["해녀", "어머, 처음 보는 꼬마네! 바다 구경 왔니?"],
-			["해녀", "저기 갯벌 숨구멍에서 조개가 뽀글뽀글 올라온단다. 좀 캐다 줄래?"],
-			["해녀", "다 캐면 바닷속에서 쓰는 좋은 걸 하나 알려 주마."],
+			[tr("해녀"), tr("어머, 처음 보는 꼬마네! 바다 구경 왔니?")],
+			[tr("해녀"), tr("저기 갯벌 숨구멍에서 조개가 뽀글뽀글 올라온단다. 좀 캐다 줄래?")],
+			[tr("해녀"), tr("다 캐면 바닷속에서 쓰는 좋은 걸 하나 알려 주마.")],
 		], Callable())
 	elif dive_on:
-		say([["해녀", "반짝이는 게 전복이랑 소라야. 숨이 차면 위로 올라와서 쉬렴!"]], Callable())
+		say([[tr("해녀"), tr("반짝이는 게 전복이랑 소라야. 숨이 차면 위로 올라와서 쉬렴!")]], Callable())
 	elif not mulji_done and quest < S_DIVE:
 		say([
-			["해녀", "조개 캐는 솜씨가 좋던걸? 이번엔 물질 한번 해 볼래?"],
-			["해녀", "숨을 꾹 참고 들어가서 바닥에 반짝이는 전복이랑 소라 여섯 개만 주워 오렴."],
-			["해녀", "숨이 모자라면 위로 버튼을 눌러 물 위로 올라와서 숨을 쉬어야 해!"],
+			[tr("해녀"), tr("조개 캐는 솜씨가 좋던걸? 이번엔 물질 한번 해 볼래?")],
+			[tr("해녀"), tr("숨을 꾹 참고 들어가서 바닥에 반짝이는 전복이랑 소라 여섯 개만 주워 오렴.")],
+			[tr("해녀"), tr("숨이 모자라면 위로 버튼을 눌러 물 위로 올라와서 숨을 쉬어야 해!")],
 		], start_mulji)
 	elif quest < S_DIVE:
-		say([["해녀", "바닷속에선 숨이 제일이야. 자라가 물방울 구슬을 준다면 꼭 받으렴."]], Callable())
+		say([[tr("해녀"), tr("바닷속에선 숨이 제일이야. 자라가 물방울 구슬을 준다면 꼭 받으렴.")]], Callable())
 	elif quest == S_END:
-		say([["해녀", "용궁에 다녀왔다고? 호호, 다음엔 나도 데려가 줘!"]], Callable())
+		say([[tr("해녀"), tr("용궁에 다녀왔다고? 호호, 다음엔 나도 데려가 줘!")]], Callable())
 	else:
-		say([["해녀", "가라앉은 배 안에 진주가 숨어 있다더라. 물고기 떼도 가까이서 보면 참 예뻐."]], Callable())
+		say([[tr("해녀"), tr("가라앉은 배 안에 진주가 숨어 있다더라. 물고기 떼도 가까이서 보면 참 예뻐.")]], Callable())
 
 func talk_flatfish() -> void:
 	if quest == S_GATE:
 		say([
-			["넙치 문지기", "멈추시오! 용궁에 들어가려면 내 수수께끼를 풀어야 하오."],
-		], func(): ask("넙치 문지기", "\"눈은 둘인데 한쪽에만 붙었고, 바닥에 납작 엎드려 사는 건?\"", ["넙치!", "가자미!", "문어!"], on_riddle))
+			[tr("넙치 문지기"), tr("멈추시오! 용궁에 들어가려면 내 수수께끼를 풀어야 하오.")],
+		], func(): ask(tr("넙치 문지기"), tr("\"눈은 둘인데 한쪽에만 붙었고, 바닥에 납작 엎드려 사는 건?\""), [tr("넙치!"), tr("가자미!"), tr("문어!")], on_riddle))
 	elif quest > S_GATE:
-		say([["넙치 문지기", "(두 눈을 데굴데굴) 수상한 자는 못 들어간다... 아, 그대는 이미 들어왔지."]], Callable())
+		say([[tr("넙치 문지기"), tr("(두 눈을 데굴데굴) 수상한 자는 못 들어간다... 아, 그대는 이미 들어왔지.")]], Callable())
 	else:
-		say([["넙치 문지기", "여기는 용궁 문이오."]], Callable())
+		say([[tr("넙치 문지기"), tr("여기는 용궁 문이오.")]], Callable())
 
 func on_riddle(i: int) -> void:
 	if i == 2:
-		say([["넙치 문지기", "문어 장군이 들으면 섭섭하겠소! 다시 생각해 보시오."]], talk_flatfish)
+		say([[tr("넙치 문지기"), tr("문어 장군이 들으면 섭섭하겠소! 다시 생각해 보시오.")]], talk_flatfish)
 		return
 	var l := []
 	if i == 0:
-		l.append(["넙치 문지기", "허허, 바로 나요! 맞혔소!"])
+		l.append([tr("넙치 문지기"), tr("허허, 바로 나요! 맞혔소!")])
 	else:
-		l.append(["넙치 문지기", "가자미 녀석도 닮긴 했지... 반쯤 맞힌 걸로 치겠소!"])
-	l.append(["넙치 문지기", "들어가시오. 용왕님께서 전각 앞에서 기다리신다오."])
+		l.append([tr("넙치 문지기"), tr("가자미 녀석도 닮긴 했지... 반쯤 맞힌 걸로 치겠소!")])
+	l.append([tr("넙치 문지기"), tr("들어가시오. 용왕님께서 전각 앞에서 기다리신다오.")])
 	say(l, func():
 		follow_on = false
 		var jara := npc("jara")
@@ -1604,29 +1605,29 @@ func talk_yongwang() -> void:
 	match quest:
 		S_COURT:
 			say([
-				["용왕", "콜록콜록... 그대가 토끼를 데려왔구려..."],
-				["토끼", "용왕님! 벼슬은 언제 주시나요? 진주 관이면 좋겠는데요!"],
-				["용왕", "벼슬이라... 미안하오, 토끼여. 내 병에는 그대의 간이 약이라 하오."],
-				["토끼", "가, 간이요?! (귀가 바짝 섰다)"],
-				["문어 장군", "그렇다! 여봐라, 토끼를 붙잡아라!"],
-				["토끼", "(토끼가 꼴깍 침을 삼키더니, 갑자기 껄껄 웃었다)"],
-				["토끼", "아이고, 용왕님! 하필 오늘 간을 꺼내서 바닷가 바위에 말려 두고 왔지 뭡니까!"],
-				["토끼", "토끼 간은 영험해서, 사흘에 한 번 꺼내 햇볕에 말려야 하거든요."],
-			], func(): ask("용왕", "(용왕이 그대를 바라본다) 정말 그러하냐?", ["\"네! 바위에 간이 널려 있는 걸 봤어요\"", "(아무 말 없이 고개를 숙인다)"], on_back))
+				[tr("용왕"), tr("콜록콜록... 그대가 토끼를 데려왔구려...")],
+				[tr("토끼"), tr("용왕님! 벼슬은 언제 주시나요? 진주 관이면 좋겠는데요!")],
+				[tr("용왕"), tr("벼슬이라... 미안하오, 토끼여. 내 병에는 그대의 간이 약이라 하오.")],
+				[tr("토끼"), tr("가, 간이요?! (귀가 바짝 섰다)")],
+				[tr("문어 장군"), tr("그렇다! 여봐라, 토끼를 붙잡아라!")],
+				[tr("토끼"), tr("(토끼가 꼴깍 침을 삼키더니, 갑자기 껄껄 웃었다)")],
+				[tr("토끼"), tr("아이고, 용왕님! 하필 오늘 간을 꺼내서 바닷가 바위에 말려 두고 왔지 뭡니까!")],
+				[tr("토끼"), tr("토끼 간은 영험해서, 사흘에 한 번 꺼내 햇볕에 말려야 하거든요.")],
+			], func(): ask(tr("용왕"), tr("(용왕이 그대를 바라본다) 정말 그러하냐?"), [tr("\"네! 바위에 간이 널려 있는 걸 봤어요\""), tr("(아무 말 없이 고개를 숙인다)")], on_back))
 		S_FEAST:
 			if feast_done("drum") and feast_done("pearl") and feast_done("dance"):
 				say([
-					["용왕", "잔치가 흥겨웠소. 이제 자라와 함께 가서 간을 가져오시오."],
-					["문어 장군", "(소곤) 수상하다... 간을 꺼내 말리는 짐승이 어디 있어?"],
-					["문어 장군", "용왕님, 소장이 뒤따라가 지켜보겠습니다!"],
-					["자라", "(소곤) 서두르시오! 문어 장군이 쫓아오기 전에 물 위로 올라갑시다!"],
+					[tr("용왕"), tr("잔치가 흥겨웠소. 이제 자라와 함께 가서 간을 가져오시오.")],
+					[tr("문어 장군"), tr("(소곤) 수상하다... 간을 꺼내 말리는 짐승이 어디 있어?")],
+					[tr("문어 장군"), tr("용왕님, 소장이 뒤따라가 지켜보겠습니다!")],
+					[tr("자라"), tr("(소곤) 서두르시오! 문어 장군이 쫓아오기 전에 물 위로 올라갑시다!")],
 				], start_escape)
 			else:
-				say([["용왕", "떠나기 전에 잔치를 열어 주겠소. 꽃게와 문어 장군을 돕고, 자라와 춤도 춰 주시오."]], Callable())
+				say([[tr("용왕"), tr("떠나기 전에 잔치를 열어 주겠소. 꽃게와 문어 장군을 돕고, 자라와 춤도 춰 주시오.")]], Callable())
 		S_END:
-			say([["용왕", "(멀리서 들려오는 듯한 목소리) 고맙소, 뭍의 아이여..."]], Callable())
+			say([[tr("용왕"), tr("(멀리서 들려오는 듯한 목소리) 고맙소, 뭍의 아이여...")]], Callable())
 		_:
-			say([["용왕", "콜록... 어서 오시오."]], Callable())
+			say([[tr("용왕"), tr("콜록... 어서 오시오.")]], Callable())
 
 var feast_flags := {}
 
@@ -1637,34 +1638,34 @@ func on_back(i: int) -> void:
 	backed = i == 0
 	var l := []
 	if backed:
-		l.append(["토끼", "(눈을 찡긋) 봐요, 이 아이도 봤다잖아요!"])
+		l.append([tr("토끼"), tr("(눈을 찡긋) 봐요, 이 아이도 봤다잖아요!")])
 	else:
-		l.append(["토끼", "(땀을 삐질) 이 아이는 부끄럼이 많아서요. 아무튼 정말이라니까요!"])
-	l.append(["용왕", "허허, 그렇다면 자라와 함께 뭍에 다녀오시오."])
-	l.append(["용왕", "그 전에 먼 길 떠나는 손님을 위해 잔치를 열어라!"])
-	l.append(["꽃게 신하", "네, 넷! 북, 북을 칠 사람이... 아이고 바쁘다 바빠!"])
+		l.append([tr("토끼"), tr("(땀을 삐질) 이 아이는 부끄럼이 많아서요. 아무튼 정말이라니까요!")])
+	l.append([tr("용왕"), tr("허허, 그렇다면 자라와 함께 뭍에 다녀오시오.")])
+	l.append([tr("용왕"), tr("그 전에 먼 길 떠나는 손님을 위해 잔치를 열어라!")])
+	l.append([tr("꽃게 신하"), tr("네, 넷! 북, 북을 칠 사람이... 아이고 바쁘다 바빠!")])
 	say(l, func(): set_quest(S_FEAST))
 
 func talk_crab() -> void:
 	if quest == S_FEAST and not feast_done("drum"):
-		say([["꽃게 신하", "집게로 북채를 잡으니 자꾸 미끄러져요! 대신 북 좀 쳐 주시겠어요?"]], start_drum)
+		say([[tr("꽃게 신하"), tr("집게로 북채를 잡으니 자꾸 미끄러져요! 대신 북 좀 쳐 주시겠어요?")]], start_drum)
 	elif quest == S_FEAST:
-		say([["꽃게 신하", "둥둥! 잔치 북소리 덕분에 용궁이 들썩들썩해요!"]], Callable())
+		say([[tr("꽃게 신하"), tr("둥둥! 잔치 북소리 덕분에 용궁이 들썩들썩해요!")]], Callable())
 	else:
-		say([["꽃게 신하", "아이고 바쁘다 바빠! 옆으로 걸으니 더 바쁘네!"]], Callable())
+		say([[tr("꽃게 신하"), tr("아이고 바쁘다 바빠! 옆으로 걸으니 더 바쁘네!")]], Callable())
 
 func talk_octopus() -> void:
 	if quest == S_FEAST and not feast_done("pearl"):
 		say([
-			["문어 장군", "흥, 뭍의 꼬마가 잔치를 돕겠다고? 솜씨 좀 보자."],
-			["문어 장군", "저 큰 조개가 진주를 뱉어 낸다. 진주는 받고, 뾰족한 성게는 피해라!"],
+			[tr("문어 장군"), tr("흥, 뭍의 꼬마가 잔치를 돕겠다고? 솜씨 좀 보자.")],
+			[tr("문어 장군"), tr("저 큰 조개가 진주를 뱉어 낸다. 진주는 받고, 뾰족한 성게는 피해라!")],
 		], start_pearl)
 	elif quest == S_FEAST:
-		say([["문어 장군", "제법이군... 그래도 토끼 녀석은 영 수상해."]], Callable())
+		say([[tr("문어 장군"), tr("제법이군... 그래도 토끼 녀석은 영 수상해.")]], Callable())
 	elif quest == S_END:
-		say([["문어 장군", "(먹물을 뿜으며) 다음엔 안 놓친다!"]], Callable())
+		say([[tr("문어 장군"), tr("(먹물을 뿜으며) 다음엔 안 놓친다!")]], Callable())
 	else:
-		say([["문어 장군", "용궁을 지키는 문어 장군이다! 수상한 자는 이 삼지창 맛을 보리라!"]], Callable())
+		say([[tr("문어 장군"), tr("용궁을 지키는 문어 장군이다! 수상한 자는 이 삼지창 맛을 보리라!")]], Callable())
 
 # ---------- 물건 누르기 ----------
 
@@ -1687,17 +1688,17 @@ func is_active(t: Dictionary) -> bool:
 func action_text(t: Dictionary) -> String:
 	match t["kind"]:
 		"clam":
-			return "조개 캐기"
+			return tr("조개 캐기")
 		"ginseng":
-			return "약초 캐기"
+			return tr("약초 캐기")
 		"pearl":
-			return "진주 줍기"
+			return tr("진주 줍기")
 		"drum":
-			return "북 치기"
+			return tr("북 치기")
 		"bigclam":
-			return "진주 받기"
+			return tr("진주 받기")
 		"chest":
-			return "보물 상자 열기"
+			return tr("보물 상자 열기")
 	return super(t)
 
 func on_action() -> void:
@@ -1714,7 +1715,7 @@ func on_action() -> void:
 			has_ginseng = true
 			node.visible = false
 			burst3d(node.position + Vector3(0, 0.5, 0), Color(0.9, 0.3, 0.3), 16)
-			say([["", "빨간 열매가 달린 산삼을 캤다! 귀한 약초다. 언젠가 쓸 데가 있겠지."]], func(): save_progress())
+			say([["", tr("빨간 열매가 달린 산삼을 캤다! 귀한 약초다. 언젠가 쓸 데가 있겠지.")]], func(): save_progress())
 		"pearl":
 			sfx("good")
 			pearls[int(t["id"])] = true
@@ -1724,10 +1725,10 @@ func on_action() -> void:
 			var n := 0
 			for b in pearls:
 				n += 1 if b else 0
-			var l := [["", "조개 속에서 동그란 진주를 찾았다! (%d/3)" % n]]
+			var l := [["", tr("조개 속에서 동그란 진주를 찾았다! (%d/3)") % n]]
 			if n >= 3:
 				earn(15)
-				l.append(["", "진주 세 알을 모두 모았다! 반짝반짝 예쁘다."])
+				l.append(["", tr("진주 세 알을 모두 모았다! 반짝반짝 예쁘다.")])
 			say(l, func(): update_quest_text(); save_progress())
 		"drum":
 			sfx("tap")
@@ -1747,41 +1748,41 @@ func on_action() -> void:
 # ---------- 미니게임 ----------
 
 func start_clam() -> void:
-	start_game("dig", {"world": true, "scene": "clam", "art": "world", "title": "거품이 뽀글뽀글 오르는 숨구멍을 톡!\n바지락은 톡톡, 맛조개는 위로 쓱, 꽃게는 피해요", "goal": 8, "lives": 3, "unit": "조개"}, clam_done)
+	start_game("dig", {"world": true, "scene": "clam", "art": "world", "title": tr("거품이 뽀글뽀글 오르는 숨구멍을 톡!\n바지락은 톡톡, 맛조개는 위로 쓱, 꽃게는 피해요"), "goal": 8, "lives": 3, "unit": tr("조개")}, clam_done)
 
 func clam_done(ok: bool, _good: bool) -> void:
 	if not ok:
-		say([["해녀", "호호, 조개가 쏙 숨어 버렸네. 다시 해 보렴!"]], Callable())
+		say([[tr("해녀"), tr("호호, 조개가 쏙 숨어 버렸네. 다시 해 보렴!")]], Callable())
 		return
 	clams_done = true
 	earn(15)
 	say([
-		["해녀", "와, 바구니 가득이네! 고맙다."],
-		["해녀", "바닷속 비밀 하나 알려 줄게. 가라앉은 배 안 조개에 진주가 숨어 있단다."],
-		["해녀", "그리고 물고기 떼는 가까이 다가가야 이름을 알 수 있어."],
+		[tr("해녀"), tr("와, 바구니 가득이네! 고맙다.")],
+		[tr("해녀"), tr("바닷속 비밀 하나 알려 줄게. 가라앉은 배 안 조개에 진주가 숨어 있단다.")],
+		[tr("해녀"), tr("그리고 물고기 떼는 가까이 다가가야 이름을 알 수 있어.")],
 	], func(): save_progress())
 
 func start_drum() -> void:
-	start_game("rhythm", {"world": true, "scene": "drum", "art": "world", "title": "둥둥! 용궁 잔치 북을 박자에 맞춰 톡!\n꽃게 집게(빨간 X)가 올 땐 멈춰요", "goal": 16, "bpm": 112, "bad_ratio": 0.18, "note": "둥", "bad_text": "앗, 꽃게 집게!", "unit": "북"}, drum_done)
+	start_game("rhythm", {"world": true, "scene": "drum", "art": "world", "title": tr("둥둥! 용궁 잔치 북을 박자에 맞춰 톡!\n꽃게 집게(빨간 X)가 올 땐 멈춰요"), "goal": 16, "bpm": 112, "bad_ratio": 0.18, "note": tr("둥"), "bad_text": tr("앗, 꽃게 집게!"), "unit": tr("북")}, drum_done)
 
 func drum_done(ok: bool, _good: bool) -> void:
 	if not ok:
-		say([["꽃게 신하", "박자가 엉켰어요! 다시 한 번만요!"]], Callable())
+		say([[tr("꽃게 신하"), tr("박자가 엉켰어요! 다시 한 번만요!")]], Callable())
 		return
 	feast_flags["drum"] = true
 	earn(10)
-	say([["꽃게 신하", "둥둥 덩실! 물고기들이 춤을 춰요! 고마워요!"]], func(): update_quest_text())
+	say([[tr("꽃게 신하"), tr("둥둥 덩실! 물고기들이 춤을 춰요! 고마워요!")]], func(): update_quest_text())
 
 func start_pearl() -> void:
-	start_game("catch", {"world": true, "scene": "pearl", "art": "world", "title": "큰 조개가 뱉는 진주는 받고\n뾰족한 성게는 피하세요", "goal": 12, "interval": 0.62, "speed": 0.4, "bad_ratio": 0.32, "good": "진주", "bad": "성게", "basket": "소쿠리"}, pearl_done)
+	start_game("catch", {"world": true, "scene": "pearl", "art": "world", "title": tr("큰 조개가 뱉는 진주는 받고\n뾰족한 성게는 피하세요"), "goal": 12, "interval": 0.62, "speed": 0.4, "bad_ratio": 0.32, "good": tr("진주"), "bad": tr("성게"), "basket": tr("소쿠리")}, pearl_done)
 
 func pearl_done(ok: bool, _good: bool) -> void:
 	if not ok:
-		say([["문어 장군", "성게에 찔렸느냐? 흥, 다시 해 봐라."]], Callable())
+		say([[tr("문어 장군"), tr("성게에 찔렸느냐? 흥, 다시 해 봐라.")]], Callable())
 		return
 	feast_flags["pearl"] = true
 	earn(10)
-	say([["문어 장군", "...제법이구나. 진주 하나 흘리지 않다니."]], func(): update_quest_text())
+	say([[tr("문어 장군"), tr("...제법이구나. 진주 하나 흘리지 않다니.")]], func(): update_quest_text())
 
 func is_tap_scene(scene: String) -> bool:
 	return scene == "drum" or super(scene)
@@ -1889,7 +1890,7 @@ func scene_target_hit(n: Node3D) -> void:
 			var tw := clam.create_tween()
 			tw.tween_property(clam, "global_position", at + Vector3(0, 0.8, 0), 0.25).set_ease(Tween.EASE_OUT)
 			tw.tween_property(clam, "scale", Vector3(0.01, 0.01, 0.01), 0.2)
-			float_text("쏙!", cam.unproject_position(at), Color(1, 0.95, 0.7), 1.1)
+			float_text(tr("쏙!"), cam.unproject_position(at), Color(1, 0.95, 0.7), 1.1)
 			n.queue_free()
 			return
 		"drum":
@@ -1898,7 +1899,7 @@ func scene_target_hit(n: Node3D) -> void:
 			cam_kick = 0.12
 			sfx("drum", 0.9 + rng.randf() * 0.2)
 			burst3d(at, Color(1, 0.85, 0.4), 8)
-			float_text("둥!", cam.unproject_position(at), Color(1, 0.95, 0.7), 1.0)
+			float_text(tr("둥!"), cam.unproject_position(at), Color(1, 0.95, 0.7), 1.0)
 			n.queue_free()
 			return
 	super(n)
@@ -1907,7 +1908,7 @@ func scene_target_miss(n: Node3D) -> void:
 	match w["scene"]:
 		"clam", "drum":
 			hide_target_marker(n)
-			float_text("조개가 숨었어요!" if w["scene"] == "clam" else "박자를 놓쳤어요!", cam.unproject_position(n.global_position), Color(1, 0.55, 0.45), 1.0)
+			float_text(tr("조개가 숨었어요!") if w["scene"] == "clam" else tr("박자를 놓쳤어요!"), cam.unproject_position(n.global_position), Color(1, 0.55, 0.45), 1.0)
 			var tw := n.create_tween()
 			tw.tween_property(n, "scale", Vector3(0.01, 0.01, 0.01), 0.25)
 			tw.tween_callback(n.queue_free)
@@ -1959,7 +1960,7 @@ func cg_event(kind: String, info: Dictionary = {}) -> void:
 			elif kind == "bad":
 				w["swing"] = 1.0
 				flash(Color(1, 0.6, 0.5))
-				float_text("집게에 콕!", cam.unproject_position(d + Vector3(0.5, 1.8, 0.5)), Color(1, 0.6, 0.5), 1.3)
+				float_text(tr("집게에 콕!"), cam.unproject_position(d + Vector3(0.5, 1.8, 0.5)), Color(1, 0.6, 0.5), 1.3)
 
 func catch_item_node(bad: bool) -> Node3D:
 	if w.get("scene", "") != "pearl":
@@ -2065,7 +2066,7 @@ func start_mulji() -> void:
 		(it[0] as Node3D).visible = not bool(it[1])
 	if breath_box == null:
 		make_breath_hud()
-	float_text("바다로 들어가 반짝이는 전복·소라를 주워요!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(0.8, 0.95, 1.0), 2.2)
+	float_text(tr("바다로 들어가 반짝이는 전복·소라를 주워요!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(0.8, 0.95, 1.0), 2.2)
 	update_quest_text()
 
 func update_mulji(delta: float) -> void:
@@ -2080,11 +2081,11 @@ func update_mulji(delta: float) -> void:
 	breath_box.visible = swimming
 	breath_fill.anchor_right = clampf(breath, 0.0, 1.0)
 	breath_fill.color = Color(0.45, 0.85, 1.0) if breath > 0.3 else Color(1.0, 0.45, 0.4).lerp(Color(1, 0.8, 0.5), absf(sin(anim_t * 8.0)))
-	breath_label.text = "숨 %d%%  |  전복·소라 %d/%d%s" % [int(breath * 100.0), mulji_got, mulji_items.size(), "  (위로 버튼으로 숨 쉬기!)" if breath < 0.3 else ""]
+	breath_label.text = tr("숨 %d%%  |  전복·소라 %d/%d%s") % [int(breath * 100.0), mulji_got, mulji_items.size(), tr("  (위로 버튼으로 숨 쉬기!)") if breath < 0.3 else ""]
 	if breath <= 0.0:
 		sfx("bad")
 		flash(Color(0.6, 0.8, 1.0))
-		float_text("숨이 차요! 물 위로 올라왔어요", get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.7, 0.6), 1.8)
+		float_text(tr("숨이 차요! 물 위로 올라왔어요"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.7, 0.6), 1.8)
 		player.position = on_ground(20, SHORE_Z + 2.5, 0.3)
 		player.velocity = Vector3.ZERO
 		breath = 1.0
@@ -2097,7 +2098,7 @@ func update_mulji(delta: float) -> void:
 		player.velocity = Vector3.ZERO
 		if mulji_warn <= 0.0:
 			mulji_warn = 2.0
-			float_text("해녀: 너무 멀리 가면 위험해!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.36), Color(1, 0.9, 0.7), 1.5)
+			float_text(tr("해녀: 너무 멀리 가면 위험해!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.36), Color(1, 0.9, 0.7), 1.5)
 	for it in mulji_items:
 		if bool(it[1]):
 			continue
@@ -2113,7 +2114,7 @@ func update_mulji(delta: float) -> void:
 			tw.tween_property(n, "position", n.position + Vector3(0, 1.2, 0), 0.35).set_ease(Tween.EASE_OUT)
 			tw.parallel().tween_property(n, "scale", Vector3.ONE * 0.01, 0.35)
 			tw.tween_callback(func(): n.visible = false)
-			float_text("%s! (%d/%d)" % ["전복" if mulji_items.find(it) % 2 == 0 else "소라", mulji_got, mulji_items.size()], cam.unproject_position(n.position), Color(0.85, 1.0, 1.0), 1.0)
+			float_text("%s! (%d/%d)" % [tr("전복") if mulji_items.find(it) % 2 == 0 else tr("소라"), mulji_got, mulji_items.size()], cam.unproject_position(n.position), Color(0.85, 1.0, 1.0), 1.0)
 			if mulji_got >= mulji_items.size():
 				end_mulji()
 			return
@@ -2124,8 +2125,8 @@ func end_mulji() -> void:
 	breath_box.visible = false
 	earn(20)
 	say([
-		["해녀", "(물 위로 고개를 내밀며) 호오이~ 숨비소리 한 번 시원하구나!"],
-		["해녀", "처음인데 여섯 개나? 너 해녀 해도 되겠다! 자, 수고비다."],
+		[tr("해녀"), tr("(물 위로 고개를 내밀며) 호오이~ 숨비소리 한 번 시원하구나!")],
+		[tr("해녀"), tr("처음인데 여섯 개나? 너 해녀 해도 되겠다! 자, 수고비다.")],
 	], func():
 		player.position = on_ground(HAENYEO_POS.x - 1.5, HAENYEO_POS.z - 1.0, 0.3)
 		player.velocity = Vector3.ZERO
@@ -2193,11 +2194,11 @@ func update_octos(delta: float) -> void:
 			tw.tween_property(n, "position", n.position + Vector3(0, 3.0, -1.5), 0.9).set_ease(Tween.EASE_IN)
 			tw.parallel().tween_property(n, "scale", Vector3.ONE * 0.01, 0.9)
 			tw.tween_callback(func(): n.visible = false)
-			float_text("꼬물꼬물! 새끼 문어를 찾았다 (%d/5)" % c, cam.unproject_position(n.position), Color(1, 0.75, 0.78), 1.4)
+			float_text(tr("꼬물꼬물! 새끼 문어를 찾았다 (%d/5)") % c, cam.unproject_position(n.position), Color(1, 0.75, 0.78), 1.4)
 			earn(3)
 			if c >= 5:
 				earn(15)
-				float_text("새끼 문어들: 찾아 줘서 고마워요~!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.34), Color(1, 0.85, 0.85), 2.2)
+				float_text(tr("새끼 문어들: 찾아 줘서 고마워요~!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.34), Color(1, 0.85, 0.85), 2.2)
 			update_quest_text()
 			save_progress()
 			return
@@ -2236,7 +2237,7 @@ func half_cyl_mesh(length: float, r: float, segs: int = 12) -> ArrayMesh:
 
 func make_chest() -> void:
 	chest_c = on_ground(WRECK_C.x - 5.0, WRECK_C.z + 6.5)
-	var n := make_spot(chest_c, "chest", "", "보물 상자", true)
+	var n := make_spot(chest_c, "chest", "", tr("보물 상자"), true)
 	var body := Node3D.new()
 	n.add_child(body)
 	body.rotation = Vector3(0.04, 0.25, -0.05)
@@ -2300,11 +2301,11 @@ func make_chest() -> void:
 
 
 func start_shell() -> void:
-	start_game("simon", {"world": true, "scene": "chest", "art": "world", "title": "상자 자물쇠는 조개 소리로 열려요!\n울리는 순서를 기억했다가 똑같이 눌러요", "goal": 4, "start_len": 3, "lives": 3, "unit": "소리"}, shell_done)
+	start_game("simon", {"world": true, "scene": "chest", "art": "world", "title": tr("상자 자물쇠는 조개 소리로 열려요!\n울리는 순서를 기억했다가 똑같이 눌러요"), "goal": 4, "start_len": 3, "lives": 3, "unit": tr("소리")}, shell_done)
 
 func shell_done(ok: bool, _good: bool) -> void:
 	if not ok:
-		say([["", "철컥... 자물쇠가 다시 잠겼다. 조개 소리를 다시 들어 보자."]], Callable())
+		say([["", tr("철컥... 자물쇠가 다시 잠겼다. 조개 소리를 다시 들어 보자.")]], Callable())
 		return
 	chest_done = true
 	sfx("good")
@@ -2312,22 +2313,22 @@ func shell_done(ok: bool, _good: bool) -> void:
 	if chest_lid != null:
 		chest_lid.create_tween().tween_property(chest_lid, "rotation:x", -1.6, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	earn(30)
-	say([["", "끼이익- 상자가 열렸다! 주먹만 한 흑진주와 엽전이 가득하다!"]], func(): update_quest_text(); save_progress())
+	say([["", tr("끼이익- 상자가 열렸다! 주먹만 한 흑진주와 엽전이 가득하다!")]], func(): update_quest_text(); save_progress())
 
 # ---------- 용궁 춤 따라 하기 (잔치 셋째 일) ----------
 func start_dance() -> void:
-	start_game("dance", {"world": true, "scene": "dance", "art": "world", "title": "자라가 추는 용궁 춤을 잘 보고\n화살표 순서대로 휙휙 따라 해요", "goal": 4, "start_len": 3, "lives": 3, "unit": "마디"}, dance_done)
+	start_game("dance", {"world": true, "scene": "dance", "art": "world", "title": tr("자라가 추는 용궁 춤을 잘 보고\n화살표 순서대로 휙휙 따라 해요"), "goal": 4, "start_len": 3, "lives": 3, "unit": tr("마디")}, dance_done)
 
 func dance_done(ok: bool, _good: bool) -> void:
 	var jara := npc("jara")
 	jara.position = Vector3(-2.5, PALACE_Y + 0.25, -111)
 	jara.rotation.y = PI
 	if not ok:
-		say([["자라", "허허, 발이 꼬였구려. 다시 한 번 춰 봅시다!"]], Callable())
+		say([[tr("자라"), tr("허허, 발이 꼬였구려. 다시 한 번 춰 봅시다!")]], Callable())
 		return
 	feast_flags["dance"] = true
 	earn(10)
-	say([["자라", "얼씨구 좋다! 용궁 물고기들도 덩실덩실 따라 추는구려!"]], func(): update_quest_text())
+	say([[tr("자라"), tr("얼씨구 좋다! 용궁 물고기들도 덩실덩실 따라 추는구려!")]], func(): update_quest_text())
 
 func dance_hop(n: Node3D, dir: String, base_y: float) -> void:
 	var v: Vector2 = ARROW_VEC.get(dir, Vector2.ZERO)
@@ -2380,7 +2381,7 @@ func update_ink(delta: float) -> void:
 		sfx("splash", 0.5)
 		shake(10)
 		spawn_ink(player.position + Vector3(0, 1.0, -2.0))
-		float_text("문어 장군의 먹물이다! 앞이 캄캄해요\n진주 불빛을 따라 남쪽으로!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.36), Color(1, 0.95, 0.75), 2.6)
+		float_text(tr("문어 장군의 먹물이다! 앞이 캄캄해요\n진주 불빛을 따라 남쪽으로!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.36), Color(1, 0.95, 0.75), 2.6)
 		for t in ink_trail:
 			t[1] = false
 			(t[0] as Node3D).visible = true
@@ -2435,7 +2436,7 @@ func start_escape() -> void:
 	player.velocity = Vector3.ZERO
 	cam_yaw_target = 0.0
 	set_quest(S_ESCAPE)
-	float_text("남쪽으로 헤엄쳐요!", get_viewport().get_visible_rect().size / 2.0, Color(1, 0.9, 0.4), 1.6)
+	float_text(tr("남쪽으로 헤엄쳐요!"), get_viewport().get_visible_rect().size / 2.0, Color(1, 0.9, 0.4), 1.6)
 
 func update_chase(delta: float) -> void:
 	if not chase_on:
@@ -2475,7 +2476,7 @@ func update_chase(delta: float) -> void:
 		chase_on = false
 		sfx("fail")
 		shake(16)
-		show_card("문어 장군에게 붙잡혔어요!\n\n용궁 문 앞에서 다시 헤엄쳐 봐요.", 0.0, 2.0, func():
+		show_card(tr("문어 장군에게 붙잡혔어요!\n\n용궁 문 앞에서 다시 헤엄쳐 봐요."), 0.0, 2.0, func():
 			player.position = Vector3(0, PALACE_Y + 0.6, GATE_Z + 3.0)
 			player.velocity = Vector3.ZERO
 			oc.position = Vector3(OCTOPUS_POS.x, PALACE_Y + 0.25, OCTOPUS_POS.z)
@@ -2503,22 +2504,22 @@ func shore_ending() -> void:
 	jara.position = on_ground(player.position.x + 1.8, player.position.z + 0.5)
 	rabbit.position = on_ground(player.position.x - 1.8, player.position.z + 1.0)
 	var l := [
-		["토끼", "휴우, 살았다! 뭍이다 뭍!"],
-		["자라", "자, 토끼 선생. 바위에 말려 둔 간을 어서 가져오시오."],
-		["토끼", "(깡충 뛰어 바위 위로 올라가더니 배를 잡고 웃었다)"],
-		["토끼", "이 미련한 자라야! 세상에 간을 꺼내 놓고 다니는 짐승이 어디 있니?"],
-		["토끼", "벼슬은 됐고, 나는 내 뒷산으로 간다! 안녕~"],
+		[tr("토끼"), tr("휴우, 살았다! 뭍이다 뭍!")],
+		[tr("자라"), tr("자, 토끼 선생. 바위에 말려 둔 간을 어서 가져오시오.")],
+		[tr("토끼"), tr("(깡충 뛰어 바위 위로 올라가더니 배를 잡고 웃었다)")],
+		[tr("토끼"), tr("이 미련한 자라야! 세상에 간을 꺼내 놓고 다니는 짐승이 어디 있니?")],
+		[tr("토끼"), tr("벼슬은 됐고, 나는 내 뒷산으로 간다! 안녕~")],
 	]
 	if not lured:
-		l.append(["토끼", "(돌아보며) 너는 처음부터 조심하라고 했지? 고마웠어!"])
-	l.append(["자라", "아아... 이를 어쩐단 말이오. 용왕님 뵐 낯이 없구려..."])
+		l.append([tr("토끼"), tr("(돌아보며) 너는 처음부터 조심하라고 했지? 고마웠어!")])
+	l.append([tr("자라"), tr("아아... 이를 어쩐단 말이오. 용왕님 뵐 낯이 없구려...")])
 	say(l, func():
 		var tw := rabbit.create_tween()
 		var dest := on_ground(RABBIT_SPOTS[1].x, RABBIT_SPOTS[1].z)
 		tw.tween_property(rabbit, "position", dest, 2.5)
 		tw.tween_callback(func(): rabbit.visible = false)
 		if has_ginseng:
-			ask("", "축 처진 자라에게 뒷산에서 캔 산삼을 건넬까?", ["산삼을 건넨다", "그냥 위로한다"], on_ginseng)
+			ask("", tr("축 처진 자라에게 뒷산에서 캔 산삼을 건넬까?"), [tr("산삼을 건넨다"), tr("그냥 위로한다")], on_ginseng)
 		else:
 			on_ginseng(1))
 
@@ -2527,23 +2528,23 @@ func on_ginseng(i: int) -> void:
 	if i == 0:
 		ending = "ginseng"
 		has_ginseng = false
-		l.append(["자라", "이, 이건 백 년 묵은 산삼이 아니오?!"])
-		l.append(["자라", "이것이면 용왕님 병도 나으실 게요. 고맙소, 정말 고맙소!"])
-		l.append(["", "자라는 산삼을 품에 안고 기쁘게 바다로 돌아갔다."])
+		l.append([tr("자라"), tr("이, 이건 백 년 묵은 산삼이 아니오?!")])
+		l.append([tr("자라"), tr("이것이면 용왕님 병도 나으실 게요. 고맙소, 정말 고맙소!")])
+		l.append(["", tr("자라는 산삼을 품에 안고 기쁘게 바다로 돌아갔다.")])
 	else:
 		ending = "plain"
-		l.append(["", "자라의 등딱지를 토닥토닥 두드려 주었다."])
-		l.append(["자라", "...그래도 그대 덕에 용궁 구경은 즐거웠소. 언젠가 또 봅시다."])
+		l.append(["", tr("자라의 등딱지를 토닥토닥 두드려 주었다.")])
+		l.append([tr("자라"), tr("...그래도 그대 덕에 용궁 구경은 즐거웠소. 언젠가 또 봅시다.")])
 	say(l, func():
-		var card := "자라는 바닷속으로,\n토끼는 뒷산으로 돌아갔어요.\n\n"
+		var card := tr("자라는 바닷속으로,\n토끼는 뒷산으로 돌아갔어요.\n\n")
 		if ending == "ginseng":
-			card += "얼마 뒤 바닷가에 소식이 들려왔어요.\n용왕님이 산삼을 드시고\n씻은 듯이 나으셨대요."
+			card += tr("얼마 뒤 바닷가에 소식이 들려왔어요.\n용왕님이 산삼을 드시고\n씻은 듯이 나으셨대요.")
 		else:
-			card += "꾀 많은 토끼 이야기는\n바닷가 마을에 두고두고 전해졌대요."
+			card += tr("꾀 많은 토끼 이야기는\n바닷가 마을에 두고두고 전해졌대요.")
 		show_card(card, 0.0, 5.0, finish_trial))
 
 func finish_trial() -> void:
 	event_lock = false
 	earn(30)
 	set_quest(S_END)
-	show_card("빈 책장에 별주부전 그림이 새로 생겼어요.\n\n세 이야기가 모두 채워졌어요!\n\n(체험판은 여기까지예요.\n다음 이야기 책장도 곧 열려요.)", 0.0, 5.0, Callable())
+	show_card(tr("빈 책장에 별주부전 그림이 새로 생겼어요.\n\n세 이야기가 모두 채워졌어요!\n\n(체험판은 여기까지예요.\n다음 이야기 책장도 곧 열려요.)"), 0.0, 5.0, Callable())

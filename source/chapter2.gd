@@ -77,9 +77,9 @@ func start_chapter() -> void:
 	time_of_day = story_time(player.position.z)
 	set_time_of_day(time_of_day)
 	if resumed:
-		show_card("2장 해와 달이 된 오누이\n이어서 걸어요...", 0.6, 1.6, Callable())
+		show_card(tr("2장 해와 달이 된 오누이\n이어서 걸어요..."), 0.6, 1.6, Callable())
 		return
-	show_card("2장\n해와 달이 된 오누이\n\n책장을 넘기자\n왁자지껄한 잔칫집 마당이 펼쳐졌어요.", 1.0, 4.0, Callable())
+	show_card(tr("2장\n해와 달이 된 오누이\n\n책장을 넘기자\n왁자지껄한 잔칫집 마당이 펼쳐졌어요."), 1.0, 4.0, Callable())
 
 # 걸어갈수록 시간이 흘러요: 마을은 한낮, 첫째 고개 넘어 늦은 오후, 셋째 고개에서 해 질 녘, 오두막은 깊은 밤
 func _process(delta: float) -> void:
@@ -95,7 +95,7 @@ func cam_ground(x: float, z: float) -> float:
 
 # 남쪽 끝 이정표: 1장 마을로 돌아가요
 func on_gate() -> void:
-	ask("", "1장 흥부네 마을로 돌아갈까요?", ["돌아가기", "더 둘러볼래요"], func(i: int):
+	ask("", tr("1장 흥부네 마을로 돌아갈까요?"), [tr("돌아가기"), tr("더 둘러볼래요")], func(i: int):
 		if i == 0:
 			go_to_chapter("ch1"))
 
@@ -298,12 +298,12 @@ func make_feast_village() -> void:
 	var gate := make_spot(on_ground(3.2, 49.0), "gate", "", "", true)
 	add_mcyl(gate, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
-	add_tag(gate, "1장 마을로 가는 길", 2.6)
+	add_tag(gate, tr("1장 마을로 가는 길"), 2.6)
 	# 북쪽 끝 이정표 (3장 바닷가로)
 	var gate3 := make_spot(on_ground(-6.0, -71.0), "gate", "ch3", "", true)
 	add_mcyl(gate3, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate3, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
-	add_tag(gate3, "3장 바닷가로 가는 길", 2.6)
+	add_tag(gate3, tr("3장 바닷가로 가는 길"), 2.6)
 
 # ---------- 고개 셋 (숲과 바위) ----------
 
@@ -492,7 +492,8 @@ const HOST_POS := Vector3(-9.5, 0, 27.2)
 const COOK_POS := Vector3(-4.5, 0, 37.0)
 const ANBAN_POS := Vector3(3.4, 0, 25.0)
 const GUEST_POS := {"guest1": Vector3(4.8, 0, 32.4), "guest2": Vector3(9.4, 0, 31.6), "guest3": Vector3(6.4, 0, 19.4)}
-const GUEST_NAME := {"guest1": "김 서방", "guest2": "새댁", "guest3": "윤 영감"}
+const GUEST_NAME_KO := {"guest1": "김 서방", "guest2": "새댁", "guest3": "윤 영감"}
+var GUEST_NAME: Dictionary = trd(GUEST_NAME_KO)
 # 고개마다 호랑이가 나타나는 자리와, 그 일이 생기는 높이(z)
 const TIGER_SPOTS := [Vector3(-9.6, 0, -1.5), Vector3(11.6, 0, -24.0), Vector3(-7.4, 0, -46.0)]
 const TRIGGER_Z := [7.0, -15.5, -38.5]
@@ -524,16 +525,16 @@ var sky_rope: Node3D
 
 func make_story() -> void:
 	# 잔칫집 사람들
-	make_npc("mom", "엄마", Color.WHITE, MOM_POS, 1.0, false)
-	make_npc("host", "잔칫집 영감", Color.WHITE, HOST_POS, 1.0, true)
-	make_npc("cook", "떡집 할머니", Color.WHITE, COOK_POS, 1.0, true)
+	make_npc("mom", tr("엄마"), Color.WHITE, MOM_POS, 1.0, false)
+	make_npc("host", tr("잔칫집 영감"), Color.WHITE, HOST_POS, 1.0, true)
+	make_npc("cook", tr("떡집 할머니"), Color.WHITE, COOK_POS, 1.0, true)
 	for g in GUEST_POS:
 		make_npc(g, GUEST_NAME[g], Color.WHITE, GUEST_POS[g], 1.0, true)
 	# 오누이
-	make_npc("oppa", "오빠", Color.WHITE, kids_home["oppa"], 0.72, false)
-	make_npc("nui", "누이", Color.WHITE, kids_home["nui"], 0.66, false)
+	make_npc("oppa", tr("오빠"), Color.WHITE, kids_home["oppa"], 0.72, false)
+	make_npc("nui", tr("누이"), Color.WHITE, kids_home["nui"], 0.66, false)
 	# 떡메치기 안반 (넓적한 나무판 위의 찰떡)
-	var anban := make_spot(ANBAN_POS, "pound", "", "떡메치기", true)
+	var anban := make_spot(ANBAN_POS, "pound", "", tr("떡메치기"), true)
 	add_mbox(anban, plank_mat, Vector3(1.5, 0.12, 0.75), Vector3(0, 0.46, 0))
 	for lx in [-0.6, 0.6]:
 		add_mbox(anban, dark_wood_mat, Vector3(0.12, 0.4, 0.6), Vector3(lx, 0.2, 0))
@@ -717,41 +718,41 @@ func update_quest_text() -> void:
 	var t := ""
 	match quest:
 		S_ARRIVE:
-			t = "잔칫집 마당에서 일하는 아주머니 찾기"
+			t = tr("잔칫집 마당에서 일하는 아주머니 찾기")
 		S_FEAST:
-			var a := "끝" if feast["pound"] else "  "
-			var b := "끝" if feast["tteok"] else "  "
-			t = "잔치 일 돕기: 떡메치기 [%s] · 떡 받기 [%s] · 떡 돌리기 %d/3" % [a, b, delivered.size()]
+			var a := tr("끝") if feast["pound"] else "  "
+			var b := tr("끝") if feast["tteok"] else "  "
+			t = tr("잔치 일 돕기: 떡메치기 [%s] · 떡 받기 [%s] · 떡 돌리기 %d/3") % [a, b, delivered.size()]
 			if feast["pound"] and feast["tteok"] and delivered.size() >= 3:
-				t = "엄마에게 돌아가기"
+				t = tr("엄마에게 돌아가기")
 		S_LEAVE:
-			t = "엄마와 함께 북쪽 첫째 고개 넘기"
+			t = tr("엄마와 함께 북쪽 첫째 고개 넘기")
 		S_PASS2:
-			t = "엄마와 함께 둘째 고개 넘기"
+			t = tr("엄마와 함께 둘째 고개 넘기")
 		S_PASS3:
-			t = "엄마와 함께 셋째 고개 넘기"
+			t = tr("엄마와 함께 셋째 고개 넘기")
 		S_RUN:
-			t = "호랑이보다 먼저 오두막에 닿기! 길 따라 달려요"
+			t = tr("호랑이보다 먼저 오두막에 닿기! 길 따라 달려요")
 		S_WARN:
-			t = "오두막의 오누이에게 알리기"
+			t = tr("오두막의 오누이에게 알리기")
 		S_DOOR:
-			t = "문밖에 누가 왔어요... 오빠에게 말 걸기"
+			t = tr("문밖에 누가 왔어요... 오빠에게 말 걸기")
 		S_TREE:
-			t = "우물가 큰 나무에 오누이가 오르도록 돕기"
+			t = tr("우물가 큰 나무에 오누이가 오르도록 돕기")
 		S_ROPE:
-			t = "나무 아래에서 하늘에 빌기"
+			t = tr("나무 아래에서 하늘에 빌기")
 		S_END:
-			t = "2장 끝! 마을과 고갯길을 둘러보세요"
+			t = tr("2장 끝! 마을과 고갯길을 둘러보세요")
 	var extra := ""
 	if quest >= S_LEAVE and quest <= S_PASS3:
-		extra = " | 떡 광주리 %d개 | 반딧불 %d/%d" % [basket, fireflies_got, FIREFLY_N]
+		extra = tr(" | 떡 광주리 %d개 | 반딧불 %d/%d") % [basket, fireflies_got, FIREFLY_N]
 	if sneak_on:
-		t = "호랑이가 돌아보면 꼼짝 마! 살금살금 호랑이 뒤로 지나가기"
+		t = tr("호랑이가 돌아보면 꼼짝 마! 살금살금 호랑이 뒤로 지나가기")
 	var st := 0
 	for b2 in stones:
 		if b2:
 			st += 1
-	quest_label.text = "할 일: %s\n엽전 %d냥 | 서낭당 돌 %d/3%s" % [t, shown_coins, st, extra]
+	quest_label.text = tr("할 일: %s\n엽전 %d냥 | 서낭당 돌 %d/3%s") % [t, shown_coins, st, extra]
 
 # ---------- 매 순간 ----------
 
@@ -912,9 +913,9 @@ func update_rocks(delta: float) -> void:
 			shake(12)
 			hit_stop(0.05)
 			burst3d(player.position + Vector3(0, 1.0, 0), Color(0.75, 0.7, 0.6), 12)
-			float_text("아야!", cam.unproject_position(player.position + Vector3(0, 2.2, 0)), Color(1, 0.6, 0.5), 1.2)
+			float_text(tr("아야!"), cam.unproject_position(player.position + Vector3(0, 2.2, 0)), Color(1, 0.6, 0.5), 1.2)
 			if rock_hits % 2 == 1:
-				float_text("엄마: 얘야, 조심하렴! 돌이 굴러온다!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.3), Color(1, 0.95, 0.85), 1.0)
+				float_text(tr("엄마: 얘야, 조심하렴! 돌이 굴러온다!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.3), Color(1, 0.95, 0.85), 1.0)
 			r[2] = idx
 
 # ---------- 떡 쌓기 (잔칫집 곁가지) ----------
@@ -922,7 +923,7 @@ const STACK_POS := Vector3(-7.6, 0, 35.2)
 var stack_best := 0
 
 func make_stack_table() -> void:
-	var t := make_spot(STACK_POS, "stack", "", "떡 쌓기", true)
+	var t := make_spot(STACK_POS, "stack", "", tr("떡 쌓기"), true)
 	add_mbox(t, plank_mat, Vector3(1.4, 0.1, 0.9), Vector3(0, 0.7, 0))
 	for lx in [-0.55, 0.55]:
 		for lz in [-0.35, 0.35]:
@@ -931,16 +932,16 @@ func make_stack_table() -> void:
 	add_solid(STACK_POS + Vector3(0, 0.5, 0), Vector3(1.4, 1.0, 0.9), Color(0, 0, 0, 0))
 
 func start_stack() -> void:
-	start_game("stack", {"world": true, "scene": "stack", "art": "world", "title": "떡 쌓기! 움직이는 떡판을 톡 눌러 쌓아요\n딱 맞으면 퍼펙트, 어긋나면 잘려요", "goal": 12, "base_w": 0.5, "speed": 0.5, "lives": 3, "unit": "층"}, stack_done)
+	start_game("stack", {"world": true, "scene": "stack", "art": "world", "title": tr("떡 쌓기! 움직이는 떡판을 톡 눌러 쌓아요\n딱 맞으면 퍼펙트, 어긋나면 잘려요"), "goal": 12, "base_w": 0.5, "speed": 0.5, "lives": 3, "unit": tr("층")}, stack_done)
 
 func stack_done(ok: bool, _good: bool) -> void:
 	var h := mg_count
 	var first := h > stack_best
 	stack_best = maxi(stack_best, h)
 	earn(h)
-	var l := [["떡집 할머니", "%d층이나 쌓았구나!%s" % [h, " 잔칫상에 올려야겠다!" if ok else " 다음엔 더 높이 쌓아 보렴."]]]
+	var l := [[tr("떡집 할머니"), tr("%d층이나 쌓았구나!%s") % [h, tr(" 잔칫상에 올려야겠다!") if ok else tr(" 다음엔 더 높이 쌓아 보렴.")]]]
 	if first and ok:
-		l.append(["", "가장 높이 쌓은 기록: %d층" % stack_best])
+		l.append(["", tr("가장 높이 쌓은 기록: %d층") % stack_best])
 	say(l, Callable())
 
 # ---------- 반딧불 모으기 (첫째→둘째 고개, 해 질 녘) ----------
@@ -1030,10 +1031,10 @@ func update_fireflies(delta: float) -> void:
 			var tw := n.create_tween()
 			tw.tween_property(n, "global_position", npc("mom").global_position + Vector3(0.55, 1.25, 0.35), 0.4).set_ease(Tween.EASE_IN)
 			tw.tween_callback(func(): n.visible = false)
-			float_text("반딧불 %d/%d" % [fireflies_got, FIREFLY_N], cam.unproject_position(n.position), Color(0.9, 1.0, 0.6), 0.9)
+			float_text(tr("반딧불 %d/%d") % [fireflies_got, FIREFLY_N], cam.unproject_position(n.position), Color(0.9, 1.0, 0.6), 0.9)
 			if fireflies_got == FIREFLY_N:
 				earn(15)
-				float_text("엄마: 초롱이 대낮처럼 환하구나! 고맙다.", get_viewport().get_visible_rect().size * Vector2(0.5, 0.32), Color(1, 0.95, 0.75), 2.0)
+				float_text(tr("엄마: 초롱이 대낮처럼 환하구나! 고맙다."), get_viewport().get_visible_rect().size * Vector2(0.5, 0.32), Color(1, 0.95, 0.75), 2.0)
 			update_quest_text()
 
 func reset_fireflies() -> void:
@@ -1112,7 +1113,7 @@ func update_stream(delta: float) -> void:
 		stream_cool = 1.0
 		sfx("splash")
 		burst3d(player.position + Vector3(0, 0.5, 0), Color(0.75, 0.9, 1.0), 20)
-		float_text("풍덩! 돌이 떠 있을 때 건너요", get_viewport().get_visible_rect().size * Vector2(0.5, 0.35), Color(0.8, 0.95, 1.0), 1.6)
+		float_text(tr("풍덩! 돌이 떠 있을 때 건너요"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.35), Color(0.8, 0.95, 1.0), 1.6)
 		var back := Vector2(9.6, STREAM_Z + STREAM_HALF + 1.4) if stream_side > 0 else Vector2(0.4, STREAM_Z - STREAM_HALF - 1.4)
 		player.position = on_ground(back.x, back.y, 0.3)
 		player.velocity = Vector3.ZERO
@@ -1154,14 +1155,14 @@ func update_sneak(delta: float) -> void:
 	match sneak_state:
 		"away":
 			tiger.rotation.y = lerp_angle(tiger.rotation.y, face_mom, minf(1.0, delta * 8.0))
-			sneak_banner.text = "살금살금 지나가요!"
+			sneak_banner.text = tr("살금살금 지나가요!")
 			sneak_banner.add_theme_color_override("font_color", Color(0.7, 1.0, 0.6))
 			if sneak_t <= 0.0:
 				sneak_state = "warn"
 				sneak_t = 0.6
 				sfx("crack", 0.5)
 		"warn":
-			sneak_banner.text = "으르렁...?"
+			sneak_banner.text = tr("으르렁...?")
 			sneak_banner.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 			tiger_tail.rotation.y = sin(anim_t * 20.0) * 0.6
 			if sneak_t <= 0.0:
@@ -1169,7 +1170,7 @@ func update_sneak(delta: float) -> void:
 				sneak_t = rng.randf_range(1.2, 2.0)
 		"look":
 			tiger.rotation.y = lerp_angle(tiger.rotation.y, face_me, minf(1.0, delta * 10.0))
-			sneak_banner.text = "멈춰! 꼼짝 마!"
+			sneak_banner.text = tr("멈춰! 꼼짝 마!")
 			sneak_banner.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4))
 			var mv := Vector2(player.velocity.x, player.velocity.z).length()
 			if mv > 0.6 and absf(angle_difference(tiger.rotation.y, face_me)) < 0.4:
@@ -1183,14 +1184,14 @@ func update_sneak(delta: float) -> void:
 		sneak_on = false
 		sneak_banner.visible = false
 		sfx("good")
-		float_text("지나갔다! 이제 달려요!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.9, 0.4), 1.6)
+		float_text(tr("지나갔다! 이제 달려요!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.9, 0.4), 1.6)
 		start_run()
 
 func sneak_caught() -> void:
 	sfx("bad")
 	shake(16)
 	flash(Color(1, 0.6, 0.5))
-	float_text("어흥! 들켰다!", get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.55, 0.45), 1.5)
+	float_text(tr("어흥! 들켰다!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.55, 0.45), 1.5)
 	player.position = sneak_start
 	player.velocity = Vector3.ZERO
 	sneak_state = "away"
@@ -1198,16 +1199,16 @@ func sneak_caught() -> void:
 
 # ---------- 솔방울 던지기 (나무 위로 올라오는 호랑이) ----------
 func start_pine() -> void:
-	start_game("aim", {"world": true, "scene": "pine", "art": "world", "title": "호랑이가 도끼로 콕콕 나무를 올라와요!\n새총을 뒤로 당겼다 놓아 솔방울을 맞혀요", "goal": 6, "climb_speed": 0.05, "knock": 0.16, "target_r": 0.1, "hit_text": "딱! 아야!", "lose_text": "호랑이가 너무 높이 올라왔어요!", "unit": "명중"}, pine_done)
+	start_game("aim", {"world": true, "scene": "pine", "art": "world", "title": tr("호랑이가 도끼로 콕콕 나무를 올라와요!\n새총을 뒤로 당겼다 놓아 솔방울을 맞혀요"), "goal": 6, "climb_speed": 0.05, "knock": 0.16, "target_r": 0.1, "hit_text": tr("딱! 아야!"), "lose_text": tr("호랑이가 너무 높이 올라왔어요!"), "unit": tr("명중")}, pine_done)
 
 func pine_done(ok: bool, _good: bool) -> void:
 	tiger.position = on_ground(tree_pos.x - 0.9, tree_pos.z + 0.9)
 	if not ok:
-		say([["누이", "으앙, 다시 던져 줘! 호랑이를 막아 줘!"]], start_pine)
+		say([[tr("누이"), tr("으앙, 다시 던져 줘! 호랑이를 막아 줘!")]], start_pine)
 		return
 	say([
-		["호랑이", "아이고 머리야! 솔방울이 우박처럼 쏟아지네!"],
-		["오빠", "지금이야! 하느님, 저희를 살리시려거든 튼튼한 동아줄을 내려 주세요!"],
+		[tr("호랑이"), tr("아이고 머리야! 솔방울이 우박처럼 쏟아지네!")],
+		[tr("오빠"), tr("지금이야! 하느님, 저희를 살리시려거든 튼튼한 동아줄을 내려 주세요!")],
 	], func():
 		make_sky_rope()
 		start_rope())
@@ -1235,26 +1236,26 @@ func talk_to(id: String) -> void:
 func talk_mom() -> void:
 	if quest == S_ARRIVE:
 		say([
-			["엄마", "어머, 처음 보는 옷차림이로구나. 어디서 왔니?"],
-			["엄마", "책 속으로 들어왔다고? 호호, 신기한 일도 다 있네."],
-			["엄마", "나는 고개 너머 오두막에 사는 아이 엄마란다. 오늘은 이 잔칫집에서 일을 거들고 있지."],
-			["엄마", "일을 다 마치면 떡을 얻어 우리 오누이에게 가져다줄 생각이란다."],
-			["엄마", "그런데 일손이 모자라서 큰일이구나... 혹시 좀 도와주겠니?"],
-			["엄마", "잔칫집 영감님께 여쭈면 할 일을 알려 주실 게다."],
+			[tr("엄마"), tr("어머, 처음 보는 옷차림이로구나. 어디서 왔니?")],
+			[tr("엄마"), tr("책 속으로 들어왔다고? 호호, 신기한 일도 다 있네.")],
+			[tr("엄마"), tr("나는 고개 너머 오두막에 사는 아이 엄마란다. 오늘은 이 잔칫집에서 일을 거들고 있지.")],
+			[tr("엄마"), tr("일을 다 마치면 떡을 얻어 우리 오누이에게 가져다줄 생각이란다.")],
+			[tr("엄마"), tr("그런데 일손이 모자라서 큰일이구나... 혹시 좀 도와주겠니?")],
+			[tr("엄마"), tr("잔칫집 영감님께 여쭈면 할 일을 알려 주실 게다.")],
 		], func(): set_quest(S_FEAST))
 	elif quest == S_FEAST:
 		if feast["pound"] and feast["tteok"] and delivered.size() >= 3:
 			say([
-				["엄마", "세상에, 그 많은 일을 다 했구나! 덕분에 일찍 마쳤단다."],
-				["잔칫집 영감", "수고 많았네. 약속한 떡일세. 광주리 가득 담았으니 아이들과 나눠 먹게."],
-				["엄마", "고맙습니다, 영감님! 우리 아이들이 얼마나 좋아할까."],
-				["엄마", "벌써 해가 기우는구나. 집에 가려면 고개를 셋이나 넘어야 해."],
-				["엄마", "같이 가 주겠니? 혼자 넘기엔 고갯길이 좀 무섭단다."],
+				[tr("엄마"), tr("세상에, 그 많은 일을 다 했구나! 덕분에 일찍 마쳤단다.")],
+				[tr("잔칫집 영감"), tr("수고 많았네. 약속한 떡일세. 광주리 가득 담았으니 아이들과 나눠 먹게.")],
+				[tr("엄마"), tr("고맙습니다, 영감님! 우리 아이들이 얼마나 좋아할까.")],
+				[tr("엄마"), tr("벌써 해가 기우는구나. 집에 가려면 고개를 셋이나 넘어야 해.")],
+				[tr("엄마"), tr("같이 가 주겠니? 혼자 넘기엔 고갯길이 좀 무섭단다.")],
 			], start_journey)
 		else:
-			say([["엄마", "영감님이 시키신 일을 하나씩 해 보렴. 떡메치기, 떡 받기, 손님들께 떡 돌리기란다."]], Callable())
+			say([[tr("엄마"), tr("영감님이 시키신 일을 하나씩 해 보렴. 떡메치기, 떡 받기, 손님들께 떡 돌리기란다.")]], Callable())
 	elif quest >= S_LEAVE and quest <= S_PASS3:
-		say([["엄마", "조금만 더 가면 돼. 우리 오누이가 문 앞에서 기다리고 있을 게다."]], Callable())
+		say([[tr("엄마"), tr("조금만 더 가면 돼. 우리 오누이가 문 앞에서 기다리고 있을 게다.")]], Callable())
 
 func start_journey() -> void:
 	basket = BASKET_FULL
@@ -1265,29 +1266,29 @@ func start_journey() -> void:
 func talk_host() -> void:
 	if quest == S_FEAST or quest == S_ARRIVE:
 		if quest == S_ARRIVE:
-			say([["잔칫집 영감", "허허, 오늘은 우리 손녀 돌잔치라네. 저기 떡을 나르는 아주머니께 먼저 인사하게나."]], Callable())
+			say([[tr("잔칫집 영감"), tr("허허, 오늘은 우리 손녀 돌잔치라네. 저기 떡을 나르는 아주머니께 먼저 인사하게나.")]], Callable())
 			return
 		say([
-			["잔칫집 영감", "자네가 일손을 보태 준다고? 고맙네!"],
-			["잔칫집 영감", "첫째, 마당 안반에서 떡메를 쳐 주게. 쫄깃해야 하네."],
-			["잔칫집 영감", "둘째, 아궁이 옆 떡집 할머니가 떡을 쪄 내면 채반으로 받아 주고."],
-			["잔칫집 영감", "셋째, 그 떡을 손님 세 분께 돌려 주게. 김 서방, 새댁, 윤 영감일세."],
+			[tr("잔칫집 영감"), tr("자네가 일손을 보태 준다고? 고맙네!")],
+			[tr("잔칫집 영감"), tr("첫째, 마당 안반에서 떡메를 쳐 주게. 쫄깃해야 하네.")],
+			[tr("잔칫집 영감"), tr("둘째, 아궁이 옆 떡집 할머니가 떡을 쪄 내면 채반으로 받아 주고.")],
+			[tr("잔칫집 영감"), tr("셋째, 그 떡을 손님 세 분께 돌려 주게. 김 서방, 새댁, 윤 영감일세.")],
 		], Callable())
 	elif quest == S_END:
-		say([["잔칫집 영감", "오누이가 해와 달이 되었다지? 이제 밤길도 무섭지 않겠구먼."]], Callable())
+		say([[tr("잔칫집 영감"), tr("오누이가 해와 달이 되었다지? 이제 밤길도 무섭지 않겠구먼.")]], Callable())
 	else:
-		say([["잔칫집 영감", "해 지기 전에 고개를 넘어야 할 텐데... 조심해서 가게나."]], Callable())
+		say([[tr("잔칫집 영감"), tr("해 지기 전에 고개를 넘어야 할 텐데... 조심해서 가게나.")]], Callable())
 
 func talk_cook() -> void:
 	if quest == S_FEAST and not feast["tteok"]:
 		say([
-			["떡집 할머니", "시루떡이 다 쪄졌다! 뜨거우니 채반으로 받아라."],
-			["떡집 할머니", "아궁이 불똥이 튀니 그건 피하고!"],
+			[tr("떡집 할머니"), tr("시루떡이 다 쪄졌다! 뜨거우니 채반으로 받아라.")],
+			[tr("떡집 할머니"), tr("아궁이 불똥이 튀니 그건 피하고!")],
 		], start_tteok)
 	elif quest == S_FEAST:
-		say([["떡집 할머니", "떡은 식기 전에 손님들께 돌려야 맛있단다."]], Callable())
+		say([[tr("떡집 할머니"), tr("떡은 식기 전에 손님들께 돌려야 맛있단다.")]], Callable())
 	else:
-		say([["떡집 할머니", "쑥떡, 꿀떡, 백설기... 오늘 떡은 내 평생 제일 잘 쪄졌구나."]], Callable())
+		say([[tr("떡집 할머니"), tr("쑥떡, 꿀떡, 백설기... 오늘 떡은 내 평생 제일 잘 쪄졌구나.")]], Callable())
 
 func talk_guest(id: String) -> void:
 	var nm: String = GUEST_NAME[id]
@@ -1296,65 +1297,65 @@ func talk_guest(id: String) -> void:
 		sfx("good")
 		earn(5)
 		var lines := {
-			"guest1": [[nm, "오, 꿀떡이구먼! 잔칫집 떡은 역시 달아."]],
-			"guest2": [[nm, "어머, 고마워라. 우리 아기도 백설기 한 입 줘야겠네."]],
-			"guest3": [[nm, "허허, 쑥떡이라. 고갯길 넘어가는 사람은 떡을 넉넉히 챙겨야 한다네. 호랑이가 떡을 좋아하거든."]],
+			"guest1": [[nm, tr("오, 꿀떡이구먼! 잔칫집 떡은 역시 달아.")]],
+			"guest2": [[nm, tr("어머, 고마워라. 우리 아기도 백설기 한 입 줘야겠네.")]],
+			"guest3": [[nm, tr("허허, 쑥떡이라. 고갯길 넘어가는 사람은 떡을 넉넉히 챙겨야 한다네. 호랑이가 떡을 좋아하거든.")]],
 		}
 		var l: Array = lines[id]
-		l.append(["", "떡을 드렸다. (%d/3)" % delivered.size()])
+		l.append(["", tr("떡을 드렸다. (%d/3)") % delivered.size()])
 		say(l, func(): update_quest_text(); save_progress())
 	elif quest == S_FEAST and not feast["tteok"]:
-		say([[nm, "떡은 아직인가? 떡집 할머니 시루에서 김이 펄펄 나던데."]], Callable())
+		say([[nm, tr("떡은 아직인가? 떡집 할머니 시루에서 김이 펄펄 나던데.")]], Callable())
 	elif quest == S_END:
-		say([[nm, "어젯밤 하늘에 해님 달님이 새로 떴다는 얘기 들었나?"]], Callable())
+		say([[nm, tr("어젯밤 하늘에 해님 달님이 새로 떴다는 얘기 들었나?")]], Callable())
 	else:
-		say([[nm, "잔치는 역시 떡 먹는 맛이지!"]], Callable())
+		say([[nm, tr("잔치는 역시 떡 먹는 맛이지!")]], Callable())
 
 func talk_kids(id: String) -> void:
 	if quest == S_WARN:
 		say([
-			["오빠", "누구세요? 엄마는요?"],
-			["누이", "엄마는 잔칫집에서 떡 얻어 오신다고 했는데..."],
-			["", "(엄마가 문을 꼭 걸어 잠그라고 하셨다고 전했다.)"],
-			["오빠", "알았어. 누이야, 문고리 단단히 걸자. 엄마 목소리가 아니면 절대 열어 주면 안 돼."],
-			["누이", "응... 엄마 빨리 오셨으면 좋겠다."],
+			[tr("오빠"), tr("누구세요? 엄마는요?")],
+			[tr("누이"), tr("엄마는 잔칫집에서 떡 얻어 오신다고 했는데...")],
+			["", tr("(엄마가 문을 꼭 걸어 잠그라고 하셨다고 전했다.)")],
+			[tr("오빠"), tr("알았어. 누이야, 문고리 단단히 걸자. 엄마 목소리가 아니면 절대 열어 주면 안 돼.")],
+			[tr("누이"), tr("응... 엄마 빨리 오셨으면 좋겠다.")],
 		], after_warn)
 	elif quest == S_DOOR:
 		door_scene()
 	elif quest == S_TREE:
-		say([["오빠", "저 나무 위로 올라가자! 가지를 잡게 도와줘."]], Callable())
+		say([[tr("오빠"), tr("저 나무 위로 올라가자! 가지를 잡게 도와줘.")]], Callable())
 	elif quest < S_WARN:
 		if id == "oppa":
-			say([["오빠", "엄마가 떡 가져오신다고 했어. 누이랑 기다리는 중이야."]], Callable())
+			say([[tr("오빠"), tr("엄마가 떡 가져오신다고 했어. 누이랑 기다리는 중이야.")]], Callable())
 		else:
-			say([["누이", "해가 지면 무서워... 엄마 언제 오실까?"]], Callable())
+			say([[tr("누이"), tr("해가 지면 무서워... 엄마 언제 오실까?")]], Callable())
 
 # ---------- 잔치 일: 떡메치기, 떡 받기 ----------
 
 func start_pound() -> void:
-	start_game("rhythm", {"world": true, "scene": "pound", "art": "world", "title": "쿵덕쿵덕 떡메치기! 박자에 맞춰 톡!\n영감님이 떡을 뒤집을 땐(빨간 X) 멈춰요", "goal": 14, "bpm": 100, "bad_ratio": 0.2, "note": "쿵", "bad_text": "앗, 영감님 손!", "unit": "떡메"}, pound_done)
+	start_game("rhythm", {"world": true, "scene": "pound", "art": "world", "title": tr("쿵덕쿵덕 떡메치기! 박자에 맞춰 톡!\n영감님이 떡을 뒤집을 땐(빨간 X) 멈춰요"), "goal": 14, "bpm": 100, "bad_ratio": 0.2, "note": tr("쿵"), "bad_text": tr("앗, 영감님 손!"), "unit": tr("떡메")}, pound_done)
 
 func pound_done(ok: bool, good: bool) -> void:
 	if not ok:
-		say([["잔칫집 영감", "떡이 식으면 안 쳐진다네. 다시 해 보게!"]], Callable())
+		say([[tr("잔칫집 영감"), tr("떡이 식으면 안 쳐진다네. 다시 해 보게!")]], Callable())
 		return
 	feast["pound"] = true
 	earn(10)
-	var l := [["잔칫집 영감", "쫄깃쫄깃하구먼! 떡메 솜씨가 일품일세."]]
+	var l := [[tr("잔칫집 영감"), tr("쫄깃쫄깃하구먼! 떡메 솜씨가 일품일세.")]]
 	if good:
-		l.append(["잔칫집 영감", "한 번도 안 놓쳤어. 떡장수 해도 되겠네!"])
+		l.append([tr("잔칫집 영감"), tr("한 번도 안 놓쳤어. 떡장수 해도 되겠네!")])
 	say(l, func(): update_quest_text(); save_progress())
 
 func start_tteok() -> void:
-	start_game("catch", {"world": true, "scene": "tteok", "art": "world", "title": "떡집 할머니가 던지는 떡은 채반으로 받고\n튀는 불똥은 피하세요", "goal": 12, "interval": 0.62, "speed": 0.42, "bad_ratio": 0.3, "good": "떡", "bad": "불똥", "basket": "채반"}, tteok_done)
+	start_game("catch", {"world": true, "scene": "tteok", "art": "world", "title": tr("떡집 할머니가 던지는 떡은 채반으로 받고\n튀는 불똥은 피하세요"), "goal": 12, "interval": 0.62, "speed": 0.42, "bad_ratio": 0.3, "good": tr("떡"), "bad": tr("불똥"), "basket": tr("채반")}, tteok_done)
 
 func tteok_done(ok: bool, _good: bool) -> void:
 	if not ok:
-		say([["떡집 할머니", "아이고 뜨거워라! 불똥 조심하고 다시 받아 보자."]], Callable())
+		say([[tr("떡집 할머니"), tr("아이고 뜨거워라! 불똥 조심하고 다시 받아 보자.")]], Callable())
 		return
 	feast["tteok"] = true
 	earn(10)
-	say([["떡집 할머니", "잘 받았다! 이 떡 접시 셋을 손님들께 돌려 다오."], ["", "떡 접시 3개를 받았다."]], func(): update_quest_text(); save_progress())
+	say([[tr("떡집 할머니"), tr("잘 받았다! 이 떡 접시 셋을 손님들께 돌려 다오.")], ["", tr("떡 접시 3개를 받았다.")]], func(): update_quest_text(); save_progress())
 
 # ---------- 고갯길: 떡 하나 주면 안 잡아먹지 ----------
 
@@ -1368,49 +1369,49 @@ func event_pass(i: int) -> void:
 	player.rotation.y = atan2(spot.x - player.position.x, spot.z - player.position.z)
 	if i == 0:
 		say([
-			["호랑이", "어흥! 떡 하나 주면 안 잡아먹지~"],
-			["엄마", "(엄마가 광주리를 꼭 끌어안았다) 얘야, 엄마 뒤에 있으렴."],
-		], func(): ask("엄마", "떡을 하나 주면 보내 줄까...?", ["떡을 하나 던져 준다", "엄마 손을 꼭 잡는다"], pass1_choice))
+			[tr("호랑이"), tr("어흥! 떡 하나 주면 안 잡아먹지~")],
+			[tr("엄마"), tr("(엄마가 광주리를 꼭 끌어안았다) 얘야, 엄마 뒤에 있으렴.")],
+		], func(): ask(tr("엄마"), tr("떡을 하나 주면 보내 줄까...?"), [tr("떡을 하나 던져 준다"), tr("엄마 손을 꼭 잡는다")], pass1_choice))
 	elif i == 1:
 		say([
-			["호랑이", "어흥! 떡 하나 주면 안 잡아먹지~ 아니, 한 개로는 모자라!"],
-			["엄마", "아이고, 앞발이 광주리로 쑥쑥 들어오네!"],
-			["엄마", "얘야, 떡을 하나씩 던져 주며 앞발을 막아 다오!"],
+			[tr("호랑이"), tr("어흥! 떡 하나 주면 안 잡아먹지~ 아니, 한 개로는 모자라!")],
+			[tr("엄마"), tr("아이고, 앞발이 광주리로 쑥쑥 들어오네!")],
+			[tr("엄마"), tr("얘야, 떡을 하나씩 던져 주며 앞발을 막아 다오!")],
 		], start_paws)
 	else:
 		basket = 0
 		say([
-			["호랑이", "어흥! 떡 하나 주면 안 잡아먹지~"],
-			["엄마", "이를 어쩌나... 광주리가 텅 비었구나."],
-			["엄마", "(엄마가 조용히 무릎을 굽히고 네 손을 꼭 잡았다)"],
-			["엄마", "얘야, 잘 들으렴. 너는 발이 빠르지? 먼저 오두막으로 달려가거라."],
-			["엄마", "우리 오누이에게, 엄마 목소리가 아니면 절대 문을 열지 말라고 전해 다오."],
-		], func(): ask("엄마", "엄마는 호랑이를 달래 놓고 금방 뒤따라가마.", ["엄마도 같이 가요!", "...꼭 오셔야 해요"], pass3_choice))
+			[tr("호랑이"), tr("어흥! 떡 하나 주면 안 잡아먹지~")],
+			[tr("엄마"), tr("이를 어쩌나... 광주리가 텅 비었구나.")],
+			[tr("엄마"), tr("(엄마가 조용히 무릎을 굽히고 네 손을 꼭 잡았다)")],
+			[tr("엄마"), tr("얘야, 잘 들으렴. 너는 발이 빠르지? 먼저 오두막으로 달려가거라.")],
+			[tr("엄마"), tr("우리 오누이에게, 엄마 목소리가 아니면 절대 문을 열지 말라고 전해 다오.")],
+		], func(): ask(tr("엄마"), tr("엄마는 호랑이를 달래 놓고 금방 뒤따라가마."), [tr("엄마도 같이 가요!"), tr("...꼭 오셔야 해요")], pass3_choice))
 
 func pass1_choice(i: int) -> void:
 	basket -= 1
 	var l := []
 	if i == 0:
-		l.append(["", "떡을 하나 휙 던졌다. 호랑이가 덥석 받아먹었다."])
+		l.append(["", tr("떡을 하나 휙 던졌다. 호랑이가 덥석 받아먹었다.")])
 	else:
-		l.append(["엄마", "(엄마가 떨리는 손으로 떡을 하나 던져 주었다)"])
-	l.append(["호랑이", "냠냠, 꿀떡이로구나! 다음 고개에서 또 보자~"])
+		l.append([tr("엄마"), tr("(엄마가 떨리는 손으로 떡을 하나 던져 주었다)")])
+	l.append([tr("호랑이"), tr("냠냠, 꿀떡이로구나! 다음 고개에서 또 보자~")])
 	say(l, func():
 		tiger_leave()
 		event_lock = false
 		set_quest(S_PASS2))
 
 func start_paws() -> void:
-	start_game("swipe", {"world": true, "scene": "paws", "art": "world", "title": "호랑이 앞발이 광주리로 쑥!\n앞발 쪽으로 손가락을 휙 쳐내 막아요", "goal": 10, "tele": 0.85, "window": 0.55, "gap": 0.8, "feint_ratio": 0.22, "hit_text": "떡을 빼앗겼어요!", "unit": "막기"}, paws_done)
+	start_game("swipe", {"world": true, "scene": "paws", "art": "world", "title": tr("호랑이 앞발이 광주리로 쑥!\n앞발 쪽으로 손가락을 휙 쳐내 막아요"), "goal": 10, "tele": 0.85, "window": 0.55, "gap": 0.8, "feint_ratio": 0.22, "hit_text": tr("떡을 빼앗겼어요!"), "unit": tr("막기")}, paws_done)
 
 func paws_done(ok: bool, _good: bool) -> void:
 	if not ok:
-		say([["엄마", "앞발이 너무 빨라! 숨 한 번 고르고 다시 막아 보자."]], start_paws)
+		say([[tr("엄마"), tr("앞발이 너무 빨라! 숨 한 번 고르고 다시 막아 보자.")]], start_paws)
 		return
 	basket = 2
 	say([
-		["호랑이", "꺼억~ 배가 좀 부르다. 셋째 고개에서 마저 먹어야지!"],
-		["엄마", "휴... 이제 떡이 두 개밖에 안 남았구나."],
+		[tr("호랑이"), tr("꺼억~ 배가 좀 부르다. 셋째 고개에서 마저 먹어야지!")],
+		[tr("엄마"), tr("휴... 이제 떡이 두 개밖에 안 남았구나.")],
 	], func():
 		tiger_leave()
 		event_lock = false
@@ -1419,11 +1420,11 @@ func paws_done(ok: bool, _good: bool) -> void:
 func pass3_choice(i: int) -> void:
 	var l := []
 	if i == 0:
-		l.append(["엄마", "착하기도 하지. 하지만 아이들이 기다린단다. 어서!"])
+		l.append([tr("엄마"), tr("착하기도 하지. 하지만 아이들이 기다린단다. 어서!")])
 	else:
-		l.append(["엄마", "그래, 약속하마. 어서 가거라!"])
-	l.append(["엄마", "(소곤소곤) 엄마가 호랑이 눈을 끄는 사이에 호랑이 뒤로 살금살금 지나가렴."])
-	l.append(["엄마", "호랑이가 뒤돌아보면 꼼짝 말고 멈춰 있어야 한다!"])
+		l.append([tr("엄마"), tr("그래, 약속하마. 어서 가거라!")])
+	l.append([tr("엄마"), tr("(소곤소곤) 엄마가 호랑이 눈을 끄는 사이에 호랑이 뒤로 살금살금 지나가렴.")])
+	l.append([tr("엄마"), tr("호랑이가 뒤돌아보면 꼼짝 말고 멈춰 있어야 한다!")])
 	say(l, start_sneak)
 
 # 호랑이보다 먼저 오두막에 닿기
@@ -1444,7 +1445,7 @@ func start_run() -> void:
 	for k in range(start_i, road_pts.size()):
 		run_path.append(road_pts[k])
 	run_i = 0
-	float_text("달려요!", get_viewport().get_visible_rect().size / 2.0, Color(1, 0.9, 0.4), 1.5)
+	float_text(tr("달려요!"), get_viewport().get_visible_rect().size / 2.0, Color(1, 0.9, 0.4), 1.5)
 
 func update_run(delta: float) -> void:
 	if not run_active:
@@ -1458,7 +1459,7 @@ func update_run(delta: float) -> void:
 		mom.visible = false
 		sfx("good")
 		set_quest(S_WARN)
-		say([["", "헉헉... 오두막에 먼저 닿았다! 문 앞에 아이 둘이 서 있다."]], Callable())
+		say([["", tr("헉헉... 오두막에 먼저 닿았다! 문 앞에 아이 둘이 서 있다.")]], Callable())
 		return
 	if run_wait > 0.0:
 		run_wait -= delta
@@ -1486,7 +1487,7 @@ func update_run(delta: float) -> void:
 		run_active = false
 		sfx("fail")
 		shake(16)
-		show_card("호랑이가 앞질러 버렸어요!\n\n셋째 고개에서 다시 달려 봐요.", 0.0, 2.0, func():
+		show_card(tr("호랑이가 앞질러 버렸어요!\n\n셋째 고개에서 다시 달려 봐요."), 0.0, 2.0, func():
 			var sp: Vector3 = TIGER_SPOTS[2]
 			player.position = on_ground(sp.x + 1.0, sp.z + 6.0, 0.3)
 			player.velocity = Vector3.ZERO
@@ -1498,9 +1499,9 @@ func update_run(delta: float) -> void:
 
 func after_warn() -> void:
 	set_quest(S_DOOR)
-	show_card("깊은 밤이 되었어요.\n\n똑똑, 똑똑...\n누군가 문을 두드려요.", 0.0, 3.0, func():
+	show_card(tr("깊은 밤이 되었어요.\n\n똑똑, 똑똑...\n누군가 문을 두드려요."), 0.0, 3.0, func():
 		tiger_show_disguised()
-		say([["???", "얘들아~ 엄마 왔다. 문 열어라~"]], Callable()))
+		say([["???", tr("얘들아~ 엄마 왔다. 문 열어라~")]], Callable()))
 
 func tiger_show_disguised() -> void:
 	var gate := COTTAGE_C + Vector3(0.2, 0, 6.2)
@@ -1512,24 +1513,24 @@ func tiger_show_disguised() -> void:
 
 func door_scene() -> void:
 	say([
-		["???", "얘들아~ 엄마 왔다. 어서 문 열어라~"],
-		["누이", "엄마 목소리가 왜 그렇게 쉬었어요?"],
-		["???", "잔칫집에서 하루 종일 노래를 불러서 그렇단다~"],
-	], func(): ask("오빠", "정말 엄마일까? 어떻게 알아보지?", ["문틈으로 손을 보여 달라고 한다", "얼굴을 보여 달라고 한다"], door_choice))
+		["???", tr("얘들아~ 엄마 왔다. 어서 문 열어라~")],
+		[tr("누이"), tr("엄마 목소리가 왜 그렇게 쉬었어요?")],
+		["???", tr("잔칫집에서 하루 종일 노래를 불러서 그렇단다~")],
+	], func(): ask(tr("오빠"), tr("정말 엄마일까? 어떻게 알아보지?"), [tr("문틈으로 손을 보여 달라고 한다"), tr("얼굴을 보여 달라고 한다")], door_choice))
 
 func door_choice(i: int) -> void:
 	var l := []
 	if i == 0:
-		l.append(["", "문틈으로 손이 쑥 들어왔다. 누런 털이 숭숭, 발톱이 뾰족!"])
-		l.append(["???", "이, 일을 많이 해서 손이 거칠어졌단다~"])
+		l.append(["", tr("문틈으로 손이 쑥 들어왔다. 누런 털이 숭숭, 발톱이 뾰족!")])
+		l.append(["???", tr("이, 일을 많이 해서 손이 거칠어졌단다~")])
 	else:
-		l.append(["", "문구멍 너머로 커다란 눈이 번쩍! 머릿수건 아래로 줄무늬가 보인다."])
-		l.append(["???", "어, 어두워서 그렇게 보이는 거란다~"])
-	l.append(["오빠", "(속닥속닥) 엄마가 아니야... 호랑이야!"])
-	l.append(["누이", "(속닥속닥) 그럼 엄마는...?"])
-	l.append(["오빠", "(누이 손을 꼭 잡으며) 쉿. 뒷문으로 나가자. 우물가 큰 나무로!"])
+		l.append(["", tr("문구멍 너머로 커다란 눈이 번쩍! 머릿수건 아래로 줄무늬가 보인다.")])
+		l.append(["???", tr("어, 어두워서 그렇게 보이는 거란다~")])
+	l.append([tr("오빠"), tr("(속닥속닥) 엄마가 아니야... 호랑이야!")])
+	l.append([tr("누이"), tr("(속닥속닥) 그럼 엄마는...?")])
+	l.append([tr("오빠"), tr("(누이 손을 꼭 잡으며) 쉿. 뒷문으로 나가자. 우물가 큰 나무로!")])
 	say(l, func():
-		show_card("호랑이는 엄마의 옷을 입고 있었어요.\n\n엄마는... 끝내 집으로 돌아오지 못했어요.\n\n오누이는 울음을 꾹 참고\n살금살금 뒷문으로 빠져나갔어요.", 0.0, 5.0, after_door))
+		show_card(tr("호랑이는 엄마의 옷을 입고 있었어요.\n\n엄마는... 끝내 집으로 돌아오지 못했어요.\n\n오누이는 울음을 꾹 참고\n살금살금 뒷문으로 빠져나갔어요."), 0.0, 5.0, after_door))
 
 func after_door() -> void:
 	tiger.visible = false
@@ -1541,11 +1542,11 @@ func after_door() -> void:
 	set_quest(S_TREE)
 
 func start_climb() -> void:
-	start_game("alternate", {"world": true, "scene": "climb", "art": "world", "title": "오누이가 나무에 올라요! 가지 있는 쪽을 눌러요\n나무가 흔들리면 꾹 누르고 버텨요", "goal": 12, "step_time": 1.5, "shake_every": 4.5, "unit": "가지"}, climb_done)
+	start_game("alternate", {"world": true, "scene": "climb", "art": "world", "title": tr("오누이가 나무에 올라요! 가지 있는 쪽을 눌러요\n나무가 흔들리면 꾹 누르고 버텨요"), "goal": 12, "step_time": 1.5, "shake_every": 4.5, "unit": tr("가지")}, climb_done)
 
 func climb_done(ok: bool, _good: bool) -> void:
 	if not ok:
-		say([["오빠", "미끄러졌어! 다시 해 보자, 누이야. 꽉 잡아!"]], Callable())
+		say([[tr("오빠"), tr("미끄러졌어! 다시 해 보자, 누이야. 꽉 잡아!")]], Callable())
 		return
 	for k in ["oppa", "nui"]:
 		var kid := npc(k)
@@ -1556,17 +1557,17 @@ func climb_done(ok: bool, _good: bool) -> void:
 	tiger.visible = true
 	set_disguise(false)
 	say([
-		["오빠", "너는 저 장독 뒤에 숨어! 어서!"],
-		["", "(장독 뒤에 몸을 숨겼다. 호랑이가 우물가로 어슬렁어슬렁 다가온다.)"],
-		["호랑이", "어라? 우물 속에 애들이 있네? 얘들아, 거기 어떻게 들어갔니~"],
-		["누이", "(킥킥) 바보 호랑이! 우리는 나무 위에 있지롱!"],
-		["호랑이", "오호라! 너희는 거기 어떻게 올라갔니?"],
-		["오빠", "참기름 바르고 올라왔지!"],
-		["", "호랑이가 나무에 참기름을 바르고 오르다... 미끌, 쿵! 엉덩방아를 찧었다."],
-		["누이", "바보, 도끼로 콕콕 찍으면서 올라오면 되는데!"],
-		["오빠", "쉿! 누이야!"],
-		["호랑이", "옳거니! 도끼로 콕, 콕!"],
-		["", "(장독 뒤에서 솔방울을 한 움큼 주웠다. 호랑이를 막아야 해!)"],
+		[tr("오빠"), tr("너는 저 장독 뒤에 숨어! 어서!")],
+		["", tr("(장독 뒤에 몸을 숨겼다. 호랑이가 우물가로 어슬렁어슬렁 다가온다.)")],
+		[tr("호랑이"), tr("어라? 우물 속에 애들이 있네? 얘들아, 거기 어떻게 들어갔니~")],
+		[tr("누이"), tr("(킥킥) 바보 호랑이! 우리는 나무 위에 있지롱!")],
+		[tr("호랑이"), tr("오호라! 너희는 거기 어떻게 올라갔니?")],
+		[tr("오빠"), tr("참기름 바르고 올라왔지!")],
+		["", tr("호랑이가 나무에 참기름을 바르고 오르다... 미끌, 쿵! 엉덩방아를 찧었다.")],
+		[tr("누이"), tr("바보, 도끼로 콕콕 찍으면서 올라오면 되는데!")],
+		[tr("오빠"), tr("쉿! 누이야!")],
+		[tr("호랑이"), tr("옳거니! 도끼로 콕, 콕!")],
+		["", tr("(장독 뒤에서 솔방울을 한 움큼 주웠다. 호랑이를 막아야 해!)")],
 	], func():
 		set_quest(S_ROPE)
 		tiger_climb_shake()
@@ -1598,11 +1599,11 @@ func make_sky_rope() -> void:
 	tw.tween_property(sky_rope, "position:y", height_at(tree_pos.x, tree_pos.z), 2.0).set_ease(Tween.EASE_OUT)
 
 func start_rope() -> void:
-	start_game("mash", {"world": true, "scene": "rope", "art": "world", "title": "동아줄을 영차영차 당겨요! 빠르게 연타\n줄이 기울면 반대쪽을 눌러 균형을 잡아요", "goal": 10, "balance": true, "per": 3, "sway": 0.9, "unit": "당기기"}, rope_done)
+	start_game("mash", {"world": true, "scene": "rope", "art": "world", "title": tr("동아줄을 영차영차 당겨요! 빠르게 연타\n줄이 기울면 반대쪽을 눌러 균형을 잡아요"), "goal": 10, "balance": true, "per": 3, "sway": 0.9, "unit": tr("당기기")}, rope_done)
 
 func rope_done(ok: bool, _good: bool) -> void:
 	if not ok:
-		say([["오빠", "놓쳤어! 다시 한 번만 더... 하느님!"]], Callable())
+		say([[tr("오빠"), tr("놓쳤어! 다시 한 번만 더... 하느님!")]], Callable())
 		return
 	event_lock = true
 	# 오누이가 동아줄을 타고 하늘로
@@ -1619,9 +1620,9 @@ func rope_done(ok: bool, _good: bool) -> void:
 		tw2.tween_property(sky_rope, "position:y", sky_rope.position.y + 30.0, 4.0).set_ease(Tween.EASE_IN)
 	get_tree().create_timer(3.0).timeout.connect(func():
 		say([
-			["호랑이", "어라? 나도! 하느님, 저에게도 동아줄을 내려 주세요!"],
-			["", "하늘에서 동아줄이 스르륵 내려왔다. 그런데... 어딘가 낡아 보인다."],
-			["호랑이", "히히, 나도 하늘로 간다~"],
+			[tr("호랑이"), tr("어라? 나도! 하느님, 저에게도 동아줄을 내려 주세요!")],
+			["", tr("하늘에서 동아줄이 스르륵 내려왔다. 그런데... 어딘가 낡아 보인다.")],
+			[tr("호랑이"), tr("히히, 나도 하늘로 간다~")],
 		], tiger_fall))
 
 func tiger_fall() -> void:
@@ -1632,7 +1633,7 @@ func tiger_fall() -> void:
 	tw.tween_property(tiger, "position", top, 1.6).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(func():
 		sfx("crack", 0.7)
-		float_text("뚝!", cam.unproject_position(top), Color(1, 0.8, 0.5), 1.4))
+		float_text(tr("뚝!"), cam.unproject_position(top), Color(1, 0.8, 0.5), 1.4))
 	tw.tween_property(tiger, "position", (top + field) * 0.5 + Vector3(0, 4.0, 0), 0.6)
 	tw.tween_property(tiger, "position", field, 0.6).set_ease(Tween.EASE_IN)
 	tw.parallel().tween_property(tiger, "rotation:z", 3.0, 1.2)
@@ -1643,7 +1644,7 @@ func tiger_fall() -> void:
 		paint_sorghum_red()
 		tiger.visible = false
 		tiger.rotation.z = 0.0
-		show_card("썩은 동아줄이 뚝!\n호랑이는 수수밭으로 쿵 떨어졌어요.\n\n그 뒤로 수숫대는\n붉게 물들었대요.", 0.0, 4.0, ask_ending))
+		show_card(tr("썩은 동아줄이 뚝!\n호랑이는 수수밭으로 쿵 떨어졌어요.\n\n그 뒤로 수숫대는\n붉게 물들었대요."), 0.0, 4.0, ask_ending))
 
 func paint_sorghum_red() -> void:
 	if sorghum_mm == null:
@@ -1654,21 +1655,21 @@ func paint_sorghum_red() -> void:
 		sorghum_mm.set_instance_color(i, Color(0.72, 0.22, 0.16).lerp(Color(0.62, 0.3, 0.2), r.randf()))
 
 func ask_ending() -> void:
-	ask("누이", "오빠, 하늘나라에 가면 우리는 무엇이 될까?", ["오빠는 해, 누이는 달", "누이는 해, 오빠는 달"], on_ending)
+	ask(tr("누이"), tr("오빠, 하늘나라에 가면 우리는 무엇이 될까?"), [tr("오빠는 해, 누이는 달"), tr("누이는 해, 오빠는 달")], on_ending)
 
 func on_ending(i: int) -> void:
 	var l := []
 	if i == 0:
 		ending = "oppa_sun"
-		l.append(["오빠", "내가 해가 되어 낮을 밝힐게. 누이는 달이 되어 밤길을 비춰 주렴."])
-		l.append(["누이", "응! 밤에 길 잃은 사람이 없게 환하게 비출게."])
+		l.append([tr("오빠"), tr("내가 해가 되어 낮을 밝힐게. 누이는 달이 되어 밤길을 비춰 주렴.")])
+		l.append([tr("누이"), tr("응! 밤에 길 잃은 사람이 없게 환하게 비출게.")])
 	else:
 		ending = "nui_sun"
-		l.append(["누이", "오빠, 나는 밤이 무서워... 내가 해 하면 안 될까?"])
-		l.append(["오빠", "그래, 누이가 해가 되렴. 오빠가 달이 되어 밤을 지킬게."])
-		l.append(["누이", "그런데 다들 나만 쳐다보면 부끄러운데... 그럼 눈부시게 빛나야지!"])
+		l.append([tr("누이"), tr("오빠, 나는 밤이 무서워... 내가 해 하면 안 될까?")])
+		l.append([tr("오빠"), tr("그래, 누이가 해가 되렴. 오빠가 달이 되어 밤을 지킬게.")])
+		l.append([tr("누이"), tr("그런데 다들 나만 쳐다보면 부끄러운데... 그럼 눈부시게 빛나야지!")])
 	say(l, func():
-		show_card("오누이는 해와 달이 되어\n세상을 환하게 비추었어요.\n\n그날 밤, 달 곁에서\n별 하나가 유난히 반짝였대요.\n엄마가 웃는 것처럼요.", 0.0, 5.0, finish_chapter2))
+		show_card(tr("오누이는 해와 달이 되어\n세상을 환하게 비추었어요.\n\n그날 밤, 달 곁에서\n별 하나가 유난히 반짝였대요.\n엄마가 웃는 것처럼요."), 0.0, 5.0, finish_chapter2))
 
 func finish_chapter2() -> void:
 	event_lock = false
@@ -1678,7 +1679,7 @@ func finish_chapter2() -> void:
 		npc(k).visible = false
 	if sky_rope != null:
 		sky_rope.queue_free()
-	say([["", "빈 책장에 해님 달님 그림이 새로 생겼다. 2장 이야기가 채워졌다!"]], Callable())
+	say([["", tr("빈 책장에 해님 달님 그림이 새로 생겼다. 2장 이야기가 채워졌다!")]], Callable())
 
 # ---------- 물건 누르기 ----------
 
@@ -1700,15 +1701,15 @@ func is_active(t: Dictionary) -> bool:
 func action_text(t: Dictionary) -> String:
 	match t["kind"]:
 		"pound":
-			return "떡메 치기"
+			return tr("떡메 치기")
 		"stack":
-			return "떡 쌓기"
+			return tr("떡 쌓기")
 		"stone":
-			return "돌 얹기"
+			return tr("돌 얹기")
 		"climb":
-			return "나무 오르기"
+			return tr("나무 오르기")
 		"pray":
-			return "하늘에 빌기"
+			return tr("하늘에 빌기")
 	return super(t)
 
 func on_action() -> void:
@@ -1728,10 +1729,10 @@ func on_action() -> void:
 			stones[i] = true
 			burst3d((t["node"] as Node3D).position + Vector3(0, 0.8, 0), Color(0.8, 0.78, 0.7), 14)
 			earn(5)
-			var wish: String = ["엄마와 무사히 집에 닿게 해 주세요.", "고갯길의 호랑이가 배불러서 그냥 가게 해 주세요.", "오누이가 무섭지 않게 해 주세요."][i]
+			var wish: String = [tr("엄마와 무사히 집에 닿게 해 주세요."), tr("고갯길의 호랑이가 배불러서 그냥 가게 해 주세요."), tr("오누이가 무섭지 않게 해 주세요.")][i]
 			if quest >= S_END:
-				wish = "해님 달님이 늘 우리를 비춰 주기를."
-			say([["", "돌무더기에 돌 하나를 살짝 얹고 빌었다. \"%s\"" % wish]], func(): update_quest_text(); save_progress())
+				wish = tr("해님 달님이 늘 우리를 비춰 주기를.")
+			say([["", tr("돌무더기에 돌 하나를 살짝 얹고 빌었다. \"%s\"") % wish]], func(): update_quest_text(); save_progress())
 		"climb":
 			sfx("tap")
 			start_climb()
@@ -1742,7 +1743,7 @@ func on_action() -> void:
 		"gate":
 			sfx("tap")
 			if t["id"] == "ch3":
-				ask("", "“이 길을 따라가면 별주부전 이야기”\n3장 바닷가로 넘어갈까요?\n(2장 이야기는 저장돼요.)", ["3장으로 가기", "다음에 갈게요"], func(i: int):
+				ask("", tr("“이 길을 따라가면 별주부전 이야기”\n3장 바닷가로 넘어갈까요?\n(2장 이야기는 저장돼요.)"), [tr("3장으로 가기"), tr("다음에 갈게요")], func(i: int):
 					if i == 0:
 						go_to_chapter("ch3"))
 			else:
@@ -1903,7 +1904,7 @@ func scene_target_hit(n: Node3D) -> void:
 			hit_stop(0.04)
 			sfx("land", 0.75)
 			burst3d(at, Color(1, 1, 0.97), 12)
-			float_text("쿵덕!", cam.unproject_position(at), Color(1, 0.95, 0.7), 1.3)
+			float_text(tr("쿵덕!"), cam.unproject_position(at), Color(1, 0.95, 0.7), 1.3)
 			if anban_dough != null:
 				var tw := anban_dough.create_tween()
 				anban_dough.scale = Vector3(1.12, 0.7, 1.08)
@@ -1915,7 +1916,7 @@ func scene_target_hit(n: Node3D) -> void:
 			w["swing"] = 1.0
 			sfx("tick", 1.0 + mg_count * 0.04)
 			burst3d(at, Color(0.5, 0.7, 0.35), 8)
-			float_text("영차!", cam.unproject_position(at), Color(1, 0.95, 0.7), 1.1)
+			float_text(tr("영차!"), cam.unproject_position(at), Color(1, 0.95, 0.7), 1.1)
 			n.queue_free()
 			return
 		"rope":
@@ -1923,7 +1924,7 @@ func scene_target_hit(n: Node3D) -> void:
 			w["swing"] = 1.0
 			sfx("good", 1.0 + mg_count * 0.05)
 			burst3d(at, Color(1, 0.92, 0.6), 12)
-			float_text("꽉!", cam.unproject_position(at), Color(1, 0.95, 0.7), 1.2)
+			float_text(tr("꽉!"), cam.unproject_position(at), Color(1, 0.95, 0.7), 1.2)
 			n.queue_free()
 			return
 		"paws":
@@ -1936,7 +1937,7 @@ func scene_target_hit(n: Node3D) -> void:
 			hide_target_marker(n)
 			w["swing"] = 1.0
 			sfx("pop", 0.9)
-			float_text("옜다, 떡!", cam.unproject_position(at), Color(1, 0.95, 0.7), 1.2)
+			float_text(tr("옜다, 떡!"), cam.unproject_position(at), Color(1, 0.95, 0.7), 1.2)
 			var back: Vector3 = n.get_meta("from")
 			var tw3 := n.create_tween()
 			tw3.tween_interval(0.15)
@@ -1950,7 +1951,7 @@ func scene_target_miss(n: Node3D) -> void:
 	match w["scene"]:
 		"pound", "climb", "rope", "paws":
 			hide_target_marker(n)
-			var msg: String = {"pound": "떡이 식어요!", "climb": "미끄러워요!", "rope": "매듭을 놓쳤어요!", "paws": "떡을 빼앗겼어요!"}[w["scene"]]
+			var msg: String = {"pound": tr("떡이 식어요!"), "climb": tr("미끄러워요!"), "rope": tr("매듭을 놓쳤어요!"), "paws": tr("떡을 빼앗겼어요!")}[w["scene"]]
 			float_text(msg, cam.unproject_position(at), Color(1, 0.55, 0.45), 1.0)
 			var tw := n.create_tween()
 			tw.tween_property(n, "scale", Vector3(0.01, 0.01, 0.01), 0.25)
@@ -2000,7 +2001,7 @@ func cg_event(kind: String, info: Dictionary = {}) -> void:
 				w["swing"] = 1.0
 			elif kind == "hit":
 				burst3d(tiger.global_position + Vector3(0, 1.8, 0), Color(0.6, 0.42, 0.25), 14)
-				float_text("아야!", cam.unproject_position(tiger.global_position + Vector3(0, 2.6, 0)), Color(1, 0.7, 0.5), 1.0)
+				float_text(tr("아야!"), cam.unproject_position(tiger.global_position + Vector3(0, 2.6, 0)), Color(1, 0.7, 0.5), 1.0)
 		"pound":
 			if kind in ["perfect", "good"]:
 				w["swing"] = 1.0
@@ -2015,7 +2016,7 @@ func cg_event(kind: String, info: Dictionary = {}) -> void:
 			elif kind == "bad":
 				w["swing"] = 1.0
 				flash(Color(1, 0.6, 0.5))
-				float_text("아야야!", cam.unproject_position(ANBAN_POS + Vector3(0.6, 1.2, 0)), Color(1, 0.6, 0.5), 1.3)
+				float_text(tr("아야야!"), cam.unproject_position(ANBAN_POS + Vector3(0.6, 1.2, 0)), Color(1, 0.6, 0.5), 1.3)
 			elif kind == "whiff":
 				w["swing"] = 0.6
 		"paws":
@@ -2034,7 +2035,7 @@ func cg_event(kind: String, info: Dictionary = {}) -> void:
 				tw2.tween_property(tk, "global_position", tiger.position + Vector3(0, 2.0, 0), 0.35).set_ease(Tween.EASE_OUT)
 				tw2.tween_callback(tk.queue_free)
 			elif kind in ["feint", "fooled"]:
-				float_text("히히, 속았지?", cam.unproject_position(tiger.position + Vector3(0, 3.2, 0)), Color(1, 0.8, 0.5), 1.2)
+				float_text(tr("히히, 속았지?"), cam.unproject_position(tiger.position + Vector3(0, 3.2, 0)), Color(1, 0.8, 0.5), 1.2)
 		"climb":
 			if kind == "climb":
 				w["swing"] = 1.0

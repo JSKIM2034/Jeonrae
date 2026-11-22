@@ -529,7 +529,7 @@ func draw_mg_art() -> void:
 			if is_instance_valid(mg_a):
 				var gx := node_center(mg_a).x
 				d_box(ci, Vector2(gx, ty), Vector2(30, 66), 0.0, Color(0.55, 0.35, 0.18), 4)
-				ci.draw_string(font, Vector2(gx - 26, ty - 44), "흥부" if key == "saw" else "첨지", HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size * 0.5), INK)
+				ci.draw_string(font, Vector2(gx - 26, ty - 44), tr("흥부") if key == "saw" else tr("첨지"), HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size * 0.5), INK)
 			if mg_touch:
 				d_box(ci, Vector2(mg_pos.x, ty), Vector2(30, 66), 0.0, Color(0.6, 0.95, 0.6) if in_sync else Color(0.98, 0.95, 0.85), 4)
 		"world":
@@ -658,47 +658,102 @@ var mg_dir := 1.0
 # ---------- 마을 사람들 (놀부 심술 수습) ----------
 var villagers := {
 	"dori": {
-		"name": "돌이",
-		"ask": [["돌이", "으아앙! 놀부 아저씨가 내 엿을 뺏어 먹었어!"], ["돌이", "엿 먹고 싶어... 장터 아저씨가 파는데..."]],
-		"wait": "훌쩍... 엿은 장터 아저씨가 팔아.",
-		"done": "우와, 엿이다! 고마워! 이제 안 울게.",
+		"name": tr("돌이"),
+		"ask": [[tr("돌이"), tr("으아앙! 놀부 아저씨가 내 엿을 뺏어 먹었어!")], [tr("돌이"), tr("엿 먹고 싶어... 장터 아저씨가 파는데...")]],
+		"wait": tr("훌쩍... 엿은 장터 아저씨가 팔아."),
+		"done": tr("우와, 엿이다! 고마워! 이제 안 울게."),
 	},
 	"suni": {
-		"name": "순이 엄마",
-		"ask": [["순이 엄마", "놀부가 빨랫줄을 끊어 놔서 빨래가 개울가에 다 흩어졌지 뭐니."], ["순이 엄마", "개울 따라 세 장만 찾아 주겠니?"]],
-		"wait": "빨래는 개울가를 따라 흩어졌단다.",
-		"done": "아이고, 다 찾아 왔구나! 고맙다.",
+		"name": tr("순이 엄마"),
+		"ask": [[tr("순이 엄마"), tr("놀부가 빨랫줄을 끊어 놔서 빨래가 개울가에 다 흩어졌지 뭐니.")], [tr("순이 엄마"), tr("개울 따라 세 장만 찾아 주겠니?")]],
+		"wait": tr("빨래는 개울가를 따라 흩어졌단다."),
+		"done": tr("아이고, 다 찾아 왔구나! 고맙다."),
 	},
 	"kim": {
-		"name": "김 서방",
-		"ask": [["김 서방", "놀부가 다 익은 호박마다 말뚝을 박아 놨지 뭐냐!"], ["김 서방", "말뚝이 보이면 재빨리 눌러서 뽑아 다오."]],
-		"fail": "말뚝이 너무 깊이 들어갔구나. 다시 해 보자.",
-		"done": "호박이 살았다! 고맙다, 얘야.",
+		"name": tr("김 서방"),
+		"ask": [[tr("김 서방"), tr("놀부가 다 익은 호박마다 말뚝을 박아 놨지 뭐냐!")], [tr("김 서방"), tr("말뚝이 보이면 재빨리 눌러서 뽑아 다오.")]],
+		"fail": tr("말뚝이 너무 깊이 들어갔구나. 다시 해 보자."),
+		"done": tr("호박이 살았다! 고맙다, 얘야."),
 		"game": "tap",
-		"cfg": {"title": "호박에 박힌 말뚝을\n사라지기 전에 눌러 뽑아요", "goal": 8, "interval": 0.9, "life": 1.9, "target": "말뚝", "center": "호박", "color": Color(0.95, 0.6, 0.2), "art": "world", "world": true, "scene": "kim"},
+		"cfg": {"title": tr("호박에 박힌 말뚝을\n사라지기 전에 눌러 뽑아요"), "goal": 8, "interval": 0.9, "life": 1.9, "target": tr("말뚝"), "center": tr("호박"), "color": Color(0.95, 0.6, 0.2), "art": "world", "world": true, "scene": "kim"},
 	},
 	"ong": {
-		"name": "옹기 할멈",
-		"ask": [["옹기 할멈", "놀부가 지나가다 장독을 발로 차서 금이 갔단다."], ["옹기 할멈", "진흙을 살살 돌려 발라 주겠니? 세게 하면 또 깨진단다."]],
-		"fail": "에구, 금이 더 갔구나. 다시 살살 해 보자.",
-		"done": "감쪽같구나! 장맛을 지켰다.",
+		"name": tr("옹기 할멈"),
+		"ask": [[tr("옹기 할멈"), tr("놀부가 지나가다 장독을 발로 차서 금이 갔단다.")], [tr("옹기 할멈"), tr("진흙을 살살 돌려 발라 주겠니? 세게 하면 또 깨진단다.")]],
+		"fail": tr("에구, 금이 더 갔구나. 다시 살살 해 보자."),
+		"done": tr("감쪽같구나! 장맛을 지켰다."),
 		"game": "circle",
-		"cfg": {"title": "깨진 장독 둘레에\n진흙을 살살 돌려 발라요", "label": "장독", "turns": 5.0, "max_speed": 10.0, "warn": "너무 세게 바르면 깨져요!", "color": Color(0.5, 0.33, 0.2), "art": "world", "world": true, "scene": "ong", "trail": Color(0.66, 0.48, 0.3)},
+		"cfg": {"title": tr("깨진 장독 둘레에\n진흙을 살살 돌려 발라요"), "label": tr("장독"), "turns": 5.0, "max_speed": 10.0, "warn": tr("너무 세게 바르면 깨져요!"), "color": Color(0.5, 0.33, 0.2), "art": "world", "world": true, "scene": "ong", "trail": Color(0.66, 0.48, 0.3)},
 	},
 	"park": {
-		"name": "박 첨지",
-		"ask": [["박 첨지", "놀부가 제 논에만 물을 대려고 우리 물꼬를 막아 버렸어!"], ["박 첨지", "나랑 박자 맞춰 삽질 좀 해 다오."]],
-		"fail": "박자가 안 맞아 삽이 엇나갔구나. 다시 해 보자.",
-		"done": "물이 콸콸 들어온다! 올해 농사는 살았다.",
+		"name": tr("박 첨지"),
+		"ask": [[tr("박 첨지"), tr("놀부가 제 논에만 물을 대려고 우리 물꼬를 막아 버렸어!")], [tr("박 첨지"), tr("나랑 박자 맞춰 삽질 좀 해 다오.")]],
+		"fail": tr("박자가 안 맞아 삽이 엇나갔구나. 다시 해 보자."),
+		"done": tr("물이 콸콸 들어온다! 올해 농사는 살았다."),
 		"game": "follow",
-		"cfg": {"art": "world", "world": true, "scene": "ditch", "title": "박 첨지와 박자 맞춰 삽질!\n아래 손잡이를 좌우로 따라가세요", "slow": 2.0, "tol": 0.4, "goal": 5.0, "patience": 4.0, "color": Color(0.4, 0.6, 0.85)},
+		"cfg": {"art": "world", "world": true, "scene": "ditch", "title": tr("박 첨지와 박자 맞춰 삽질!\n아래 손잡이를 좌우로 따라가세요"), "slow": 2.0, "tol": 0.4, "goal": 5.0, "patience": 4.0, "color": Color(0.4, 0.6, 0.85)},
 	},
 }
 
 
 # ---------- 시작 ----------
 
+# ---------- 언어 (한국어 / English) ----------
+# 브라우저나 기기 언어가 한국어면 한국어, 그 밖은 영어로 시작해요. 설정에서 바꾸면 user://lang.cfg 에 남아요.
+const LANG_PATH := "user://lang.cfg"
+
+func lang() -> String:
+	var cf := ConfigFile.new()
+	if cf.load(LANG_PATH) == OK:
+		var l: String = cf.get_value("lang", "code", "")
+		if l != "":
+			return l
+	var sys := OS.get_locale_language()
+	if OS.has_feature("web"):
+		var nl = JavaScriptBridge.eval("(navigator.languages && navigator.languages[0]) || navigator.language || ''", true)
+		if nl is String and nl != "":
+			sys = nl.substr(0, 2).to_lower()
+	return "ko" if sys == "ko" else "en"
+
+func ensure_lang() -> void:
+	if Engine.has_meta("jr_lang_ready"):
+		return
+	Engine.set_meta("jr_lang_ready", true)
+	var t := Translation.new()
+	t.locale = "en"
+	var en: Dictionary = preload("res://lang_en.gd").EN
+	for k in en:
+		t.add_message(k, en[k])
+	TranslationServer.add_translation(t)
+	TranslationServer.set_locale(lang())
+
+func set_lang(l: String) -> void:
+	var cf := ConfigFile.new()
+	cf.set_value("lang", "code", l)
+	cf.save(LANG_PATH)
+	TranslationServer.set_locale(l)
+	leaving_scene = true
+	get_tree().reload_current_scene()
+
+# 표 안의 글자만 지금 언어로 바꾼 사본 (id 같은 키는 그대로)
+func trd(v: Variant) -> Variant:
+	ensure_lang()
+	if v is String:
+		return TranslationServer.translate(v) if v != "" else v
+	if v is Dictionary:
+		var d := {}
+		for k in v:
+			d[k] = trd(v[k])
+		return d
+	if v is Array:
+		var a := []
+		for x in v:
+			a.append(trd(x))
+		return a
+	return v
+
 func _ready() -> void:
+	ensure_lang()
 	# 어떤 폰에서도 글자와 버튼이 같은 비율로 보이도록 화면 기준을 고정해요
 	var window := get_tree().root
 	window.content_scale_size = Vector2i(720, 1280)
@@ -1686,7 +1741,7 @@ func make_jangseung(pos: Vector3, female: bool) -> void:
 		col2.position.y = 1.4
 		root.add_child(col2)
 		var lab2 := Label3D.new()
-		lab2.text = "지\n하\n여\n장\n군" if female else "천\n하\n대\n장\n군"
+		lab2.text = tr("지\n하\n여\n장\n군") if female else tr("천\n하\n대\n장\n군")
 		lab2.font = font
 		lab2.font_size = 44
 		lab2.modulate = Color(0.15, 0.08, 0.05)
@@ -1709,7 +1764,7 @@ func make_jangseung(pos: Vector3, female: bool) -> void:
 	face.append([Vector3(0, 1.84, 0.27), Vector3(0.18, 0.03, 0.03), Color(1, 1, 1)])
 	add_blobs(root, face)
 	var lab := Label3D.new()
-	lab.text = "지\n하\n여\n장\n군" if female else "천\n하\n대\n장\n군"
+	lab.text = tr("지\n하\n여\n장\n군") if female else tr("천\n하\n대\n장\n군")
 	lab.font = font
 	lab.font_size = 48
 	lab.modulate = Color(0.15, 0.08, 0.05)
@@ -2125,7 +2180,7 @@ func go_to_chapter(id: String) -> void:
 	cf.save(SAVE_PATH)
 	leaving_scene = true
 	# 다음 장을 짓는 동안 화면이 멈춰 보이지 않게, 두루마리를 먼저 펼쳐 둬요
-	show_card("책장을 넘기는 중...", 1.0, 30.0, Callable())
+	show_card(tr("책장을 넘기는 중..."), 1.0, 30.0, Callable())
 	await get_tree().create_timer(0.9).timeout
 	get_tree().change_scene_to_file(CHAPTER_SCENES[id])
 
@@ -2164,7 +2219,7 @@ func update_cam_hint(delta: float) -> void:
 	if cam_hint_timer > 4.0:
 		cam_hint_seen = true
 		save_controls()
-		say([["", "두 손가락을 화면에 대고 비틀면 화면이 돌아가요.\n벌리면 가까이, 오므리면 멀리 보여요.\n아주 가까이 당기면 하늘도 올려다볼 수 있어요!"]], Callable())
+		say([["", tr("두 손가락을 화면에 대고 비틀면 화면이 돌아가요.\n벌리면 가까이, 오므리면 멀리 보여요.\n아주 가까이 당기면 하늘도 올려다볼 수 있어요!")]], Callable())
 
 func update_autosave(delta: float) -> void:
 	save_timer += delta
@@ -3293,7 +3348,7 @@ const VIL_BASE := {
 	"vil_grandma": {"arm_down": 0.2, "hat_y": 0.98, "head_r": 0.38, "chin": 0.3, "front": 0.33},
 	"vil_child": {"arm_down": 0.2, "hat_y": 0.98, "head_r": 0.4, "chin": 0.28, "front": 0.31},
 }
-const VILLAGERS := {
+const VILLAGERS_KO := {
 	"suni": {"base": "vil_woman", "scale": 1.2, "bottom": Color(0.6, 0.7, 0.9)},
 	"ong": {"base": "vil_grandma", "scale": 1.15, "bottom": Color(0.66, 0.56, 0.62)},
 	"kim": {"base": "vil_man", "scale": 1.2, "bottom": Color(0.72, 0.64, 0.48), "hat": "straw"},
@@ -3313,6 +3368,7 @@ const VILLAGERS := {
 	"guest2": {"base": "vil_woman", "scale": 1.2, "top": Color(1.0, 0.82, 0.45), "bottom": Color(0.5, 0.6, 0.88)},
 	"guest3": {"base": "vil_grandpa", "scale": 1.2, "top": Color(0.85, 0.85, 0.8), "hat": "tang", "beard": 1.2},
 }
+var VILLAGERS: Dictionary = trd(VILLAGERS_KO)
 const CLOTH_SHADER := """
 shader_type spatial;
 render_mode cull_disabled;
@@ -3615,12 +3671,12 @@ func make_npc(id: String, label: String, c: Color, pos: Vector3, size: float, so
 # ---------- 약초 도감 (6종, 종류마다 3번, 캐면 3분 뒤 다시 자라요) ----------
 
 var HERBS := [
-	{"name": "쑥", "hint": "마을 길가", "reward": 5, "spots": [Vector3(-5.6, 0, 16.5), Vector3(8.5, 0, 24.5)]},
-	{"name": "냉이", "hint": "논 근처", "reward": 5, "spots": [Vector3(16.5, 0, 35.8), Vector3(31.2, 0, 36.2)]},
-	{"name": "달래", "hint": "개울가", "reward": 6, "spots": [Vector3(-27.0, 0, -13.1), Vector3(12.0, 0, -13.2)]},
-	{"name": "도라지", "hint": "개울 건너 숲", "reward": 8, "spots": [Vector3(-14.0, 0, -27.0), Vector3(10.0, 0, -26.0)]},
-	{"name": "더덕", "hint": "깊은 숲 속", "reward": 10, "spots": [Vector3(-33.0, 0, -31.0), Vector3(3.0, 0, -37.0)]},
-	{"name": "산삼", "hint": "아무도 안 가는 숲 구석", "reward": 25, "spots": [Vector3(-36.5, 0, -36.5), Vector3(37.0, 0, -31.5)]},
+	{"name": tr("쑥"), "hint": tr("마을 길가"), "reward": 5, "spots": [Vector3(-5.6, 0, 16.5), Vector3(8.5, 0, 24.5)]},
+	{"name": tr("냉이"), "hint": tr("논 근처"), "reward": 5, "spots": [Vector3(16.5, 0, 35.8), Vector3(31.2, 0, 36.2)]},
+	{"name": tr("달래"), "hint": tr("개울가"), "reward": 6, "spots": [Vector3(-27.0, 0, -13.1), Vector3(12.0, 0, -13.2)]},
+	{"name": tr("도라지"), "hint": tr("개울 건너 숲"), "reward": 8, "spots": [Vector3(-14.0, 0, -27.0), Vector3(10.0, 0, -26.0)]},
+	{"name": tr("더덕"), "hint": tr("깊은 숲 속"), "reward": 10, "spots": [Vector3(-33.0, 0, -31.0), Vector3(3.0, 0, -37.0)]},
+	{"name": tr("산삼"), "hint": tr("아무도 안 가는 숲 구석"), "reward": 25, "spots": [Vector3(-36.5, 0, -36.5), Vector3(37.0, 0, -31.5)]},
 ]
 const HERB_NEED := 3
 const HERB_REGROW := 180.0
@@ -3645,7 +3701,7 @@ var story_reader_label: Label
 
 func make_book_ui() -> void:
 	book_button = Button.new()
-	book_button.text = "도감"
+	book_button.text = tr("도감")
 	skin_button(book_button, make_paper(font_size * 0.4), INK, 0.8)
 	book_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_layer.add_child(book_button)
@@ -3661,7 +3717,7 @@ func make_book_ui() -> void:
 	book_title.add_theme_constant_override("outline_size", 0)
 	book_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var tx := 0.04
-	for tab in [["fish", "물고기"], ["herb", "약초"], ["story", "이야기"]]:
+	for tab in [["fish", tr("물고기")], ["herb", tr("약초")], ["story", tr("이야기")]]:
 		var b := Button.new()
 		b.text = tab[1]
 		page.add_child(b)
@@ -3691,7 +3747,7 @@ func make_book_ui() -> void:
 	story_reader_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	story_reader_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	var back := Button.new()
-	back.text = "목록으로"
+	back.text = tr("목록으로")
 	skin_button(back, make_round(Color(0.9, 0.84, 0.7), font_size * 0.35), INK, 0.8)
 	story_reader.add_child(back)
 	place(back, 0.3, 0.85, 0.7, 0.96)
@@ -3711,7 +3767,7 @@ func make_book_ui() -> void:
 	book_footer.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	book_footer.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var close := Button.new()
-	close.text = "닫기"
+	close.text = tr("닫기")
 	skin_button(close, make_round(Color(0.75, 0.45, 0.25), font_size * 0.4), Color(1, 1, 1), 0.85)
 	page.add_child(close)
 	place(close, 0.3, 0.905, 0.7, 0.975)
@@ -3742,13 +3798,13 @@ func show_book(tab: String) -> void:
 		var on: bool = key == tab
 		skin_button(b, make_round(Color(0.95, 0.72, 0.3) if on else Color(0.9, 0.84, 0.7), font_size * 0.35), INK, 0.85)
 	if tab == "fish":
-		book_title.text = "물고기 도감 %d/%d" % [fish_kinds_found(), FISH.size()]
+		book_title.text = tr("물고기 도감 %d/%d") % [fish_kinds_found(), FISH.size()]
 		if fish_kinds_found() >= FISH.size():
-			book_footer.text = "다 모았어요! 강태공 할아버지도 깜짝 놀랐어요."
+			book_footer.text = tr("다 모았어요! 강태공 할아버지도 깜짝 놀랐어요.")
 		else:
-			book_footer.text = "남쪽 연못 나루터에서 낚시해요.\n다 모으면 50냥!"
+			book_footer.text = tr("남쪽 연못 나루터에서 낚시해요.\n다 모으면 50냥!")
 	elif tab == "story":
-		book_title.text = "이야기 조각 %d/%d" % [story_count(), STORY.size()]
+		book_title.text = tr("이야기 조각 %d/%d") % [story_count(), STORY.size()]
 		for i in STORY.size():
 			var sb: Button = story_buttons[i]
 			if story_read[i]:
@@ -3758,15 +3814,15 @@ func show_book(tab: String) -> void:
 				sb.text = "  %d. ???   (%s)" % [i + 1, STORY[i]["hint"]]
 				skin_button(sb, make_round(Color(0.88, 0.84, 0.76), font_size * 0.3), Color(0.5, 0.45, 0.4), 0.72)
 		if story_count() >= STORY.size():
-			book_footer.text = "일곱 조각이 하나로 이어졌어요. 놀부는 어떤 형이었을까요?"
+			book_footer.text = tr("일곱 조각이 하나로 이어졌어요. 놀부는 어떤 형이었을까요?")
 		else:
-			book_footer.text = "찾은 조각을 누르면 다시 읽을 수 있어요.\n산신령에게서 받는 조각도 있어요."
+			book_footer.text = tr("찾은 조각을 누르면 다시 읽을 수 있어요.\n산신령에게서 받는 조각도 있어요.")
 	else:
-		book_title.text = "약초 도감 %d/%d" % [herb_kinds_done(), HERBS.size()]
+		book_title.text = tr("약초 도감 %d/%d") % [herb_kinds_done(), HERBS.size()]
 		if herb_kinds_done() >= HERBS.size():
-			book_footer.text = "다 모았어요! 마을 최고의 약초꾼이에요."
+			book_footer.text = tr("다 모았어요! 마을 최고의 약초꾼이에요.")
 		else:
-			book_footer.text = "종류마다 3번씩 캐면 도감에 올라가요.\n캔 자리는 3분 뒤 다시 자라요. 다 모으면 40냥!"
+			book_footer.text = tr("종류마다 3번씩 캐면 도감에 올라가요.\n캔 자리는 3분 뒤 다시 자라요. 다 모으면 40냥!")
 	book_canvas.queue_redraw()
 
 func draw_herb2d(ci: CanvasItem, c: Vector2, s: float, kind: int, dark: bool) -> void:
@@ -3828,7 +3884,7 @@ func draw_book() -> void:
 	var ch := sz.y / 3.0
 	var fs := int(font_size * 0.72)
 	var small := int(font_size * 0.55)
-	var rarity := ["흔함", "흔함", "보통", "보통", "드묾", "아주 드묾"]
+	var rarity := [tr("흔함"), tr("흔함"), tr("보통"), tr("보통"), tr("드묾"), tr("아주 드묾")]
 	for i in 6:
 		var cc := Vector2(cw * (i % 2) + cw / 2.0, ch * (i / 2) + ch / 2.0)
 		var got := false
@@ -3838,14 +3894,14 @@ func draw_book() -> void:
 			got = int(fish_caught[i]) > 0
 			if got:
 				name_t = FISH[i]["name"]
-				sub = "%d마리 낚음 | %d냥" % [fish_caught[i], FISH[i]["pay"]]
+				sub = tr("%d마리 낚음 | %d냥") % [fish_caught[i], FISH[i]["pay"]]
 			else:
 				sub = rarity[i]
 		else:
 			got = int(herb_counts[i]) >= HERB_NEED
 			if int(herb_counts[i]) > 0:
 				name_t = HERBS[i]["name"]
-			sub = "%d/%d  %s" % [mini(int(herb_counts[i]), HERB_NEED), HERB_NEED, HERBS[i]["hint"] if not got else "완성!"]
+			sub = "%d/%d  %s" % [mini(int(herb_counts[i]), HERB_NEED), HERB_NEED, HERBS[i]["hint"] if not got else tr("완성!")]
 		var card_col := Color(1.0, 0.97, 0.88) if got else Color(0.9, 0.86, 0.78)
 		d_box(ci, cc, Vector2(cw - 18, ch - 18), 0.0, card_col, 3.0)
 		var pic := cc + Vector2(0, -ch * 0.1)
@@ -3952,7 +4008,7 @@ func apply_hand() -> void:
 
 func make_settings_ui() -> void:
 	settings_button = Button.new()
-	settings_button.text = "설정"
+	settings_button.text = tr("설정")
 	skin_button(settings_button, make_paper(font_size * 0.4), INK, 0.8)
 	settings_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_layer.add_child(settings_button)
@@ -3963,15 +4019,15 @@ func make_settings_ui() -> void:
 	page.add_theme_stylebox_override("panel", make_paper(font_size * 0.6))
 	settings_overlay.add_child(page)
 	place(page, 0.06, 0.17, 0.94, 0.83)
-	var title := add_label(page, "설정", 1.0, 0.05, 0.04, 0.95, 0.17)
+	var title := add_label(page, tr("설정"), 1.0, 0.05, 0.04, 0.95, 0.17)
 	title.add_theme_color_override("font_color", INK)
 	title.add_theme_constant_override("outline_size", 0)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var sub := add_label(page, "점프 버튼 위치", 0.8, 0.05, 0.13, 0.95, 0.21)
+	var sub := add_label(page, tr("점프 버튼 위치"), 0.8, 0.05, 0.13, 0.95, 0.21)
 	sub.add_theme_color_override("font_color", Color(0.45, 0.35, 0.25))
 	sub.add_theme_constant_override("outline_size", 0)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var opts := [[false, "오른손잡이\n(점프 오른쪽)"], [true, "왼손잡이\n(점프 왼쪽)"]]
+	var opts := [[false, tr("오른손잡이\n(점프 오른쪽)")], [true, tr("왼손잡이\n(점프 왼쪽)")]]
 	var x := 0.06
 	for o in opts:
 		var b := Button.new()
@@ -3983,7 +4039,7 @@ func make_settings_ui() -> void:
 		hand_buttons[val] = b
 		x += 0.46
 	var again := Button.new()
-	again.text = "걷기 안내 보기"
+	again.text = tr("걷기 안내 보기")
 	skin_button(again, make_round(Color(0.9, 0.84, 0.7), font_size * 0.35), INK, 0.78)
 	page.add_child(again)
 	place(again, 0.06, 0.645, 0.48, 0.725)
@@ -3996,18 +4052,27 @@ func make_settings_ui() -> void:
 		refresh_hand_buttons()
 		sfx("tap"))
 	var restart := Button.new()
-	restart.text = "처음부터 다시 하기..."
+	restart.text = tr("처음부터 다시 하기...")
 	skin_button(restart, make_round(Color(0.93, 0.78, 0.72), font_size * 0.35), Color(0.55, 0.18, 0.12), 0.75)
 	page.add_child(restart)
-	place(restart, 0.22, 0.74, 0.78, 0.81)
+	place(restart, 0.06, 0.74, 0.48, 0.81)
+	# 언어 바꾸기: 어느 언어 상태에서도 찾을 수 있게 영어와 한국어를 같이 써요
+	var lang_btn := Button.new()
+	lang_btn.text = "Language: 한국어" if lang() == "ko" else "Language: English"
+	skin_button(lang_btn, make_round(Color(0.72, 0.8, 0.95), font_size * 0.35), INK, 0.75)
+	page.add_child(lang_btn)
+	place(lang_btn, 0.52, 0.74, 0.94, 0.81)
+	lang_btn.pressed.connect(func():
+		sfx("tap")
+		set_lang("en" if lang() == "ko" else "ko"))
 	restart.pressed.connect(func():
 		close_settings()
-		ask("", "어디부터 다시 할까요?\n- 이 장만: 지금 장 이야기만 처음으로 (엽전·물건·다른 장은 그대로)\n- 모든 장: 1장부터 새로 (도감, 엔딩 기록, 설정은 남아요)", ["이 장만 처음부터", "모든 장 처음부터", "그만둘래요"], func(i: int):
+		ask("", tr("어디부터 다시 할까요?\n- 이 장만: 지금 장 이야기만 처음으로 (엽전·물건·다른 장은 그대로)\n- 모든 장: 1장부터 새로 (도감, 엔딩 기록, 설정은 남아요)"), [tr("이 장만 처음부터"), tr("모든 장 처음부터"), tr("그만둘래요")], func(i: int):
 			if i == 0:
 				reset_chapter()
 			elif i == 1:
 				reset_progress()))
-	var snd := add_label(page, "소리", 0.8, 0.05, 0.43, 0.95, 0.5)
+	var snd := add_label(page, tr("소리"), 0.8, 0.05, 0.43, 0.95, 0.5)
 	snd.add_theme_color_override("font_color", Color(0.45, 0.35, 0.25))
 	snd.add_theme_constant_override("outline_size", 0)
 	snd.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -4032,7 +4097,7 @@ func make_settings_ui() -> void:
 		close_settings()
 		show_walk_hint())
 	var close := Button.new()
-	close.text = "닫기"
+	close.text = tr("닫기")
 	skin_button(close, make_round(Color(0.75, 0.45, 0.25), font_size * 0.4), Color(1, 1, 1), 0.85)
 	page.add_child(close)
 	place(close, 0.3, 0.84, 0.7, 0.95)
@@ -4045,12 +4110,12 @@ var cam_btn: Button
 
 func refresh_hand_buttons() -> void:
 	if music_btn != null:
-		music_btn.text = "배경음 켜짐" if music_on else "배경음 꺼짐"
+		music_btn.text = tr("배경음 켜짐") if music_on else tr("배경음 꺼짐")
 		skin_button(music_btn, make_round(Color(0.95, 0.72, 0.3) if music_on else Color(0.85, 0.8, 0.72), font_size * 0.35), INK, 0.78)
-		sfx_btn.text = "효과음 켜짐" if sfx_on else "효과음 꺼짐"
+		sfx_btn.text = tr("효과음 켜짐") if sfx_on else tr("효과음 꺼짐")
 		skin_button(sfx_btn, make_round(Color(0.95, 0.72, 0.3) if sfx_on else Color(0.85, 0.8, 0.72), font_size * 0.35), INK, 0.78)
 	if cam_btn != null:
-		cam_btn.text = "카메라 따라오기 켜짐" if auto_cam else "카메라 따라오기 꺼짐"
+		cam_btn.text = tr("카메라 따라오기 켜짐") if auto_cam else tr("카메라 따라오기 꺼짐")
 		skin_button(cam_btn, make_round(Color(0.95, 0.72, 0.3) if auto_cam else Color(0.85, 0.8, 0.72), font_size * 0.35), INK, 0.7)
 	for key in hand_buttons:
 		var on: bool = key == left_handed
@@ -4132,7 +4197,7 @@ func draw_walk_hint() -> void:
 	ci.draw_arc(knob, r * 0.42, 0, TAU, 32, Color(0.6, 0.4, 0.2), 4, true)
 	d_ell(ci, knob + Vector2(10, 30), 22, 34, Color(0.99, 0.84, 0.7), 0.0, 3.0)
 	d_ell(ci, knob + Vector2(10, -2), 12, 16, Color(1, 0.92, 0.85), 0.0, 2.0)
-	var msg := "화면 아무 곳이나 누른 채\n밀면 그쪽으로 걸어요"
+	var msg := tr("화면 아무 곳이나 누른 채\n밀면 그쪽으로 걸어요")
 	var fs := int(font_size * 0.95)
 	var y := c.y + r * 1.25
 	for line in msg.split("\n"):
@@ -4143,13 +4208,13 @@ func draw_walk_hint() -> void:
 # ---------- 이야기 조각 7개: 놀부는 왜 놀부가 되었을까 ----------
 
 var STORY := [
-	{"title": "담벼락의 키 재기", "hint": "놀부네 담장 근처", "text": "놀부네 담장 뒤편에는 희미한 금이 두 줄 그어져 있어요.\n어린 형제가 해마다 키를 재며 새긴 자국이에요.\n놀부의 금은 언제나 흥부보다 손가락 한 마디 높았어요.\n“형은 동생보다 커야 해. 그래야 지켜 줄 수 있으니까.”"},
-	{"title": "첫 박씨", "hint": "서쪽 개울가", "text": "어느 봄, 아버지는 형제에게 박씨를 하나씩 주었어요.\n놀부의 박은 장맛비에 썩고, 흥부의 박만 주렁주렁 열렸어요.\n아버지가 흥부의 머리를 쓰다듬던 날 밤,\n놀부는 처음으로 몰래 이불을 덮고 울었어요."},
-	{"title": "흉년의 겨울", "hint": "개울 건너 깊은 숲", "text": "큰 흉년이 든 겨울, 아버지가 세상을 떠났어요.\n굶어서 우는 동생들을 보며 열다섯 살 놀부는 맹세했어요.\n“다시는 우리 집에 배고픈 사람이 없게 할 테야.”\n그날부터 놀부는 곳간 열쇠를 꼭 쥐고 잠들었어요."},
-	{"title": "높아진 대문", "hint": "마을 남서쪽 집들 근처", "text": "놀부가 부자가 되자 사람들이 줄지어 찾아왔어요.\n빌려 간 쌀은 돌아오지 않았고, 고맙다는 말도 없었어요.\n놀부는 대문을 한 자, 또 한 자 높이 쌓았어요.\n“베풀면 바보가 되는 거야.” 놀부는 그렇게 믿기로 했어요."},
-	{"title": "대문 밖의 쌀자루", "hint": "남동쪽 논 근처", "text": "흥부네가 쫓겨나던 날, 아무도 모르게\n놀부네 대문 밖에 쌀자루 하나가 놓여 있었어요.\n흥부는 이웃이 두고 간 줄 알았지요.\n자루를 묶은 매듭은, 놀부만 묶을 줄 아는 매듭이었어요."},
-	{"title": "제비가 본 것", "hint": "점프해야 닿는 큰 바위 위", "text": "강남으로 떠나기 전, 제비는 이 바위에서 쉬어 갔어요.\n그리고 보았어요. 밤마다 놀부가 담장에 기대어\n흥부네 초가 굴뚝 연기를 오래 바라보다\n한숨을 쉬고 돌아서는 것을요."},
-	{"title": "산신령의 말", "hint": "숲속 연못의 산신령", "text": "“욕심은 두려움에서 자라느니라.\n놀부가 움켜쥔 것은 재물이 아니라\n다시는 굶지 않겠다던 어린 날의 약속이란다.\n그 마음을 알아주는 이가 있다면, 높은 대문도 열리느니라.”"},
+	{"title": tr("담벼락의 키 재기"), "hint": tr("놀부네 담장 근처"), "text": tr("놀부네 담장 뒤편에는 희미한 금이 두 줄 그어져 있어요.\n어린 형제가 해마다 키를 재며 새긴 자국이에요.\n놀부의 금은 언제나 흥부보다 손가락 한 마디 높았어요.\n“형은 동생보다 커야 해. 그래야 지켜 줄 수 있으니까.”")},
+	{"title": tr("첫 박씨"), "hint": tr("서쪽 개울가"), "text": tr("어느 봄, 아버지는 형제에게 박씨를 하나씩 주었어요.\n놀부의 박은 장맛비에 썩고, 흥부의 박만 주렁주렁 열렸어요.\n아버지가 흥부의 머리를 쓰다듬던 날 밤,\n놀부는 처음으로 몰래 이불을 덮고 울었어요.")},
+	{"title": tr("흉년의 겨울"), "hint": tr("개울 건너 깊은 숲"), "text": tr("큰 흉년이 든 겨울, 아버지가 세상을 떠났어요.\n굶어서 우는 동생들을 보며 열다섯 살 놀부는 맹세했어요.\n“다시는 우리 집에 배고픈 사람이 없게 할 테야.”\n그날부터 놀부는 곳간 열쇠를 꼭 쥐고 잠들었어요.")},
+	{"title": tr("높아진 대문"), "hint": tr("마을 남서쪽 집들 근처"), "text": tr("놀부가 부자가 되자 사람들이 줄지어 찾아왔어요.\n빌려 간 쌀은 돌아오지 않았고, 고맙다는 말도 없었어요.\n놀부는 대문을 한 자, 또 한 자 높이 쌓았어요.\n“베풀면 바보가 되는 거야.” 놀부는 그렇게 믿기로 했어요.")},
+	{"title": tr("대문 밖의 쌀자루"), "hint": tr("남동쪽 논 근처"), "text": tr("흥부네가 쫓겨나던 날, 아무도 모르게\n놀부네 대문 밖에 쌀자루 하나가 놓여 있었어요.\n흥부는 이웃이 두고 간 줄 알았지요.\n자루를 묶은 매듭은, 놀부만 묶을 줄 아는 매듭이었어요.")},
+	{"title": tr("제비가 본 것"), "hint": tr("점프해야 닿는 큰 바위 위"), "text": tr("강남으로 떠나기 전, 제비는 이 바위에서 쉬어 갔어요.\n그리고 보았어요. 밤마다 놀부가 담장에 기대어\n흥부네 초가 굴뚝 연기를 오래 바라보다\n한숨을 쉬고 돌아서는 것을요.")},
+	{"title": tr("산신령의 말"), "hint": tr("숲속 연못의 산신령"), "text": tr("“욕심은 두려움에서 자라느니라.\n놀부가 움켜쥔 것은 재물이 아니라\n다시는 굶지 않겠다던 어린 날의 약속이란다.\n그 마음을 알아주는 이가 있다면, 높은 대문도 열리느니라.”")},
 ]
 var story_read := [false, false, false, false, false, false, false]
 
@@ -4194,7 +4259,7 @@ func draw_world_ui(ci: CanvasItem) -> void:
 		var mx := x0 + (wood_marker() * 0.5 + 0.5) * bw
 		var inz := absf(wood_marker()) < wood_zone()
 		d_box(ci, Vector2(mx, y), Vector2(14, 64), 0.0, Color(0.95, 0.35, 0.25) if not inz else Color(1, 0.95, 0.4), 3)
-		ci.draw_string(font, Vector2(0, y - 46), "지금!" if inz else "", HORIZONTAL_ALIGNMENT_CENTER, w2, int(font_size * 0.9), Color(1, 1, 0.85))
+		ci.draw_string(font, Vector2(0, y - 46), tr("지금!") if inz else "", HORIZONTAL_ALIGNMENT_CENTER, w2, int(font_size * 0.9), Color(1, 1, 0.85))
 	elif mg_type == "well3d":
 		if w.get("state", "") == "pull":
 			# 위로 쓸어 올리라는 화살표
@@ -4208,7 +4273,7 @@ func draw_world_ui(ci: CanvasItem) -> void:
 			var y2 := h * 0.8
 			d_box(ci, Vector2(w2 * 0.35, y2), Vector2(w2 * 0.5, 22), 0.0, Color(0.3, 0.3, 0.3, 0.5), 0)
 			d_box(ci, Vector2(w2 * 0.1 + w2 * 0.25 * minf(sway, 1.6) / 1.6, y2), Vector2(w2 * 0.5 * minf(sway, 1.6) / 1.6, 22), 0.0, Color(0.95, 0.4, 0.3) if sway > 0.5 else Color(0.5, 0.85, 0.5), 0)
-			ci.draw_string(font, Vector2(w2 * 0.1, y2 - 18), "흔들림", HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size * 0.6), Color(1, 1, 1))
+			ci.draw_string(font, Vector2(w2 * 0.1, y2 - 18), tr("흔들림"), HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size * 0.6), Color(1, 1, 1))
 	elif mg_type == "fish" and mg_step >= 2:
 		draw_reel_meter(ci)
 	elif mg_type == "circle":
@@ -4234,7 +4299,7 @@ func draw_world_ui(ci: CanvasItem) -> void:
 		if is_instance_valid(mg_a):
 			var gx := node_center(mg_a).x
 			d_box(ci, Vector2(gx, ty), Vector2(30, 66), 0.0, Color(0.55, 0.35, 0.18), 4)
-			ci.draw_string(font, Vector2(gx - 26, ty - 44), "흥부" if w.get("scene", "") == "saw" else "첨지", HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size * 0.5), Color(1, 1, 1))
+			ci.draw_string(font, Vector2(gx - 26, ty - 44), tr("흥부") if w.get("scene", "") == "saw" else tr("첨지"), HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size * 0.5), Color(1, 1, 1))
 		if mg_touch:
 			d_box(ci, Vector2(mg_pos.x, ty), Vector2(30, 66), 0.0, Color(0.6, 0.95, 0.6) if in_sync else Color(0.98, 0.95, 0.85), 4)
 
@@ -4415,15 +4480,15 @@ func scene_target_hit(n: Node3D) -> void:
 		"snake":
 			sfx("crack", 1.4)
 			burst3d(at + Vector3(0, 0.2, 0), Color(0.6, 0.75, 0.35), 12)
-			float_text("퍽!", cam.unproject_position(at), Color(1, 0.95, 0.7), 1.3)
+			float_text(tr("퍽!"), cam.unproject_position(at), Color(1, 0.95, 0.7), 1.3)
 		"kim":
 			sfx("pop", 0.8)
 			chips3d(at)
-			float_text("쏙!", cam.unproject_position(at), Color(1, 0.95, 0.7), 1.3)
+			float_text(tr("쏙!"), cam.unproject_position(at), Color(1, 0.95, 0.7), 1.3)
 		"sparrow":
 			sfx("chirp", rng.randf_range(0.9, 1.2))
 			burst3d(at + Vector3(0, 0.2, 0), Color(0.75, 0.55, 0.35), 10)
-			float_text("훠이!", cam.unproject_position(at), Color(1, 0.95, 0.7), 1.2)
+			float_text(tr("훠이!"), cam.unproject_position(at), Color(1, 0.95, 0.7), 1.2)
 	# 날아가 버리기
 	var away := Vector3(rng.randf_range(-1.5, 1.5), 2.5, rng.randf_range(-1.5, 1.5))
 	var tw := n.create_tween()
@@ -4438,11 +4503,11 @@ func scene_target_miss(n: Node3D) -> void:
 	match w["scene"]:
 		"snake":
 			burst3d(Vector3(-15.08, 2.0, 0.3), Color(0.3, 0.3, 0.4), 10)
-			float_text("둥지가 위험해요!", cam.unproject_position(at), Color(1, 0.55, 0.45), 1.0)
+			float_text(tr("둥지가 위험해요!"), cam.unproject_position(at), Color(1, 0.55, 0.45), 1.0)
 		"kim":
-			float_text("말뚝이 깊이 박혔어요!", cam.unproject_position(at), Color(1, 0.55, 0.45), 1.0)
+			float_text(tr("말뚝이 깊이 박혔어요!"), cam.unproject_position(at), Color(1, 0.55, 0.45), 1.0)
 		"sparrow":
-			float_text("벼를 쪼아 먹었어요!", cam.unproject_position(at), Color(1, 0.55, 0.45), 1.0)
+			float_text(tr("벼를 쪼아 먹었어요!"), cam.unproject_position(at), Color(1, 0.55, 0.45), 1.0)
 	var tw := n.create_tween()
 	tw.tween_property(n, "scale", Vector3(0.01, 0.01, 0.01), 0.25)
 	tw.tween_callback(n.queue_free)
@@ -4705,12 +4770,12 @@ func scene_pose() -> bool:
 # ---------- 남쪽 들판: 연못 낚시터와 최 영감네 논 ----------
 
 var FISH := [
-	{"name": "피라미", "pay": 3, "w": 30, "hard": 0.1, "col": Color(0.78, 0.84, 0.9), "len": 0.85, "thin": 0.34},
-	{"name": "붕어", "pay": 4, "w": 28, "hard": 0.25, "col": Color(0.72, 0.64, 0.42), "len": 1.0, "thin": 0.48},
-	{"name": "미꾸라지", "pay": 6, "w": 16, "hard": 0.5, "col": Color(0.58, 0.5, 0.32), "len": 1.5, "thin": 0.2},
-	{"name": "잉어", "pay": 8, "w": 14, "hard": 0.45, "col": Color(0.92, 0.58, 0.3), "len": 1.2, "thin": 0.44},
-	{"name": "메기", "pay": 12, "w": 9, "hard": 0.7, "col": Color(0.38, 0.38, 0.34), "len": 1.35, "thin": 0.36},
-	{"name": "금빛 잉어", "pay": 30, "w": 3, "hard": 0.9, "col": Color(1.0, 0.8, 0.22), "len": 1.2, "thin": 0.44},
+	{"name": tr("피라미"), "pay": 3, "w": 30, "hard": 0.1, "col": Color(0.78, 0.84, 0.9), "len": 0.85, "thin": 0.34},
+	{"name": tr("붕어"), "pay": 4, "w": 28, "hard": 0.25, "col": Color(0.72, 0.64, 0.42), "len": 1.0, "thin": 0.48},
+	{"name": tr("미꾸라지"), "pay": 6, "w": 16, "hard": 0.5, "col": Color(0.58, 0.5, 0.32), "len": 1.5, "thin": 0.2},
+	{"name": tr("잉어"), "pay": 8, "w": 14, "hard": 0.45, "col": Color(0.92, 0.58, 0.3), "len": 1.2, "thin": 0.44},
+	{"name": tr("메기"), "pay": 12, "w": 9, "hard": 0.7, "col": Color(0.38, 0.38, 0.34), "len": 1.35, "thin": 0.36},
+	{"name": tr("금빛 잉어"), "pay": 30, "w": 3, "hard": 0.9, "col": Color(1.0, 0.8, 0.22), "len": 1.2, "thin": 0.44},
 ]
 var fish_caught := [0, 0, 0, 0, 0, 0]
 var fish_kind := 0
@@ -5421,7 +5486,7 @@ func make_ui() -> void:
 	quest_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	quest_panel.add_child(quest_label)
 
-	turn_button = add_hud_button("돌리기", 0.03, 0.25, on_turn)
+	turn_button = add_hud_button(tr("돌리기"), 0.03, 0.25, on_turn)
 	place(turn_button, 0.03, 0.075, 0.16, 0.135)
 	turn_button.text = ""
 	var icon := Control.new()
@@ -5436,7 +5501,7 @@ func make_ui() -> void:
 	stick_view.set_anchors_preset(Control.PRESET_FULL_RECT)
 	stick_view.draw.connect(draw_stick)
 	action_button = add_hud_button("", 0.28, 0.72, on_action)
-	jump_button = add_hud_button("점프", 0.75, 0.97, on_jump)
+	jump_button = add_hud_button(tr("점프"), 0.75, 0.97, on_jump)
 	action_button.visible = false
 
 	dialog_panel = PanelContainer.new()
@@ -5475,7 +5540,7 @@ func make_ui() -> void:
 	options_box.visible = false
 	vbox.add_child(options_box)
 	next_hint = Label.new()
-	next_hint.text = "다음 >"
+	next_hint.text = tr("다음 >")
 	style(next_hint, 0.8)
 	next_hint.add_theme_color_override("font_color", Color(0.7, 0.3, 0.1))
 	next_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -5595,14 +5660,9 @@ func mg_gourd_decor(big: Panel, r: float, c: Color) -> void:
 	big.add_child(stem)
 
 func mg_item_color(name: String) -> Color:
-	match name:
-		"밥풀": return Color(0.98, 0.97, 0.93)
-		"주걱": return Color(0.82, 0.62, 0.34)
-		"물": return Color(0.55, 0.8, 0.98)
-		"돌": return Color(0.62, 0.62, 0.66)
-		"구렁이": return Color(0.5, 0.66, 0.3)
-		"장작": return Color(0.72, 0.5, 0.28)
-	return Color(0.9, 0.8, 0.6)
+	var cols := {tr("밥풀"): Color(0.98, 0.97, 0.93), tr("주걱"): Color(0.82, 0.62, 0.34), tr("물"): Color(0.55, 0.8, 0.98),
+		tr("돌"): Color(0.62, 0.62, 0.66), tr("구렁이"): Color(0.5, 0.66, 0.3), tr("장작"): Color(0.72, 0.5, 0.28)}
+	return cols.get(name, Color(0.9, 0.8, 0.6))
 
 func make_game_ui() -> void:
 	mg_overlay = make_overlay(0.6)
@@ -5956,8 +6016,8 @@ func draw_card_scroll() -> void:
 			var sp := Vector2(inset.end.x - 100, inset.end.y - 104)
 			ci.draw_rect(Rect2(sp, Vector2(52, 52)), Color(0.78, 0.18, 0.15, 0.9))
 			ci.draw_rect(Rect2(sp + Vector2(4, 4), Vector2(44, 44)), Color(0.98, 0.9, 0.85, 0.9), false, 2.0)
-			ci.draw_string(font, sp + Vector2(5, 24), "전래", HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size * 0.55), Color(0.98, 0.92, 0.88))
-			ci.draw_string(font, sp + Vector2(5, 46), "동화", HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size * 0.55), Color(0.98, 0.92, 0.88))
+			ci.draw_string(font, sp + Vector2(5, 24), tr("전래"), HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size * 0.55), Color(0.98, 0.92, 0.88))
+			ci.draw_string(font, sp + Vector2(5, 46), tr("동화"), HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size * 0.55), Color(0.98, 0.92, 0.88))
 	# 위아래 두루마리 막대 (끝에 금빛 장식)
 	for yy in [paper.position.y, paper.end.y]:
 		var rod := Rect2(cx - pw / 2.0 - 26, yy - 15, pw + 52, 30)
@@ -5968,7 +6028,7 @@ func draw_card_scroll() -> void:
 	# 다 펼쳐지면 넘기기 안내가 깜빡여요
 	if scroll_open > 0.98:
 		var al := 0.45 + 0.35 * sin(anim_t * 3.0)
-		ci.draw_string(font, Vector2(0, paper.end.y + 78), "화면을 누르면 넘어가요", HORIZONTAL_ALIGNMENT_CENTER, w, int(font_size * 0.75), Color(1, 0.95, 0.82, al))
+		ci.draw_string(font, Vector2(0, paper.end.y + 78), tr("화면을 누르면 넘어가요"), HORIZONTAL_ALIGNMENT_CENTER, w, int(font_size * 0.75), Color(1, 0.95, 0.82, al))
 
 # 전통 구름 무늬 (동글동글 말린 구름)
 func draw_cloud_motif(ci: CanvasItem, c: Vector2, s: float) -> void:
@@ -6016,7 +6076,7 @@ func say(lines: Array, done: Callable) -> void:
 func show_line() -> void:
 	name_label.text = current_lines[line_index][0]
 	text_label.text = current_lines[line_index][1]
-	if current_lines[line_index][0] == "제비":
+	if current_lines[line_index][0] == tr("제비"):
 		sfx("chirp")
 	else:
 		sfx("blip", rng.randf_range(0.9, 1.15))
@@ -6091,7 +6151,7 @@ func set_quest(q: int) -> void:
 func earn(amount: int) -> void:
 	coins += amount
 	sfx("coin")
-	float_text("+%d냥" % amount, quest_label.global_position + Vector2(short_side * 0.25, quest_label.size.y * 0.75), Color(1, 0.85, 0.3), 1.2)
+	float_text(tr("+%d냥") % amount, quest_label.global_position + Vector2(short_side * 0.25, quest_label.size.y * 0.75), Color(1, 0.85, 0.3), 1.2)
 	update_quest_text()
 
 # ---------- 말 걸기, 줍기 ----------
@@ -6127,36 +6187,36 @@ func find_thing() -> Dictionary:
 func action_text(t: Dictionary) -> String:
 	var kind: String = t["kind"]
 	if kind == "herb":
-		return "약초 캐기"
+		return tr("약초 캐기")
 	if kind == "gourd":
-		return "박 타기"
+		return tr("박 타기")
 	if kind == "nest":
-		return "둥지 지키기"
+		return tr("둥지 지키기")
 	if kind == "piece":
-		return "살펴보기"
+		return tr("살펴보기")
 	if kind == "laundry":
-		return "빨래 줍기"
+		return tr("빨래 줍기")
 	if kind == "hider":
-		return "찾았다!"
+		return tr("찾았다!")
 	if kind == "bush":
-		return "덤불 베기"
+		return tr("덤불 베기")
 	if kind == "gate":
-		return "이정표 보기"
+		return tr("이정표 보기")
 	if kind == "wild":
-		return "약초 캐기"
+		return tr("약초 캐기")
 	if kind == "fish":
-		return "낚시하기"
+		return tr("낚시하기")
 	if kind == "farm":
 		return farm_action_text()
 	if kind == "job":
 		if t["id"] == "water":
-			return "물 긷기"
+			return tr("물 긷기")
 		if t["id"] == "wood":
-			return "나무하기"
+			return tr("나무하기")
 		if t["id"] == "gam":
-			return "감 따기"
-		return "짚신 삼기"
-	return "말 걸기"
+			return tr("감 따기")
+		return tr("짚신 삼기")
+	return tr("말 걸기")
 
 func on_action() -> void:
 	if current_thing.is_empty() or is_busy():
@@ -6193,13 +6253,13 @@ func on_action() -> void:
 		sfx("pop")
 		burst3d(above, Color(1, 1, 1))
 		laundry_found += 1
-		say([["", "빨래를 주웠다. (%d/3)" % laundry_found]], Callable())
+		say([["", tr("빨래를 주웠다. (%d/3)") % laundry_found]], Callable())
 	elif kind == "hider":
 		node.visible = false
 		sfx("good")
 		burst3d(above, Color(0.98, 0.85, 0.65))
 		hiders_found += 1
-		say([["동생", "앗, 들켰다! 헤헤. (%d/4)" % hiders_found]], Callable())
+		say([[tr("동생"), tr("앗, 들켰다! 헤헤. (%d/4)") % hiders_found]], Callable())
 	elif kind == "gate":
 		on_gate()
 	elif kind == "bush":
@@ -6209,9 +6269,9 @@ func on_action() -> void:
 			shake(8)
 			burst3d(above, Color(0.3, 0.5, 0.2), 24)
 			bush_col.set_deferred("disabled", true)
-			say([["", "낫으로 가시덤불을 베어 냈다. 안쪽에서 울음소리가 들린다..."]], Callable())
+			say([["", tr("낫으로 가시덤불을 베어 냈다. 안쪽에서 울음소리가 들린다...")]], Callable())
 		else:
-			say([["", "가시덤불이 길을 막고 있다. 낫이 있으면 벨 수 있겠다. (장터에서 팔아요)"]], Callable())
+			say([["", tr("가시덤불이 길을 막고 있다. 낫이 있으면 벨 수 있겠다. (장터에서 팔아요)")]], Callable())
 	elif kind == "job":
 		start_job(t["id"])
 	elif kind == "wild":
@@ -6456,7 +6516,7 @@ func custom_begin() -> void:
 			cg["input_i"] = 0
 			cg["flash_dir"] = ""
 			cg["flash_t"] = 0.0
-	cg_say("준비!", Color(1, 0.95, 0.7))
+	cg_say(tr("준비!"), Color(1, 0.95, 0.7))
 
 func cg_say(text: String, col: Color) -> void:
 	cg["msg"] = text
@@ -6471,7 +6531,7 @@ func cg_combo_up() -> void:
 	cg["combo"] = int(cg["combo"]) + 1
 	cg["best"] = maxi(int(cg["best"]), int(cg["combo"]))
 	if int(cg["combo"]) >= 3:
-		float_text("%d 콤보!" % cg["combo"], Vector2(mg_overlay.size.x * 0.5, mg_overlay.size.y * 0.5), Color(1, 0.8, 0.35), 1.0)
+		float_text(tr("%d 콤보!") % cg["combo"], Vector2(mg_overlay.size.x * 0.5, mg_overlay.size.y * 0.5), Color(1, 0.8, 0.35), 1.0)
 
 func cg_combo_break() -> void:
 	cg["combo"] = 0
@@ -6486,7 +6546,7 @@ func cg_lose(text: String) -> void:
 
 func cg_progress() -> void:
 	mg_progress = clampf(float(mg_count) / float(mg_cfg.get("goal", 10)), 0.0, 1.0)
-	mg_info.text = "%s %d/%d | 남은 기회 %d" % [mg_cfg.get("unit", ""), mg_count, int(mg_cfg.get("goal", 10)), mg_lives]
+	mg_info.text = tr("%s %d/%d | 남은 기회 %d") % [mg_cfg.get("unit", ""), mg_count, int(mg_cfg.get("goal", 10)), mg_lives]
 
 func custom_input(event: InputEvent) -> void:
 	var is_button: bool = event is InputEventScreenTouch or event is InputEventMouseButton
@@ -6513,7 +6573,7 @@ func update_custom(delta: float) -> void:
 	cg["msg_t"] = float(cg["msg_t"]) + delta
 	if float(cg["t"]) >= 0.0 and cg.get("go_said", false) == false:
 		cg["go_said"] = true
-		cg_say("시작!", Color(1, 0.9, 0.4))
+		cg_say(tr("시작!"), Color(1, 0.9, 0.4))
 		sfx("drum")
 	match mg_type:
 		"rhythm":
@@ -6600,7 +6660,7 @@ func update_rhythm(_delta: float) -> void:
 		if t - float(n["t"]) > R_GOOD:
 			n["done"] = true
 			if not n["bad"]:
-				cg_lose("놓쳤어요!")
+				cg_lose(tr("놓쳤어요!"))
 				cg_event("miss")
 			else:
 				cg_event("dodge")
@@ -6618,25 +6678,25 @@ func rhythm_press() -> void:
 			best = n
 	if best.is_empty() or bd > R_GOOD + 0.05:
 		cg_combo_break()
-		cg_judge("헛손질!", Color(0.85, 0.85, 0.9), false)
+		cg_judge(tr("헛손질!"), Color(0.85, 0.85, 0.9), false)
 		cg_event("whiff")
 		return
 	best["done"] = true
 	if best["bad"]:
-		cg_lose(String(mg_cfg.get("bad_text", "앗, 손!")))
+		cg_lose(String(mg_cfg.get("bad_text", tr("앗, 손!"))))
 		hit_stop(0.08)
 		cg_event("bad")
 		return
 	mg_count += 1
 	cg_combo_up()
 	if bd <= R_PERFECT:
-		cg_judge("퍼펙트!", Color(1, 0.88, 0.3), true)
+		cg_judge(tr("퍼펙트!"), Color(1, 0.88, 0.3), true)
 		sfx("good", 1.1)
 		hit_stop(0.05)
 		shake(10)
 		cg_event("perfect")
 	else:
-		cg_judge("좋아!", Color(0.7, 0.95, 1.0), false)
+		cg_judge(tr("좋아!"), Color(0.7, 0.95, 1.0), false)
 		mg_perfect = false
 		shake(5)
 		cg_event("good")
@@ -6669,7 +6729,7 @@ func update_swipe(delta: float) -> void:
 					sfx("crack", 1.3)
 		"strike":
 			if float(a["time"]) >= float(mg_cfg.get("window", 0.5)):
-				cg_lose(String(mg_cfg.get("hit_text", "앗, 당했다!")))
+				cg_lose(String(mg_cfg.get("hit_text", tr("앗, 당했다!"))))
 				cg_event("hit", a)
 				cg["atk"] = {}
 				cg["next"] = float(mg_cfg.get("gap", 0.9))
@@ -6693,21 +6753,21 @@ func swipe_check(pos: Vector2, released: bool) -> void:
 		dir = "down"
 	var a: Dictionary = cg["atk"]
 	if a.is_empty():
-		cg_judge("휙~", Color(0.85, 0.85, 0.9), false)
+		cg_judge(tr("휙~"), Color(0.85, 0.85, 0.9), false)
 		cg_combo_break()
 		return
 	if a["phase"] == "back" or (a["phase"] == "tele" and a["fake"]):
-		cg_lose("속았지롱!")
+		cg_lose(tr("속았지롱!"))
 		cg_event("fooled", a)
 		cg["atk"] = {}
 		cg["next"] = 0.7
 		return
 	if a["phase"] == "tele":
-		cg_judge("너무 빨라요!", Color(1, 0.75, 0.5), false)
+		cg_judge(tr("너무 빨라요!"), Color(1, 0.75, 0.5), false)
 		cg_combo_break()
 		return
 	if dir != a["dir"]:
-		cg_lose("반대쪽이에요!")
+		cg_lose(tr("반대쪽이에요!"))
 		cg_event("hit", a)
 		cg["atk"] = {}
 		cg["next"] = 0.8
@@ -6715,7 +6775,7 @@ func swipe_check(pos: Vector2, released: bool) -> void:
 	mg_count += 1
 	cg_combo_up()
 	var quick: bool = float(a["time"]) < float(mg_cfg.get("window", 0.5)) * 0.45
-	cg_judge("퍽! 막았다!" if quick else "막았다!", Color(1, 0.88, 0.3) if quick else Color(0.7, 0.95, 1.0), quick)
+	cg_judge(tr("퍽! 막았다!") if quick else tr("막았다!"), Color(1, 0.88, 0.3) if quick else Color(0.7, 0.95, 1.0), quick)
 	sfx("crack", 1.0)
 	hit_stop(0.07)
 	shake(12 if quick else 7)
@@ -6732,12 +6792,12 @@ func update_alternate(delta: float) -> void:
 		cg["shake_in"] = float(cg["shake_in"]) - delta
 		if float(cg["step_t"]) > float(mg_cfg.get("step_time", 1.6)):
 			cg["step_t"] = 0.0
-			cg_lose("미끄러져요!")
+			cg_lose(tr("미끄러져요!"))
 			cg_event("slip")
 		if float(cg["shake_in"]) <= 0.0:
 			cg["shake"] = "warn"
 			cg["shake_t"] = 0.0
-			cg_say("흔들린다! 꾹 누르고 버텨요!", Color(1, 0.6, 0.45))
+			cg_say(tr("흔들린다! 꾹 누르고 버텨요!"), Color(1, 0.6, 0.45))
 			sfx("crack", 0.7)
 			cg_event("warn")
 	else:
@@ -6753,7 +6813,7 @@ func update_alternate(delta: float) -> void:
 			if mg_touch:
 				cg["held"] = float(cg["held"]) + delta
 			if not mg_touch and float(cg["shake_t"]) > 0.15:
-				cg_lose("손을 놓쳤어요!")
+				cg_lose(tr("손을 놓쳤어요!"))
 				cg_event("slip")
 				cg["shake"] = ""
 				cg["shake_in"] = float(mg_cfg.get("shake_every", 5.0)) * rng.randf_range(0.8, 1.2)
@@ -6762,7 +6822,7 @@ func update_alternate(delta: float) -> void:
 				cg["shake"] = ""
 				cg["shake_in"] = float(mg_cfg.get("shake_every", 5.0)) * rng.randf_range(0.8, 1.2)
 				cg["step_t"] = 0.0
-				cg_judge("버텼다!", Color(1, 0.88, 0.3), true)
+				cg_judge(tr("버텼다!"), Color(1, 0.88, 0.3), true)
 				sfx("good")
 				cg_event("held")
 
@@ -6772,7 +6832,7 @@ func alternate_press(pos: Vector2) -> void:
 	var side := 0 if pos.x < mg_overlay.size.x * 0.5 else 1
 	if side != int(cg["side"]):
 		cg_combo_break()
-		cg_judge("헛디딤!", Color(1, 0.75, 0.5), false)
+		cg_judge(tr("헛디딤!"), Color(1, 0.75, 0.5), false)
 		sfx("tick", 0.6)
 		cg["step_t"] = float(cg["step_t"]) + 0.35
 		return
@@ -6780,7 +6840,7 @@ func alternate_press(pos: Vector2) -> void:
 	var quick: bool = float(cg["step_t"]) < 0.45
 	if quick:
 		cg_combo_up()
-	cg_judge("영차!" if not quick else "영차영차!", Color(1, 0.88, 0.3) if quick else Color(0.8, 0.95, 1.0), quick)
+	cg_judge(tr("영차!") if not quick else tr("영차영차!"), Color(1, 0.88, 0.3) if quick else Color(0.8, 0.95, 1.0), quick)
 	sfx("tick", 1.0 + mg_count * 0.03)
 	shake(4)
 	cg["step_t"] = 0.0
@@ -6799,13 +6859,13 @@ func update_mash(delta: float) -> void:
 		if absf(float(cg["tilt"])) >= 1.0:
 			cg["tilt"] = 0.0
 			mg_count = maxi(0, mg_count - 2)
-			cg_lose("휘청!")
+			cg_lose(tr("휘청!"))
 			cg_event("fall")
 	else:
 		cg["round_t"] = float(cg["round_t"]) + delta
 		cg["gauge"] = maxf(0.0, float(cg["gauge"]) - delta * float(mg_cfg.get("decay", 0.22)))
 		if float(cg["round_t"]) > float(mg_cfg.get("round_time", 2.6)):
-			cg_lose(String(mg_cfg.get("lose_text", "쏙 숨었어요!")))
+			cg_lose(String(mg_cfg.get("lose_text", tr("쏙 숨었어요!"))))
 			cg_event("escape")
 			cg["round_t"] = 0.0
 			cg["gauge"] = 0.0
@@ -6823,7 +6883,7 @@ func mash_press(pos: Vector2) -> void:
 				sfx("tick", 1.0 + mg_count * 0.02)
 				cg_event("pull")
 		else:
-			cg_judge("균형부터!", Color(1, 0.75, 0.5), false)
+			cg_judge(tr("균형부터!"), Color(1, 0.75, 0.5), false)
 	else:
 		cg["gauge"] = float(cg["gauge"]) + 1.0 / float(mg_cfg.get("taps", 9))
 		sfx("tap", 0.9 + float(cg["gauge"]) * 0.4)
@@ -6833,7 +6893,7 @@ func mash_press(pos: Vector2) -> void:
 			var quick: bool = float(cg["round_t"]) < float(mg_cfg.get("round_time", 2.6)) * 0.55
 			if quick:
 				cg_combo_up()
-			cg_judge("쑥!" if not quick else "쑥! 빠르다!", Color(1, 0.88, 0.3), quick)
+			cg_judge(tr("쑥!") if not quick else tr("쑥! 빠르다!"), Color(1, 0.88, 0.3), quick)
 			sfx("good")
 			hit_stop(0.05)
 			shake(9)
@@ -6867,7 +6927,7 @@ func stack_press() -> void:
 	var over := r0 - l0
 	var lvl := layers.size()
 	if over <= 0.02:
-		cg_lose("툭, 떨어졌어요!")
+		cg_lose(tr("툭, 떨어졌어요!"))
 		(cg["falls"] as Array).append([float(cur[0]), float(cur[1]), 0.0, 0.0, lvl])
 		cg["cur"] = [0.1 + float(top[1]) / 2.0, float(top[1]), 1.0]
 		cg_event("fall")
@@ -6879,7 +6939,7 @@ func stack_press() -> void:
 		nx = float(top[0])
 		nw = minf(float(top[1]) + 0.01, float(mg_cfg.get("base_w", 0.5)))
 		cg_combo_up()
-		cg_judge("퍼펙트!", Color(1, 0.88, 0.3), true)
+		cg_judge(tr("퍼펙트!"), Color(1, 0.88, 0.3), true)
 		sfx("good", 1.0 + lvl * 0.03)
 		hit_stop(0.04)
 		shake(7)
@@ -6893,7 +6953,7 @@ func stack_press() -> void:
 		if cut_r > r0:
 			(cg["falls"] as Array).append([(r0 + cut_r) / 2.0, cut_r - r0, 0.0, 0.0, lvl])
 		cg_combo_break()
-		cg_judge("탁!", Color(0.8, 0.95, 1.0), false)
+		cg_judge(tr("탁!"), Color(0.8, 0.95, 1.0), false)
 		sfx("land", 1.2)
 		shake(4)
 		cg_event("drop")
@@ -6902,7 +6962,7 @@ func stack_press() -> void:
 	var from_left := mg_count % 2 == 0
 	cg["cur"] = [(0.03 + nw / 2.0) if from_left else (0.97 - nw / 2.0), nw, 1.0 if from_left else -1.0]
 	if nw < 0.05:
-		cg_lose("너무 좁아졌어요!")
+		cg_lose(tr("너무 좁아졌어요!"))
 		cg["cur"] = [0.1 + 0.2, 0.4, 1.0]
 		layers.append([0.5, 0.4])
 
@@ -6922,7 +6982,7 @@ func update_aim(delta: float) -> void:
 	cg["climb"] = float(cg["climb"]) + delta * float(mg_cfg.get("climb_speed", 0.045))
 	if float(cg["climb"]) >= 1.0:
 		mg_lives = 0
-		cg_judge(String(mg_cfg.get("lose_text", "다 올라와 버렸어요!")), Color(1, 0.5, 0.42), true)
+		cg_judge(String(mg_cfg.get("lose_text", tr("다 올라와 버렸어요!"))), Color(1, 0.5, 0.42), true)
 		cg_event("top")
 		return
 	var sh: Dictionary = cg["shot"]
@@ -6938,7 +6998,7 @@ func update_aim(delta: float) -> void:
 		cg["climb"] = maxf(0.0, float(cg["climb"]) - float(mg_cfg.get("knock", 0.14)))
 		cg["hit_flash"] = 1.0
 		cg_combo_up()
-		cg_judge(String(mg_cfg.get("hit_text", "딱! 맞았다!")), Color(1, 0.88, 0.3), true)
+		cg_judge(String(mg_cfg.get("hit_text", tr("딱! 맞았다!"))), Color(1, 0.88, 0.3), true)
 		sfx("crack", 1.1)
 		hit_stop(0.07)
 		shake(12)
@@ -6946,7 +7006,7 @@ func update_aim(delta: float) -> void:
 		cg["shot"] = {}
 	elif (sh["p"] as Vector2).y > mg_overlay.size.y + 40.0 or (sh["p"] as Vector2).y < -200.0 or (sh["p"] as Vector2).x < -60.0 or (sh["p"] as Vector2).x > mg_overlay.size.x + 60.0:
 		cg_combo_break()
-		cg_judge("빗나갔어요", Color(0.85, 0.85, 0.9), false)
+		cg_judge(tr("빗나갔어요"), Color(0.85, 0.85, 0.9), false)
 		cg_event("miss")
 		cg["shot"] = {}
 
@@ -6997,7 +7057,7 @@ func update_simon(delta: float) -> void:
 				cg["phase"] = "show"
 				cg["show_i"] = 0
 				cg["show_t"] = 0.0
-				cg_say("잘 들어 봐요...", Color(1, 0.95, 0.7))
+				cg_say(tr("잘 들어 봐요..."), Color(1, 0.95, 0.7))
 		"show":
 			cg["show_t"] = float(cg["show_t"]) + delta
 			var step := maxf(0.38, 0.62 - mg_count * 0.04)
@@ -7009,7 +7069,7 @@ func update_simon(delta: float) -> void:
 				else:
 					cg["phase"] = "input"
 					cg["input_i"] = 0
-					cg_say("이제 따라 눌러요!", Color(1, 0.9, 0.4))
+					cg_say(tr("이제 따라 눌러요!"), Color(1, 0.9, 0.4))
 
 func simon_press(pos: Vector2) -> void:
 	if cg["phase"] != "input":
@@ -7024,7 +7084,7 @@ func simon_press(pos: Vector2) -> void:
 	simon_light(best)
 	var seq: Array = cg["seq"]
 	if best != int(seq[int(cg["input_i"])]):
-		cg_lose("앗, 틀렸어요!")
+		cg_lose(tr("앗, 틀렸어요!"))
 		cg_event("wrong")
 		cg["phase"] = "wait"
 		cg["show_t"] = -0.3
@@ -7033,7 +7093,7 @@ func simon_press(pos: Vector2) -> void:
 	if int(cg["input_i"]) >= seq.size():
 		mg_count += 1
 		cg_combo_up()
-		cg_judge("딩동댕!", Color(1, 0.88, 0.3), true)
+		cg_judge(tr("딩동댕!"), Color(1, 0.88, 0.3), true)
 		sfx("good")
 		shake(6)
 		cg_event("round")
@@ -7057,7 +7117,7 @@ func update_dance(delta: float) -> void:
 				cg["phase"] = "show"
 				cg["show_i"] = 0
 				cg["show_t"] = 0.0
-				cg_say("잘 봐요!", Color(1, 0.95, 0.7))
+				cg_say(tr("잘 봐요!"), Color(1, 0.95, 0.7))
 		"show":
 			cg["show_t"] = float(cg["show_t"]) + delta
 			var step := maxf(0.42, 0.7 - mg_count * 0.05)
@@ -7073,7 +7133,7 @@ func update_dance(delta: float) -> void:
 					cg["phase"] = "input"
 					cg["input_i"] = 0
 					cg["flash_dir"] = ""
-					cg_say("이제 따라 휙휙!", Color(1, 0.9, 0.4))
+					cg_say(tr("이제 따라 휙휙!"), Color(1, 0.9, 0.4))
 
 func dance_check(pos: Vector2) -> void:
 	if cg["phase"] != "input" or cg.get("press") == null or cg.get("swiped", false):
@@ -7091,7 +7151,7 @@ func dance_check(pos: Vector2) -> void:
 	cg["flash_t"] = 0.0
 	var seq: Array = cg["seq"]
 	if dir != String(seq[int(cg["input_i"])]):
-		cg_lose("스텝이 꼬였어요!")
+		cg_lose(tr("스텝이 꼬였어요!"))
 		cg_event("wrong")
 		cg["phase"] = "wait"
 		cg["show_t"] = -0.3
@@ -7102,7 +7162,7 @@ func dance_check(pos: Vector2) -> void:
 	if int(cg["input_i"]) >= seq.size():
 		mg_count += 1
 		cg_combo_up()
-		cg_judge("얼쑤!", Color(1, 0.88, 0.3), true)
+		cg_judge(tr("얼쑤!"), Color(1, 0.88, 0.3), true)
 		sfx("good")
 		hit_stop(0.05)
 		shake(8)
@@ -7158,8 +7218,8 @@ func custom_draw() -> void:
 				else:
 					ci.draw_circle(Vector2(x, y), r, paper)
 					ci.draw_arc(Vector2(x, y), r, 0, TAU, 32, ink, 4.0)
-					ci.draw_string(font, Vector2(x - r, y + font_size * 0.32), String(mg_cfg.get("note", "쿵")), HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, int(font_size * 0.8), ink)
-			ci.draw_string(font, Vector2(0, y + font_size * 2.2), "동그라미에 겹칠 때 톡! 빨간 X는 누르지 마세요", HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 0.8), paper)
+					ci.draw_string(font, Vector2(x - r, y + font_size * 0.32), String(mg_cfg.get("note", tr("쿵"))), HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, int(font_size * 0.8), ink)
+			ci.draw_string(font, Vector2(0, y + font_size * 2.2), tr("동그라미에 겹칠 때 톡! 빨간 X는 누르지 마세요"), HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 0.8), paper)
 		"swipe":
 			var a: Dictionary = cg["atk"]
 			if not a.is_empty():
@@ -7192,14 +7252,14 @@ func custom_draw() -> void:
 					ci.draw_line(s, e, paper, 10.0)
 					ci.draw_line(e, e - dirv.rotated(0.5) * font_size, paper, 10.0)
 					ci.draw_line(e, e - dirv.rotated(-0.5) * font_size, paper, 10.0)
-			ci.draw_string(font, Vector2(0, H * 0.86), "공격이 오는 쪽으로 손가락을 휙! (가짜엔 속지 마요)", HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 0.8), paper)
+			ci.draw_string(font, Vector2(0, H * 0.86), tr("공격이 오는 쪽으로 손가락을 휙! (가짜엔 속지 마요)"), HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 0.8), paper)
 		"alternate":
 			var side := int(cg["side"])
 			for k in 2:
 				var rect := Rect2(W * (0.04 + k * 0.5), H * 0.7, W * 0.42, H * 0.16)
 				var on: bool = k == side and cg["shake"] == ""
 				ci.draw_rect(rect, Color(1, 0.86, 0.3, 0.75) if on else Color(0, 0, 0, 0.25))
-				ci.draw_string(font, rect.position + Vector2(0, rect.size.y * 0.62), "< 왼쪽" if k == 0 else "오른쪽 >", HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, int(font_size * 1.1), ink if on else paper)
+				ci.draw_string(font, rect.position + Vector2(0, rect.size.y * 0.62), tr("< 왼쪽") if k == 0 else tr("오른쪽 >"), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, int(font_size * 1.1), ink if on else paper)
 			if cg["shake"] == "":
 				var lim := float(mg_cfg.get("step_time", 1.6))
 				var left := 1.0 - float(cg["step_t"]) / lim
@@ -7208,7 +7268,7 @@ func custom_draw() -> void:
 				var hold := 1.0
 				if cg["shake"] == "shake":
 					hold = 1.0 - float(cg["shake_t"]) / 1.2
-				ci.draw_string(font, Vector2(0, H * 0.62), "꾹 누르고 버텨요!", HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 1.4), Color(1, 0.55, 0.45))
+				ci.draw_string(font, Vector2(0, H * 0.62), tr("꾹 누르고 버텨요!"), HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 1.4), Color(1, 0.55, 0.45))
 				ci.draw_arc(Vector2(W * 0.5, H * 0.78), font_size * 2.0, -PI / 2.0, -PI / 2.0 + TAU * hold, 40, Color(1, 0.86, 0.3), 10.0)
 		"mash":
 			var pulse: float = cg["pulse"]
@@ -7222,8 +7282,8 @@ func custom_draw() -> void:
 				ci.draw_line(c2, tip, Color(0.86, 0.74, 0.5), 12.0)
 				ci.draw_circle(tip, font_size * (0.5 + pulse * 0.15), paper)
 				var warn: bool = absf(tilt) > 0.55
-				var hint := "< 왼쪽을 눌러요" if tilt > 0.0 else "오른쪽을 눌러요 >"
-				ci.draw_string(font, Vector2(0, H * 0.84), hint if warn else "빠르게 연타! 기울면 반대쪽을 눌러요", HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * (1.0 if warn else 0.8)), Color(1, 0.6, 0.45) if warn else paper)
+				var hint := tr("< 왼쪽을 눌러요") if tilt > 0.0 else tr("오른쪽을 눌러요 >")
+				ci.draw_string(font, Vector2(0, H * 0.84), hint if warn else tr("빠르게 연타! 기울면 반대쪽을 눌러요"), HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * (1.0 if warn else 0.8)), Color(1, 0.6, 0.45) if warn else paper)
 			else:
 				var g: float = cg["gauge"]
 				var c3 := Vector2(W * 0.5, H * 0.74)
@@ -7232,7 +7292,7 @@ func custom_draw() -> void:
 				ci.draw_arc(c3, rr, -PI / 2.0, -PI / 2.0 + TAU * g, 48, Color(1, 0.86, 0.3), 14.0)
 				var tl := 1.0 - float(cg["round_t"]) / float(mg_cfg.get("round_time", 2.6))
 				ci.draw_arc(c3, rr + 14.0, -PI / 2.0, -PI / 2.0 + TAU * maxf(0.0, tl), 48, Color(1, 0.45, 0.35) if tl < 0.35 else Color(0.7, 0.95, 1.0), 5.0)
-				ci.draw_string(font, c3 + Vector2(-rr, font_size * 0.35), "연타!", HORIZONTAL_ALIGNMENT_CENTER, rr * 2.0, int(font_size * 1.1), paper)
+				ci.draw_string(font, c3 + Vector2(-rr, font_size * 0.35), tr("연타!"), HORIZONTAL_ALIGNMENT_CENTER, rr * 2.0, int(font_size * 1.1), paper)
 		"stack":
 			if g3_on("stack_base"):
 				return
@@ -7258,7 +7318,7 @@ func custom_draw() -> void:
 				var fy := by - (int(f[4]) - scroll) * lh + float(f[2]) * H
 				if fy < H + 40.0:
 					ci.draw_rect(Rect2(W * (float(f[0]) - float(f[1]) / 2.0), fy - lh, W * float(f[1]), lh - 2.0), Color(0.9, 0.88, 0.8, 0.8))
-			ci.draw_string(font, Vector2(0, H * 0.36), "움직이는 떡판이 아래 떡과 딱 겹칠 때 톡!", HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 0.8), paper)
+			ci.draw_string(font, Vector2(0, H * 0.36), tr("움직이는 떡판이 아래 떡과 딱 겹칠 때 톡!"), HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 0.8), paper)
 		"aim":
 			if g3_on("aim3d"):
 				var climb3: float = cg["climb"]
@@ -7298,7 +7358,7 @@ func custom_draw() -> void:
 				for k in 3:
 					ci.draw_line(Vector2(-font_size * 0.35, -font_size * 0.2 + k * font_size * 0.2), Vector2(font_size * 0.35, -font_size * 0.2 + k * font_size * 0.2), Color(0.35, 0.22, 0.12), 3.0)
 				ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-			ci.draw_string(font, Vector2(0, H * 0.36), "아래에서 손가락을 뒤로 끌었다 놓아 던져요", HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 0.8), paper)
+			ci.draw_string(font, Vector2(0, H * 0.36), tr("아래에서 손가락을 뒤로 끌었다 놓아 던져요"), HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 0.8), paper)
 		"simon":
 			var pads := simon_pads()
 			var lit := int(cg["lit"])
@@ -7313,7 +7373,7 @@ func custom_draw() -> void:
 					ci.draw_line(pads[k], (pads[k] as Vector2) + Vector2(cos(fa), sin(fa)) * r * 0.9, col.darkened(0.35), 3.0)
 				if on:
 					ci.draw_arc(pads[k], r * 1.25, 0, TAU, 36, Color(1, 1, 0.85), 5.0)
-			var msg2 := "따라 누르는 중 %d/%d" % [int(cg["input_i"]), (cg["seq"] as Array).size()] if cg["phase"] == "input" else "조개 소리를 잘 들어요"
+			var msg2 := tr("따라 누르는 중 %d/%d") % [int(cg["input_i"]), (cg["seq"] as Array).size()] if cg["phase"] == "input" else tr("조개 소리를 잘 들어요")
 			ci.draw_string(font, Vector2(0, H * 0.6), msg2, HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 0.95), paper)
 		"dance":
 			var fd: String = cg["flash_dir"]
@@ -7328,16 +7388,17 @@ func custom_draw() -> void:
 				var px := W * 0.5 + (k - (seqn - 1) / 2.0) * font_size * 1.1
 				var done: bool = cg["phase"] == "input" and k < int(cg["input_i"])
 				ci.draw_circle(Vector2(px, H * 0.72), font_size * 0.3, Color(1, 0.86, 0.3) if done else Color(1, 1, 1, 0.35))
-			ci.draw_string(font, Vector2(0, H * 0.79), "보여 준 순서대로 손가락을 휙휙!" if cg["phase"] == "input" else "화살표 순서를 잘 봐요", HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 0.85), paper)
+			ci.draw_string(font, Vector2(0, H * 0.79), tr("보여 준 순서대로 손가락을 휙휙!") if cg["phase"] == "input" else tr("화살표 순서를 잘 봐요"), HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 0.85), paper)
 
 # --- 갯벌 캐기: 여러 숨구멍 중 뽀글뽀글 거품이 오르는 곳을 찾아요 ---
 # 바지락은 톡톡, 큰 백합은 빠르게 연타, 맛조개는 쏙 나올 때 위로 쓱!, 꽃게는 건드리면 따끔!
-const DIG_KINDS := {
+const DIG_KINDS_KO := {
 	"clam": {"name": "바지락", "taps": 3, "life": 2.4},
 	"big": {"name": "백합", "taps": 7, "life": 2.8},
 	"razor": {"name": "맛조개", "taps": 0, "life": 1.1},
 	"crab": {"name": "꽃게", "taps": 0, "life": 1.5},
 }
+var DIG_KINDS: Dictionary = trd(DIG_KINDS_KO)
 
 func dig_holes() -> Array:
 	return w.get("dig_holes", [])
@@ -7430,13 +7491,13 @@ func update_dig(delta: float) -> void:
 		node.position.y = hp.y + 0.18 + sin(anim_t * 20.0) * 0.03
 	if float(tg["t"]) > life:
 		if kind2 == "crab":
-			cg_judge("휴~ 꽃게가 지나갔어요", Color(0.85, 0.95, 1.0), false)
+			cg_judge(tr("휴~ 꽃게가 지나갔어요"), Color(0.85, 0.95, 1.0), false)
 			if node != null:
 				var tw := node.create_tween()
 				tw.tween_property(node, "global_position", node.global_position + Vector3(1.8, 0, 0.3), 0.5)
 				tw.tween_callback(node.queue_free)
 		else:
-			cg_lose("쏙 숨었어요!")
+			cg_lose(tr("쏙 숨었어요!"))
 			cg_event("escape", {"at": hp})
 			if node != null:
 				var tw2 := node.create_tween()
@@ -7475,17 +7536,17 @@ func dig_press(pos: Vector2) -> void:
 	if tg.is_empty() or int(tg["i"]) != k:
 		w["swing"] = 1.0
 		burst3d(hp + Vector3(0, 0.05, 0), Color(0.45, 0.38, 0.3), 4)
-		cg_judge("거긴 빈 구멍!", Color(0.85, 0.85, 0.9), false)
+		cg_judge(tr("거긴 빈 구멍!"), Color(0.85, 0.85, 0.9), false)
 		cg_combo_break()
 		return
 	if tg["state"] == "tell":
-		cg_judge("아직! 나오면 캐요", Color(1, 0.9, 0.6), false)
+		cg_judge(tr("아직! 나오면 캐요"), Color(1, 0.9, 0.6), false)
 		return
 	var kind: String = tg["kind"]
 	var node: Node3D = tg.get("node")
 	match kind:
 		"crab":
-			cg_lose("앗 따가워! 꽃게였어요")
+			cg_lose(tr("앗 따가워! 꽃게였어요"))
 			flash(Color(1, 0.6, 0.5))
 			if node != null:
 				var tw := node.create_tween()
@@ -7523,7 +7584,7 @@ func dig_release(_pos: Vector2) -> void:
 		cg["razor_press"] = null
 		var tg: Dictionary = cg["tgt"]
 		if not tg.is_empty() and tg["kind"] == "razor":
-			cg_judge("위로 쓱 당겨요!", Color(1, 0.9, 0.6), false)
+			cg_judge(tr("위로 쓱 당겨요!"), Color(1, 0.9, 0.6), false)
 
 func dig_got(tg: Dictionary, hp: Vector3) -> void:
 	var kind: String = tg["kind"]
@@ -7533,7 +7594,7 @@ func dig_got(tg: Dictionary, hp: Vector3) -> void:
 	var quick := float(tg["t"]) < 0.9
 	if quick:
 		cg_combo_up()
-	cg_judge("%s 쏙!%s" % [DIG_KINDS[kind]["name"], " 빠르다!" if quick else ""], Color(1, 0.88, 0.3), kind != "clam")
+	cg_judge(tr("%s 쏙!%s") % [DIG_KINDS[kind]["name"], tr(" 빠르다!") if quick else ""], Color(1, 0.88, 0.3), kind != "clam")
 	sfx("pop", 1.0 if kind != "big" else 0.8)
 	hit_stop(0.05 if kind == "big" else 0.03)
 	shake(10 if kind == "big" else 6)
@@ -7552,7 +7613,7 @@ func dig_got(tg: Dictionary, hp: Vector3) -> void:
 func dig_draw(ci: CanvasItem, W: float, H: float, paper: Color) -> void:
 	var tg: Dictionary = cg["tgt"]
 	if tg.is_empty() or tg["state"] != "up":
-		ci.draw_string(font, Vector2(0, H * 0.8), "뽀글뽀글 거품이 오르는 구멍을 봐요", HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 0.85), paper)
+		ci.draw_string(font, Vector2(0, H * 0.8), tr("뽀글뽀글 거품이 오르는 구멍을 봐요"), HORIZONTAL_ALIGNMENT_CENTER, W, int(font_size * 0.85), paper)
 		return
 	var hp: Vector3 = dig_holes()[int(tg["i"])]
 	var sp := cam.unproject_position(hp + Vector3(0, 0.5, 0))
@@ -7561,13 +7622,13 @@ func dig_draw(ci: CanvasItem, W: float, H: float, paper: Color) -> void:
 	var col := paper
 	match kind:
 		"clam", "big":
-			txt = "톡톡! %d" % (int(DIG_KINDS[kind]["taps"]) - int(tg["taps"]))
+			txt = tr("톡톡! %d") % (int(DIG_KINDS[kind]["taps"]) - int(tg["taps"]))
 			col = Color(1, 0.95, 0.7)
 		"razor":
-			txt = "위로 쓱!"
+			txt = tr("위로 쓱!")
 			col = Color(0.75, 0.95, 1.0)
 		"crab":
-			txt = "꽃게! 건드리지 마요"
+			txt = tr("꽃게! 건드리지 마요")
 			col = Color(1, 0.55, 0.45)
 	ci.draw_string(font, sp - Vector2(W * 0.3, 0), txt, HORIZONTAL_ALIGNMENT_CENTER, W * 0.6, int(font_size * 1.1), col)
 
@@ -7935,7 +7996,7 @@ func start_game(type: String, cfg: Dictionary, done: Callable) -> void:
 	var h := mg_overlay.size.y
 	var c: Color = cfg.get("color", PAPER)
 	if type == "circle":
-		if cfg["label"] == "제비":
+		if cfg["label"] == tr("제비"):
 			mg_big = mg_dot(c, mg_r, "")
 			mg_swallow_face(mg_big, mg_r)
 		else:
@@ -8009,7 +8070,7 @@ func end_game(ok: bool) -> void:
 	var mid := mg_overlay.size / 2.0
 	if ok:
 		sfx("win")
-		float_text("성공!", mid, Color(1, 0.9, 0.4), 2.0)
+		float_text(tr("성공!"), mid, Color(1, 0.9, 0.4), 2.0)
 		burst(mid, Color(1, 0.85, 0.3), 18)
 		# 별점: 기회를 하나도 안 잃으면 별 셋 (덤으로 엽전)
 		var lost := mg_lives_start - mg_lives
@@ -8017,11 +8078,11 @@ func end_game(ok: bool) -> void:
 		float_text("★".repeat(stars) + "☆".repeat(3 - stars), mid + Vector2(0, font_size * 2.6), Color(1, 0.86, 0.25), 2.2)
 		if stars == 3 and CUSTOM_GAMES.has(mg_type):
 			coins += 5
-			float_text("별 셋! +5냥", mid + Vector2(0, font_size * 4.6), Color(1, 0.95, 0.6), 1.2)
+			float_text(tr("별 셋! +5냥"), mid + Vector2(0, font_size * 4.6), Color(1, 0.95, 0.6), 1.2)
 	else:
 		sfx("fail")
 		shake(16)
-		float_text("아이쿠!", mid, Color(1, 0.55, 0.45), 2.0)
+		float_text(tr("아이쿠!"), mid, Color(1, 0.55, 0.45), 2.0)
 	var done := mg_done
 	mg_done = Callable()
 	if done.is_valid():
@@ -8167,9 +8228,9 @@ func update_circle(delta: float) -> void:
 	mg_frame_angle = 0.0
 	mg_warn_time -= delta
 	if mg_warn_time > 0.0:
-		mg_info.text = "%s\n남은 기회 %d" % [mg_cfg["warn"], mg_lives]
+		mg_info.text = tr("%s\n남은 기회 %d") % [mg_cfg["warn"], mg_lives]
 	else:
-		mg_info.text = "남은 기회 %d" % mg_lives
+		mg_info.text = tr("남은 기회 %d") % mg_lives
 
 # 박자 따라가기: 너무 오래 어긋나면 실패해요
 func update_follow(delta: float) -> void:
@@ -8199,12 +8260,12 @@ func update_follow(delta: float) -> void:
 	if in_sync:
 		mg_progress += delta / goal
 		mg_b.modulate = Color(0.6, 1.0, 0.6)
-		mg_info.text = "박자가 맞아요!"
+		mg_info.text = tr("박자가 맞아요!")
 	else:
 		mg_b.modulate = Color(1, 1, 1)
 		if mg_started:
 			mg_off += delta
-		mg_info.text = "갈색을 따라 좌우로!\n남은 여유 %d초" % int(ceil(patience - mg_off))
+		mg_info.text = tr("갈색을 따라 좌우로!\n남은 여유 %d초") % int(ceil(patience - mg_off))
 	if mg_off > patience * 0.4:
 		mg_perfect = false
 	if mg_off >= patience:
@@ -8249,7 +8310,7 @@ func update_catch(delta: float) -> void:
 				shake(16)
 				hit_stop(0.05)
 				flash(Color(1, 0.3, 0.3))
-				float_text("아야!", center, Color(1, 0.55, 0.45), 1.2)
+				float_text(tr("아야!"), center, Color(1, 0.55, 0.45), 1.2)
 			else:
 				mg_count += 1
 				sfx("pop", 1.0 + mg_count * 0.04)
@@ -8260,7 +8321,7 @@ func update_catch(delta: float) -> void:
 			node.queue_free()
 			mg_items.remove_at(i)
 	mg_progress = float(mg_count) / goal
-	mg_info.text = "%s %d/%d | 남은 기회 %d" % [mg_cfg["good"], mg_count, goal, mg_lives]
+	mg_info.text = tr("%s %d/%d | 남은 기회 %d") % [mg_cfg["good"], mg_count, goal, mg_lives]
 
 # 나타나는 것 누르기: 세 번 놓치면 실패해요
 func update_tap(delta: float) -> void:
@@ -8307,7 +8368,7 @@ func update_tap(delta: float) -> void:
 			node.queue_free()
 			mg_items.remove_at(i)
 	mg_progress = float(mg_count) / goal
-	mg_info.text = "%s %d/%d | 남은 기회 %d" % [mg_cfg["target"], mg_count, goal, mg_lives]
+	mg_info.text = tr("%s %d/%d | 남은 기회 %d") % [mg_cfg["target"], mg_count, goal, mg_lives]
 
 func on_tap(b: Button) -> void:
 	for i in mg_items.size():
@@ -8323,7 +8384,7 @@ func on_tap(b: Button) -> void:
 			sfx("pop", 1.0 + mg_count * 0.04)
 			shake(4)
 			burst(at, Color(0.6, 0.9, 0.5), 7)
-			float_text(["뽁!", "쏙!", "얍!"][mg_count % 3], at, Color(1, 1, 1), 1.1)
+			float_text([tr("뽁!"), tr("쏙!"), tr("얍!")][mg_count % 3], at, Color(1, 1, 1), 1.1)
 			# 눌린 것은 커지면서 사라져요
 			b.disabled = true
 			b.mouse_filter = Control.MOUSE_FILTER_IGNORE

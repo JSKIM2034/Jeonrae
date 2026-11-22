@@ -7,3 +7,7 @@ config/features=PackedStringArray("4.4", "Mobile")
 
 [rendering]
 renderer/rendering_method="mobile"
+
+[internationalization]
+
+locale/fallback="ko"

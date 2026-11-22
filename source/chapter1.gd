@@ -73,9 +73,9 @@ func after_ui() -> void:
 
 func start_chapter() -> void:
 	if resumed:
-		show_card("지난번 이야기에 이어서\n책장을 다시 펼쳐요...", 0.6, 1.6, Callable())
+		show_card(tr("지난번 이야기에 이어서\n책장을 다시 펼쳐요..."), 0.6, 1.6, Callable())
 		return
-	show_card("흥부와 놀부, 해와 달이 된 오누이...\n\n점점 잊혀 가는 옛이야기들이\n이 책 속에 잠들어 있어요.\n\n우리 이야기를 다시 세상에 들려줄\n첫 장을 펼쳐 볼까요?", 1.0, 8.0, func():
+	show_card(tr("흥부와 놀부, 해와 달이 된 오누이...\n\n점점 잊혀 가는 옛이야기들이\n이 책 속에 잠들어 있어요.\n\n우리 이야기를 다시 세상에 들려줄\n첫 장을 펼쳐 볼까요?"), 1.0, 8.0, func():
 		if not walk_hint_seen:
 			show_walk_hint())
 # 박: 뽀얀 둥근 몸통에 은은한 골, 꼭지, 덩굴과 하얀 박꽃
@@ -279,7 +279,7 @@ func make_signpost(pos: Vector3) -> void:
 	var board := add_mbox(sign, plank_mat, Vector3(1.7, 0.42, 0.08), Vector3(0, 1.62, 0))
 	board.rotation.z = -0.05
 	var lab := Label3D.new()
-	lab.text = "이 길 끝은 2장\n해와 달이 된 오누이\n(준비 중)"
+	lab.text = tr("이 길 끝은 2장\n해와 달이 된 오누이\n(준비 중)")
 	lab.font = font
 	lab.font_size = 34
 	lab.modulate = Color(0.25, 0.14, 0.08)
@@ -287,7 +287,7 @@ func make_signpost(pos: Vector3) -> void:
 	lab.position = Vector3(0, 1.62, 0.05)
 	lab.pixel_size = 0.0034
 	sign.add_child(lab)
-	add_tag(sign, "다음 이야기로 가는 길", 2.4)
+	add_tag(sign, tr("다음 이야기로 가는 길"), 2.4)
 
 func make_border(r: RandomNumberGenerator) -> void:
 	# 보이지 않는 벽 바깥에 나무와 덤불을 둘러 심어, 마을이 숲에 감싸인 것처럼
@@ -351,7 +351,7 @@ func make_gourd_at(pos: Vector3, c: Color, radius: float) -> Node3D:
 	add_child(g)
 	make_gourd_visual(g, c, radius)
 	g.set_meta("radius", radius)
-	add_tag(g, "박", radius * 2.0 + 0.7)
+	add_tag(g, tr("박"), radius * 2.0 + 0.7)
 	g.visible = false
 	return g
 
@@ -381,19 +381,19 @@ func make_world() -> void:
 func make_village() -> void:
 	# 놀부네
 	make_house(Vector3(14, 0, 2), Vector3(9, 4, 6), Color(0.95, 0.93, 0.86), Color(0.28, 0.3, 0.36), "tile")
-	make_npc("nolbu", "놀부", Color(0.6, 0.2, 0.45), Vector3(14, 0, 7.5), 1.15, true)
-	make_npc("wife", "놀부 마누라", Color(0.75, 0.3, 0.3), Vector3(10.5, 0, 7.8), 1.0, true)
+	make_npc("nolbu", tr("놀부"), Color(0.6, 0.2, 0.45), Vector3(14, 0, 7.5), 1.15, true)
+	make_npc("wife", tr("놀부 마누라"), Color(0.75, 0.3, 0.3), Vector3(10.5, 0, 7.8), 1.0, true)
 	nolbu_gourd = make_gourd_at(Vector3(19, 0, 8.5), Color(0.6, 0.68, 0.4), 1.7)
-	make_npc("dokkaebi", "도깨비", Color(0.2, 0.55, 0.6), Vector3(19, 0, 8.5), 1.3, false).visible = false
+	make_npc("dokkaebi", tr("도깨비"), Color(0.2, 0.55, 0.6), Vector3(19, 0, 8.5), 1.3, false).visible = false
 
 	# 흥부네
 	hut = make_house(Vector3(-13, 0, -2), Vector3(4.5, 2.8, 3.5), Color(0.8, 0.74, 0.64), Color(0.6, 0.53, 0.38), "thatch")
 	make_hut_shabby(hut)
-	make_npc("heungbu", "흥부", Color(0.85, 0.6, 0.35), Vector3(-12, 0, 2.5), 1.0, true)
-	make_npc("kid1", "첫째", Color(0.95, 0.75, 0.5), Vector3(-16.5, 0, 4), 0.7, true)
-	make_npc("kid2", "막내", Color(0.98, 0.82, 0.6), Vector3(-9, 0, 5), 0.55, true)
+	make_npc("heungbu", tr("흥부"), Color(0.85, 0.6, 0.35), Vector3(-12, 0, 2.5), 1.0, true)
+	make_npc("kid1", tr("첫째"), Color(0.95, 0.75, 0.5), Vector3(-16.5, 0, 4), 0.7, true)
+	make_npc("kid2", tr("막내"), Color(0.98, 0.82, 0.6), Vector3(-9, 0, 5), 0.55, true)
 	var nest := make_spot(Vector3(-15.2, 0, 0.7), "nest", "", "", true)
-	add_tag(nest, "제비 둥지", 3.4)
+	add_tag(nest, tr("제비 둥지"), 3.4)
 	make_nest_visual(nest)
 	for pos in [Vector3(-6.5, 0, -3), Vector3(-5, 0, 0), Vector3(-6.5, 0, 3)]:
 		add_thing(make_gourd_at(pos, Color(0.82, 0.9, 0.62), 1.2), "gourd", "")
@@ -401,14 +401,14 @@ func make_village() -> void:
 	# 장터
 	add_solid(Vector3(20, 1, 19.2), Vector3(4, 2, 1.2), Color(0, 0, 0, 0))
 	make_stall(Vector3(20, 0, 19.2))
-	make_npc("merchant", "장터 상인", Color(0.3, 0.5, 0.35), Vector3(20, 0, 21.2), 1.0, true)
+	make_npc("merchant", tr("장터 상인"), Color(0.3, 0.5, 0.35), Vector3(20, 0, 21.2), 1.0, true)
 
 	# 놀부 심술에 당한 마을 사람들
-	make_npc("dori", "돌이", Color(0.9, 0.8, 0.45), Vector3(9, 0, 19), 0.6, true)
-	make_npc("suni", "순이 엄마", Color(0.55, 0.65, 0.85), Vector3(-9, 0, -12), 1.0, true)
-	make_npc("kim", "김 서방", Color(0.5, 0.45, 0.3), Vector3(-24, 0, 15), 1.0, true)
-	make_npc("ong", "옹기 할멈", Color(0.6, 0.5, 0.55), Vector3(27, 0, -9), 0.9, true)
-	make_npc("park", "박 첨지", Color(0.4, 0.5, 0.55), Vector3(-31, 0, -5), 1.0, true)
+	make_npc("dori", tr("돌이"), Color(0.9, 0.8, 0.45), Vector3(9, 0, 19), 0.6, true)
+	make_npc("suni", tr("순이 엄마"), Color(0.55, 0.65, 0.85), Vector3(-9, 0, -12), 1.0, true)
+	make_npc("kim", tr("김 서방"), Color(0.5, 0.45, 0.3), Vector3(-24, 0, 15), 1.0, true)
+	make_npc("ong", tr("옹기 할멈"), Color(0.6, 0.5, 0.55), Vector3(27, 0, -9), 0.9, true)
+	make_npc("park", tr("박 첨지"), Color(0.4, 0.5, 0.55), Vector3(-31, 0, -5), 1.0, true)
 	var pr := RandomNumberGenerator.new()
 	pr.seed = 15
 	for pos in [Vector3(-26.5, 0, 16.8), Vector3(-22.3, 0, 17), Vector3(-25, 0, 18.5)]:
@@ -424,18 +424,18 @@ func make_village() -> void:
 		ong_cracks.append(add_beam(self, crack, c0 + Vector3(0.12, -0.2, 0.02), c0 + Vector3(0.02, -0.4, 0.04), 0.025, 0.02))
 	make_paddy(Vector3(-34.5, 0, -3), 6.0, 6.0)
 	for pos in [Vector3(-14, 0, -13.2), Vector3(-21, 0, -17.6), Vector3(5, 0, -13.2)]:
-		var cloth := make_spot(pos, "laundry", "", "빨래", false)
+		var cloth := make_spot(pos, "laundry", "", tr("빨래"), false)
 		make_laundry_pile(cloth)
 
 	# 품팔이 터
-	var well := make_spot(Vector3(4, 0, -3), "job", "water", "우물", true)
+	var well := make_spot(Vector3(4, 0, -3), "job", "water", tr("우물"), true)
 	make_well_visual(well)
 	add_solid(Vector3(4, 0.45, -3), Vector3(1.4, 0.9, 1.4), Color(0, 0, 0, 0))
-	var straw := make_spot(Vector3(-17.5, 0, 8.5), "job", "shoes", "짚더미", true)
+	var straw := make_spot(Vector3(-17.5, 0, 8.5), "job", "shoes", tr("짚더미"), true)
 	make_haystack_visual(straw)
 	add_solid(Vector3(-17.5, 0.4, 8.5), Vector3(1.6, 0.8, 1.2), Color(0, 0, 0, 0))
-	var stump := make_spot(Vector3(15, 0, -19.5), "job", "wood", "나무터", true)
-	make_spot(Vector3(3, 0, 5.4), "job", "gam", "감나무", true)
+	var stump := make_spot(Vector3(15, 0, -19.5), "job", "wood", tr("나무터"), true)
+	make_spot(Vector3(3, 0, 5.4), "job", "gam", tr("감나무"), true)
 	make_stump_visual(stump)
 	add_solid(Vector3(15, 0.35, -19.5), Vector3(1.0, 0.7, 1.0), Color(0, 0, 0, 0))
 
@@ -588,18 +588,18 @@ func pick_wild(t: Dictionary) -> void:
 	var lines := []
 	var cnt := int(herb_counts[k])
 	if cnt < HERB_NEED:
-		lines.append(["", "%s을(를) 캤다! (%d/%d) 3분 뒤에 다시 자라요." % [nm, cnt, HERB_NEED]])
+		lines.append(["", tr("%s을(를) 캤다! (%d/%d) 3분 뒤에 다시 자라요.") % [nm, cnt, HERB_NEED]])
 	elif cnt == HERB_NEED:
 		var rw: int = HERBS[k]["reward"]
 		earn(rw)
-		lines.append(["", "%s을(를) %d번 모아 약초 도감에 올렸다! 장터에 팔아 엽전 %d냥. (약초 도감 %d/%d)" % [nm, HERB_NEED, rw, herb_kinds_done(), HERBS.size()]])
+		lines.append(["", tr("%s을(를) %d번 모아 약초 도감에 올렸다! 장터에 팔아 엽전 %d냥. (약초 도감 %d/%d)") % [nm, HERB_NEED, rw, herb_kinds_done(), HERBS.size()]])
 		if herb_kinds_done() >= HERBS.size() and not herb_reward:
 			herb_reward = true
 			earn(40)
-			lines.append(["", "약초 도감을 모두 채웠다! 마을 사람들이 고맙다며 엽전 40냥을 모아 주었다."])
+			lines.append(["", tr("약초 도감을 모두 채웠다! 마을 사람들이 고맙다며 엽전 40냥을 모아 주었다.")])
 	else:
 		earn(1)
-		lines.append(["", "%s을(를) 캐서 장터에 팔았다. 엽전 1냥." % nm])
+		lines.append(["", tr("%s을(를) 캐서 장터에 팔았다. 엽전 1냥.") % nm])
 	save_south()
 	say(lines, Callable())
 
@@ -667,11 +667,11 @@ func get_piece_id(id: int, extra: String) -> void:
 	var found := []
 	if extra != "":
 		found.append(["", extra])
-	found.append(["이야기 조각 “%s”" % st["title"], st["text"]])
+	found.append([tr("이야기 조각 “%s”") % st["title"], st["text"]])
 	if first:
-		found.append(["", "새 이야기 조각을 찾았어요! 도감의 '이야기'에서 다시 읽을 수 있어요. (%d/%d)" % [story_count(), STORY.size()]])
+		found.append(["", tr("새 이야기 조각을 찾았어요! 도감의 '이야기'에서 다시 읽을 수 있어요. (%d/%d)") % [story_count(), STORY.size()]])
 	if pieces_found >= PIECE_TOTAL:
-		found.append(["이야기 조각", "일곱 조각이 하나로 이어졌어요.\n놀부의 욕심 뒤에는, 동생들을 지키고 싶었던 겁 많은 형이 있었어요."])
+		found.append([tr("이야기 조각"), tr("일곱 조각이 하나로 이어졌어요.\n놀부의 욕심 뒤에는, 동생들을 지키고 싶었던 겁 많은 형이 있었어요.")])
 	say(found, Callable())
 
 
@@ -756,7 +756,7 @@ func chips3d(pos: Vector3) -> void:
 func start_wood3d() -> void:
 	var stump := job_spot("wood")
 	var s := stump.position
-	start_game("wood3d", {"world": true, "art": "world", "title": "막대가 초록 칸에 왔을 때 눌러서\n도끼로 장작을 쪼개요!", "goal": 6}, job_done)
+	start_game("wood3d", {"world": true, "art": "world", "title": tr("막대가 초록 칸에 왔을 때 눌러서\n도끼로 장작을 쪼개요!"), "goal": 6}, job_done)
 	world_game_begin(s + Vector3(0, 0, 1.15), s, s + Vector3(2.5, 2.1, 2.8), s + Vector3(0, 0.75, 0.35), stump)
 	if stump.has_meta("axe"):
 		world_hide(stump.get_meta("axe"))
@@ -797,7 +797,7 @@ func update_wood3d(delta: float) -> void:
 	if not w.get("busy", false):
 		mg_phase += delta * (2.0 + mg_count * 0.32)
 	mg_progress = float(mg_count) / float(mg_cfg["goal"])
-	mg_info.text = "장작 %d/%d | 남은 기회 %d" % [mg_count, mg_cfg["goal"], mg_lives]
+	mg_info.text = tr("장작 %d/%d | 남은 기회 %d") % [mg_count, mg_cfg["goal"], mg_lives]
 
 func wood_strike() -> void:
 	if w.get("busy", false) or not mg_active:
@@ -829,7 +829,7 @@ func wood_impact(hit: bool) -> void:
 		chips3d(top)
 		flash(Color(1, 0.95, 0.8))
 		var at := cam.unproject_position(top)
-		float_text(["쩍!", "탁!", "쩌억!"][mg_count % 3], at, Color(1, 0.95, 0.75), 1.5)
+		float_text([tr("쩍!"), tr("탁!"), tr("쩌억!")][mg_count % 3], at, Color(1, 0.95, 0.75), 1.5)
 		burst(at, Color(1, 0.85, 0.4), 10)
 		# 통나무가 반으로 갈라져 양쪽으로 날아가요
 		lg.visible = false
@@ -855,7 +855,7 @@ func wood_impact(hit: bool) -> void:
 		sfx("tick", 0.6)
 		shake(6)
 		var at2 := cam.unproject_position(top)
-		float_text("빗나갔어요!", at2, Color(1, 0.6, 0.5), 1.1)
+		float_text(tr("빗나갔어요!"), at2, Color(1, 0.6, 0.5), 1.1)
 		var tw2 := lg.create_tween()
 		tw2.tween_property(lg, "rotation:z", 0.25, 0.06)
 		tw2.tween_property(lg, "rotation:z", -0.18, 0.08)
@@ -866,7 +866,7 @@ func wood_impact(hit: bool) -> void:
 func start_well3d() -> void:
 	var well := job_spot("water")
 	var p := well.position
-	start_game("well3d", {"world": true, "art": "world", "title": "손가락으로 위로 쓸어 줄을 당겨요\n너무 세게 당기면 물이 쏟아져요!"}, job_done)
+	start_game("well3d", {"world": true, "art": "world", "title": tr("손가락으로 위로 쓸어 줄을 당겨요\n너무 세게 당기면 물이 쏟아져요!")}, job_done)
 	world_game_begin(p + Vector3(0, 0, 1.3), p, p + Vector3(-2.2, 2.4, 3.0), p + Vector3(0, 0.8, 0), well)
 	for k in ["bucket", "rope"]:
 		if well.has_meta(k):
@@ -909,12 +909,12 @@ func update_well3d(delta: float) -> void:
 			splash3d((w["pulley"] as Vector3) * Vector3(1, 0, 1) + Vector3(0, 0.62, 0))
 			w["state"] = "fill"
 			w["timer"] = 0.0
-		mg_info.text = "두레박을 내려요..."
+		mg_info.text = tr("두레박을 내려요...")
 	elif st == "fill":
 		w["water"] = minf(1.0, float(w["timer"]) / 0.6)
 		if float(w["timer"]) > 0.7:
 			w["state"] = "pull"
-		mg_info.text = "물이 차오르고 있어요"
+		mg_info.text = tr("물이 차오르고 있어요")
 	elif st == "pull":
 		var sway: float = w["sway"]
 		if sway > 0.5:
@@ -930,7 +930,7 @@ func update_well3d(delta: float) -> void:
 				mg_lives -= 1
 				mg_perfect = false
 				sfx("bad")
-				float_text("물이 다 쏟아졌어요!", cam.unproject_position((w["bucket"] as Node3D).global_position), Color(1, 0.6, 0.5), 1.1)
+				float_text(tr("물이 다 쏟아졌어요!"), cam.unproject_position((w["bucket"] as Node3D).global_position), Color(1, 0.6, 0.5), 1.1)
 			else:
 				if got < 0.85:
 					mg_perfect = false
@@ -940,11 +940,11 @@ func update_well3d(delta: float) -> void:
 				shake(4)
 				var bp := (w["bucket"] as Node3D).global_position
 				splash3d(bp + Vector3(0.4, -0.3, 0.5))
-				float_text("물 한 동이!" if got >= 0.85 else "조금 쏟았어요", cam.unproject_position(bp), Color(0.8, 0.95, 1.0), 1.2)
+				float_text(tr("물 한 동이!") if got >= 0.85 else tr("조금 쏟았어요"), cam.unproject_position(bp), Color(0.8, 0.95, 1.0), 1.2)
 			w["water"] = 0.0
 			w["state"] = "lower"
-		var sw_txt := "흔들려요! 살살~" if sway > 0.5 else "위로 쓸어 올려요"
-		mg_info.text = "%s | 항아리 %d%% | 남은 기회 %d" % [sw_txt, int(minf(float(w["fill"]), 1.0) * 100.0), mg_lives]
+		var sw_txt := tr("흔들려요! 살살~") if sway > 0.5 else tr("위로 쓸어 올려요")
+		mg_info.text = tr("%s | 항아리 %d%% | 남은 기회 %d") % [sw_txt, int(minf(float(w["fill"]), 1.0) * 100.0), mg_lives]
 	w["y"] = y
 	mg_progress = minf(float(w["fill"]), 1.0)
 	# 3D 위치 갱신
@@ -980,7 +980,7 @@ func well_drag(dy: float, dt_ms: float) -> void:
 
 # ---------- 낚시 (3D): 연못 위 찌, 물고기 그림자, 튀어 오르는 물고기 ----------
 func start_fishing3d() -> void:
-	start_game("fish", {"world": true, "art": "world", "title": "찌가 쏙 들어가면 눌러서 채요!\n걸리면 눌렀다 뗐다 하며 초록 칸에"}, fish_done)
+	start_game("fish", {"world": true, "art": "world", "title": tr("찌가 쏙 들어가면 눌러서 채요!\n걸리면 눌렀다 뗐다 하며 초록 칸에")}, fish_done)
 	var stand := POND_C + Vector3(4.1, 0.0, 0.0)
 	var fspot: Node3D = null
 	for t in things:
@@ -1431,10 +1431,10 @@ func make_fishing_pond() -> void:
 	add_solid(Vector3(c.x - 5.2, 1, c.z), Vector3(0.8, 2, 3.4), none)
 	add_solid(Vector3(c.x + 4.2, 1, c.z - 1.67), Vector3(2.0, 2, 1.85), none)
 	add_solid(Vector3(c.x + 4.2, 1, c.z + 1.68), Vector3(2.0, 2, 1.85), none)
-	var spot := make_spot(Vector3(c.x + rx - 2.0, 0, c.z), "fish", "", "낚시터", true)
+	var spot := make_spot(Vector3(c.x + rx - 2.0, 0, c.z), "fish", "", tr("낚시터"), true)
 	spot.visible = true
 	make_basket(Vector3(c.x + rx + 0.9, 0, c.z - 1.3), 0.9, Color(0.62, 0.68, 0.74))
-	make_npc("fisher", "강태공", Color(0.5, 0.6, 0.66), Vector3(c.x + rx + 1.6, 0, c.z + 2.0), 1.0, true)
+	make_npc("fisher", tr("강태공"), Color(0.5, 0.6, 0.66), Vector3(c.x + rx + 1.6, 0, c.z + 2.0), 1.0, true)
 	make_tree(Vector3(c.x - 5.8, 0, c.z - 4.8), "Willow0")
 	make_tree(Vector3(c.x - 6.3, 0, c.z + 4.6), "Willow0")
 	house_rects.append(Rect2(c.x - rx - 0.4, c.z - rz - 0.4, rx * 2.0 + 0.8, rz * 2.0 + 0.8))
@@ -1552,8 +1552,8 @@ func make_farm() -> void:
 		sp.visible = false
 		sparrows.append([sp, pos])
 	# 논 앞 팻말, 논 주인, 볏짚단
-	make_spot(Vector3(c.x - w / 2.0 - 0.9, 0, c.z), "farm", "", "최 영감네 논", true)
-	make_npc("choi", "최 영감", Color(0.62, 0.55, 0.42), Vector3(c.x - w / 2.0 - 1.8, 0, c.z - 3.4), 1.0, true)
+	make_spot(Vector3(c.x - w / 2.0 - 0.9, 0, c.z), "farm", "", tr("최 영감네 논"), true)
+	make_npc("choi", tr("최 영감"), Color(0.62, 0.55, 0.42), Vector3(c.x - w / 2.0 - 1.8, 0, c.z - 3.4), 1.0, true)
 	var stack := Node3D.new()
 	stack.position = c + Vector3(w / 2.0 + 1.8, 0, -2.2)
 	add_child(stack)
@@ -1586,9 +1586,9 @@ func update_south(delta: float) -> void:
 			farm_state += 1
 			farm_visual()
 			if farm_state == 2:
-				float_text("참새 떼가 논에 몰려왔어요!", Vector2(short_side * 0.5, 300), Color(1, 0.9, 0.6), 1.0)
+				float_text(tr("참새 떼가 논에 몰려왔어요!"), Vector2(short_side * 0.5, 300), Color(1, 0.9, 0.6), 1.0)
 			else:
-				float_text("최 영감네 벼가 누렇게 익었어요!", Vector2(short_side * 0.5, 300), Color(1, 0.9, 0.4), 1.0)
+				float_text(tr("최 영감네 벼가 누렇게 익었어요!"), Vector2(short_side * 0.5, 300), Color(1, 0.9, 0.4), 1.0)
 	if farm_state == 2:
 		for i in sparrows.size():
 			var node: Node3D = sparrows[i][0]
@@ -1599,11 +1599,11 @@ func update_south(delta: float) -> void:
 
 func farm_action_text() -> String:
 	match farm_state:
-		-1: return "논 살펴보기"
-		0: return "모내기"
-		2: return "참새 쫓기"
-		4: return "벼 베기"
-	return "벼 살펴보기"
+		-1: return tr("논 살펴보기")
+		0: return tr("모내기")
+		2: return tr("참새 쫓기")
+		4: return tr("벼 베기")
+	return tr("벼 살펴보기")
 
 # --- 저장 (도감은 다음에 와도 남아 있어요) ---
 
@@ -1648,33 +1648,33 @@ func fish_book() -> String:
 	var parts := []
 	for i in FISH.size():
 		if int(fish_caught[i]) > 0:
-			parts.append("%s %d마리" % [FISH[i]["name"], fish_caught[i]])
+			parts.append(tr("%s %d마리") % [FISH[i]["name"], fish_caught[i]])
 		else:
 			parts.append("???")
-	return "물고기 도감 %d/%d\n%s" % [fish_kinds_found(), FISH.size(), ", ".join(parts)]
+	return tr("물고기 도감 %d/%d\n%s") % [fish_kinds_found(), FISH.size(), ", ".join(parts)]
 
 func fish_how() -> Array:
 	return [
-		["강태공", "찌가 쏙 들어가면 바로 화면을 눌러 낚싯대를 채거라. 너무 일찍 채면 물고기가 놀라 도망간단다."],
-		["강태공", "물고기가 걸리면 화면을 꾹 눌렀다 뗐다 하며 초록 칸 안에 물고기를 붙잡아 두거라."],
+		[tr("강태공"), tr("찌가 쏙 들어가면 바로 화면을 눌러 낚싯대를 채거라. 너무 일찍 채면 물고기가 놀라 도망간단다.")],
+		[tr("강태공"), tr("물고기가 걸리면 화면을 꾹 눌렀다 뗐다 하며 초록 칸 안에 물고기를 붙잡아 두거라.")],
 	]
 
 func talk_fisher() -> void:
 	if not fisher_met:
 		fisher_met = true
-		say([["강태공", "허허, 세월을 낚는 중이란다. 너도 한번 해 보겠느냐? 나루터 끝의 낚싯대를 쓰거라."]] + fish_how() + [["강태공", "물고기는 모두 여섯 가지. 금빛 잉어는 나도 평생 두 번밖에 못 봤단다."]], Callable())
+		say([[tr("강태공"), tr("허허, 세월을 낚는 중이란다. 너도 한번 해 보겠느냐? 나루터 끝의 낚싯대를 쓰거라.")]] + fish_how() + [[tr("강태공"), tr("물고기는 모두 여섯 가지. 금빛 잉어는 나도 평생 두 번밖에 못 봤단다.")]], Callable())
 		return
-	var lines := [["강태공", fish_book()]]
+	var lines := [[tr("강태공"), fish_book()]]
 	if fish_kinds_found() >= FISH.size():
-		lines.append(["강태공", "허허, 이 연못 물고기를 다 낚아 보다니! 네가 진짜 강태공이로구나."])
+		lines.append([tr("강태공"), tr("허허, 이 연못 물고기를 다 낚아 보다니! 네가 진짜 강태공이로구나.")])
 	else:
-		lines.append(["강태공", "물고기마다 힘이 달라. 큰 놈일수록 초록 칸에 붙잡아 두기 어렵단다."])
+		lines.append([tr("강태공"), tr("물고기마다 힘이 달라. 큰 놈일수록 초록 칸에 붙잡아 두기 어렵단다.")])
 	say(lines, Callable())
 
 func start_fishing() -> void:
 	if not fisher_met:
 		fisher_met = true
-		say([["강태공", "낚시는 처음이냐? 내 알려 주마."]] + fish_how(), start_fishing)
+		say([[tr("강태공"), tr("낚시는 처음이냐? 내 알려 주마.")]] + fish_how(), start_fishing)
 		return
 	start_fishing3d()
 
@@ -1691,7 +1691,7 @@ func pick_fish() -> int:
 
 func fish_done(ok: bool, _good: bool) -> void:
 	if not ok:
-		say([["", "물고기가 모두 달아났다. 다시 해 보자."]], Callable())
+		say([["", tr("물고기가 모두 달아났다. 다시 해 보자.")]], Callable())
 		return
 	var f: Dictionary = FISH[fish_kind]
 	var first := int(fish_caught[fish_kind]) == 0
@@ -1700,14 +1700,14 @@ func fish_done(ok: bool, _good: bool) -> void:
 	earn(pay)
 	var lines := []
 	if first:
-		lines.append(["", "%s를 낚았다! 처음 보는 물고기다. (물고기 도감 %d/%d)" % [f["name"], fish_kinds_found(), FISH.size()]])
+		lines.append(["", tr("%s를 낚았다! 처음 보는 물고기다. (물고기 도감 %d/%d)") % [f["name"], fish_kinds_found(), FISH.size()]])
 	else:
-		lines.append(["", "%s를 낚았다! (%d마리째)" % [f["name"], fish_caught[fish_kind]]])
-	lines.append(["", "장터에 팔아 엽전 %d냥을 받았다." % pay])
+		lines.append(["", tr("%s를 낚았다! (%d마리째)") % [f["name"], fish_caught[fish_kind]]])
+	lines.append(["", tr("장터에 팔아 엽전 %d냥을 받았다.") % pay])
 	if fish_kinds_found() >= FISH.size() and not fish_reward:
 		fish_reward = true
 		earn(50)
-		lines.append(["강태공", "허허! 여섯 가지 물고기를 다 낚았구나. 상으로 엽전 50냥을 주마!"])
+		lines.append([tr("강태공"), tr("허허! 여섯 가지 물고기를 다 낚았구나. 상으로 엽전 50냥을 주마!")])
 	save_south()
 	say(lines, Callable())
 
@@ -1719,7 +1719,7 @@ func fish_tap() -> void:
 		mg_timer = rng.randf_range(1.6, 3.2)
 		sfx("bad")
 		shake(10)
-		float_text("너무 일찍 챘어요!", at, Color(1, 0.6, 0.5), 1.1)
+		float_text(tr("너무 일찍 챘어요!"), at, Color(1, 0.6, 0.5), 1.1)
 	elif mg_step == 1:
 		mg_step = 2
 		sfx("splash", rng.randf_range(0.9, 1.1))
@@ -1733,14 +1733,14 @@ func fish_tap() -> void:
 		sfx("good")
 		shake(8)
 		burst(at, Color(0.8, 0.95, 1.0), 10)
-		float_text("걸렸다!", at, Color(1, 1, 1), 1.3)
+		float_text(tr("걸렸다!"), at, Color(1, 1, 1), 1.3)
 
 func update_fish(delta: float) -> void:
 	mg_phase += delta
 	var at := Vector2(mg_overlay.size.x * 0.42, mg_overlay.size.y * 0.58)
 	if mg_step == 0:
 		mg_timer -= delta
-		mg_info.text = "찌를 잘 보세요... | 남은 기회 %d" % mg_lives
+		mg_info.text = tr("찌를 잘 보세요... | 남은 기회 %d") % mg_lives
 		if mg_timer <= 0.0:
 			fish_kind = pick_fish()
 			mg_step = 1
@@ -1749,11 +1749,11 @@ func update_fish(delta: float) -> void:
 			shake(4)
 	elif mg_step == 1:
 		mg_timer -= delta
-		mg_info.text = "지금이에요! 눌러요!"
+		mg_info.text = tr("지금이에요! 눌러요!")
 		if mg_timer <= 0.0:
 			mg_step = 0
 			mg_timer = rng.randf_range(1.5, 3.2)
-			float_text("미끼만 먹고 갔어요...", at, Color(1, 1, 1), 1.0)
+			float_text(tr("미끼만 먹고 갔어요..."), at, Color(1, 1, 1), 1.0)
 	else:
 		var hard: float = FISH[fish_kind]["hard"]
 		if mg_touch:
@@ -1787,9 +1787,9 @@ func update_fish(delta: float) -> void:
 			sfx("bad")
 			shake(14)
 			flash(Color(1, 0.3, 0.3))
-			float_text("줄이 풀려 놓쳤어요!", at, Color(1, 0.6, 0.5), 1.1)
+			float_text(tr("줄이 풀려 놓쳤어요!"), at, Color(1, 0.6, 0.5), 1.1)
 		else:
-			mg_info.text = "꾹 누르면 초록 칸이 올라가요 | 남은 기회 %d" % mg_lives
+			mg_info.text = tr("꾹 누르면 초록 칸이 올라가요 | 남은 기회 %d") % mg_lives
 
 func draw_fish2d(ci: CanvasItem, c: Vector2, s: float, kind: int, rot: float, shadow: bool) -> void:
 	var f: Dictionary = FISH[kind]
@@ -1930,20 +1930,20 @@ func plant_tap() -> void:
 		sfx("pop", 1.0 + mg_count * 0.04)
 		shake(3)
 		burst(target, Color(0.6, 0.9, 0.5), 7)
-		float_text(["쏙!", "착!", "꾹!"][mg_count % 3], target + Vector2(0, -40), Color(1, 1, 1), 1.0)
+		float_text([tr("쏙!"), tr("착!"), tr("꾹!")][mg_count % 3], target + Vector2(0, -40), Color(1, 1, 1), 1.0)
 	else:
 		mg_lives -= 1
 		mg_perfect = false
 		sfx("bad")
 		shake(10)
 		flash(Color(1, 0.3, 0.3))
-		float_text("삐뚤빼뚤!", Vector2(cx, target.y - 40), Color(1, 0.6, 0.5), 1.1)
+		float_text(tr("삐뚤빼뚤!"), Vector2(cx, target.y - 40), Color(1, 0.6, 0.5), 1.1)
 
 func update_plant(delta: float) -> void:
 	var row := mini(mg_count / 4, 2)
 	mg_phase += delta * (1.7 + row * 0.45)
 	mg_progress = float(mg_count) / 12.0
-	mg_info.text = "모 %d/12 | 남은 기회 %d" % [mg_count, mg_lives]
+	mg_info.text = tr("모 %d/12 | 남은 기회 %d") % [mg_count, mg_lives]
 
 func draw_seedling(ci: CanvasItem, c: Vector2, s: float, lean: float) -> void:
 	for k in 5:
@@ -2040,54 +2040,54 @@ func talk_choi() -> void:
 	if farm_state == -1:
 		farm_state = 0
 		say([
-			["최 영감", "아이고 허리야... 올해는 모내기를 못 하겠구나."],
-			["최 영감", "얘야, 나 대신 모를 심어 주겠니? 벼를 거두면 쌀을 팔아 엽전을 나눠 주마."],
-			["최 영감", "논 앞 팻말에서 '모내기'를 누르면 된단다. 못줄 눈금에 맞춰 반듯하게 심어야 한다!"],
+			[tr("최 영감"), tr("아이고 허리야... 올해는 모내기를 못 하겠구나.")],
+			[tr("최 영감"), tr("얘야, 나 대신 모를 심어 주겠니? 벼를 거두면 쌀을 팔아 엽전을 나눠 주마.")],
+			[tr("최 영감"), tr("논 앞 팻말에서 '모내기'를 누르면 된단다. 못줄 눈금에 맞춰 반듯하게 심어야 한다!")],
 		], Callable())
 		return
 	match farm_state:
 		0:
-			say([["최 영감", "모내기를 부탁하마. 반듯하게 심어야 벼가 잘 자란단다."]], Callable())
+			say([[tr("최 영감"), tr("모내기를 부탁하마. 반듯하게 심어야 벼가 잘 자란단다.")]], Callable())
 		1, 3:
-			say([["최 영감", "벼가 쑥쑥 자라는 중이란다. 마을 일을 보고 오너라."]], Callable())
+			say([[tr("최 영감"), tr("벼가 쑥쑥 자라는 중이란다. 마을 일을 보고 오너라.")]], Callable())
 		2:
-			say([["최 영감", "참새 떼가 몰려왔다! 허수아비만으로는 안 되겠어. 어서 쫓아 다오!"]], Callable())
+			say([[tr("최 영감"), tr("참새 떼가 몰려왔다! 허수아비만으로는 안 되겠어. 어서 쫓아 다오!")]], Callable())
 		4:
-			say([["최 영감", "누렇게 잘 익었구나! 벼를 베어 다오."]], Callable())
+			say([[tr("최 영감"), tr("누렇게 잘 익었구나! 벼를 베어 다오.")]], Callable())
 
 func farm_action() -> void:
 	match farm_state:
 		-1:
-			say([["", "물이 찰랑이는 빈 논이다. 옆에 있는 최 영감에게 먼저 말을 걸어 보자."]], Callable())
+			say([["", tr("물이 찰랑이는 빈 논이다. 옆에 있는 최 영감에게 먼저 말을 걸어 보자.")]], Callable())
 		0:
 			farm_perfect = true
-			start_game("plant", {"art": "world", "world": true, "scene": "plant", "title": "손이 노란 동그라미에 왔을 때 눌러서\n못줄 눈금에 맞춰 모를 심어요"}, plant_done)
+			start_game("plant", {"art": "world", "world": true, "scene": "plant", "title": tr("손이 노란 동그라미에 왔을 때 눌러서\n못줄 눈금에 맞춰 모를 심어요")}, plant_done)
 		1, 3:
-			say([["", "벼가 자라고 있다. (약 %d초 남았어요)" % int(ceil(farm_timer))]], Callable())
+			say([["", tr("벼가 자라고 있다. (약 %d초 남았어요)") % int(ceil(farm_timer))]], Callable())
 		2:
-			start_game("tap", {"art": "world", "world": true, "scene": "sparrow", "title": "참새가 벼를 쪼아 먹어요!\n눌러서 훠이 쫓아요", "goal": 10, "interval": 0.75, "life": 1.6, "target": "참새", "center": "허수아비", "color": Color(0.85, 0.72, 0.45)}, sparrow_done)
+			start_game("tap", {"art": "world", "world": true, "scene": "sparrow", "title": tr("참새가 벼를 쪼아 먹어요!\n눌러서 훠이 쫓아요"), "goal": 10, "interval": 0.75, "life": 1.6, "target": tr("참새"), "center": tr("허수아비"), "color": Color(0.85, 0.72, 0.45)}, sparrow_done)
 		4:
 			harvest_rice()
 
 func plant_done(ok: bool, good: bool) -> void:
 	if not ok:
-		say([["최 영감", "허허, 모가 삐뚤빼뚤하구나. 다시 심어 보자."]], Callable())
+		say([[tr("최 영감"), tr("허허, 모가 삐뚤빼뚤하구나. 다시 심어 보자.")]], Callable())
 		return
 	farm_perfect = good
 	farm_state = 1
 	farm_timer = FARM_GROW
 	farm_visual()
-	say([["최 영감", "반듯하게 잘 심었구나! 이제 벼가 자라기를 기다리자."]], Callable())
+	say([[tr("최 영감"), tr("반듯하게 잘 심었구나! 이제 벼가 자라기를 기다리자.")]], Callable())
 
 func sparrow_done(ok: bool, good: bool) -> void:
 	if not ok:
-		say([["최 영감", "아이쿠, 참새들이 아직 남았구나. 다시 쫓아 다오!"]], Callable())
+		say([[tr("최 영감"), tr("아이쿠, 참새들이 아직 남았구나. 다시 쫓아 다오!")]], Callable())
 		return
 	farm_perfect = farm_perfect and good
 	farm_state = 3
 	farm_timer = FARM_GROW
 	farm_visual()
-	say([["최 영감", "훠이훠이! 참새들이 다 날아갔구나. 이제 이삭이 여물 차례란다."]], Callable())
+	say([[tr("최 영감"), tr("훠이훠이! 참새들이 다 날아갔구나. 이제 이삭이 여물 차례란다.")]], Callable())
 
 func harvest_rice() -> void:
 	farm_state = 0
@@ -2098,14 +2098,14 @@ func harvest_rice() -> void:
 	shake(6)
 	burst3d(FARM_C + Vector3(0, 1, 0), Color(1, 0.85, 0.35), 30)
 	var pay := 25
-	var lines := [["", "누렇게 익은 벼를 쓱싹쓱싹 베었다!"]]
+	var lines := [["", tr("누렇게 익은 벼를 쓱싹쓱싹 베었다!")]]
 	if farm_perfect:
 		pay = 30
-		lines.append(["최 영감", "모도 반듯하고 참새도 말끔히 쫓았으니 올해 쌀이 최고로구나! 덤까지 얹어 주마."])
+		lines.append([tr("최 영감"), tr("모도 반듯하고 참새도 말끔히 쫓았으니 올해 쌀이 최고로구나! 덤까지 얹어 주마.")])
 	else:
-		lines.append(["최 영감", "수고했다! 쌀을 판 돈이다."])
+		lines.append([tr("최 영감"), tr("수고했다! 쌀을 판 돈이다.")])
 	earn(pay)
-	lines.append(["", "엽전 %d냥을 받았다! (수확 %d번째) 빈 논에 다시 모를 심을 수 있어요." % [pay, harvests]])
+	lines.append(["", tr("엽전 %d냥을 받았다! (수확 %d번째) 빈 논에 다시 모를 심을 수 있어요.") % [pay, harvests]])
 	say(lines, Callable())
 
 func make_decor() -> void:
@@ -2258,7 +2258,7 @@ func make_sansin_pond(c: Vector3) -> void:
 func make_forest() -> void:
 	var herb_spots := [Vector3(-24, 0, -25), Vector3(5, 0, -32), Vector3(27, 0, -22)]
 	for pos in herb_spots:
-		var h := make_spot(pos, "herb", "", "약초", false)
+		var h := make_spot(pos, "herb", "", tr("약초"), false)
 		make_herb_visual(h)
 
 	# 가시덤불로 막힌 연못 (금도끼 은도끼)
@@ -2269,11 +2269,11 @@ func make_forest() -> void:
 	bush_col = add_solid(Vector3(23, 1.0, -34), Vector3(1, 2.0, 3), none)
 	make_thorn_shrubs(bush_col.get_parent(), Vector3(1, 2.0, 3), Color(0.36, 0.46, 0.2))
 	var bush: Node3D = bush_col.get_parent()
-	add_tag(bush, "가시덤불", 1.6)
+	add_tag(bush, tr("가시덤불"), 1.6)
 	add_thing(bush, "bush", "")
 	make_sansin_pond(Vector3(33.5, 0, -35.5))
-	make_npc("woodman", "나무꾼", Color(0.55, 0.42, 0.3), Vector3(28, 0, -33), 1.0, true)
-	make_npc("sansin", "산신령", Color(0.95, 0.95, 1.0), Vector3(31.5, 0, -35), 1.2, false).visible = false
+	make_npc("woodman", tr("나무꾼"), Color(0.55, 0.42, 0.3), Vector3(28, 0, -33), 1.0, true)
+	make_npc("sansin", tr("산신령"), Color(0.95, 0.95, 1.0), Vector3(31.5, 0, -35), 1.2, false).visible = false
 
 	var keep_clear := herb_spots + wild_keep_clear() + [Vector3(-9, 0, -36), Vector3(-2, 0, -19), Vector3(15, 0, -19.5)]
 	var planted := 0
@@ -2293,31 +2293,31 @@ func make_forest() -> void:
 func update_quest_text() -> void:
 	var t := ""
 	if quest == Q_NOLBU:
-		t = "큰 기와집에 가서 여기가 어딘지 물어보기 (길 따라 오른쪽)"
+		t = tr("큰 기와집에 가서 여기가 어딘지 물어보기 (길 따라 오른쪽)")
 	elif quest == Q_MEET:
-		t = "길 건너 초가집의 흥부 만나기 (왼쪽)"
+		t = tr("길 건너 초가집의 흥부 만나기 (왼쪽)")
 	elif quest == Q_RICE:
-		t = "흥부와 함께 놀부 마누라에게 쌀 부탁하기"
+		t = tr("흥부와 함께 놀부 마누라에게 쌀 부탁하기")
 	elif quest == Q_VILLAGE:
 		if mischief_done >= MISCHIEF_NEED:
-			t = "흥부에게 돌아가기"
+			t = tr("흥부에게 돌아가기")
 		else:
-			t = "놀부 심술에 당한 마을 사람 돕기 (%d/%d) | 마을 곳곳을 돌아다녀 보세요" % [mischief_done, MISCHIEF_NEED]
+			t = tr("놀부 심술에 당한 마을 사람 돕기 (%d/%d) | 마을 곳곳을 돌아다녀 보세요") % [mischief_done, MISCHIEF_NEED]
 	elif quest == Q_SNAKE:
-		t = "흥부네 처마 밑 제비 둥지 지키기"
+		t = tr("흥부네 처마 밑 제비 둥지 지키기")
 	elif quest == Q_HERB:
-		t = "개울 건너 숲에서 약초 찾기 (%d/%d)" % [herbs_found, HERB_TOTAL]
+		t = tr("개울 건너 숲에서 약초 찾기 (%d/%d)") % [herbs_found, HERB_TOTAL]
 	elif quest == Q_GIVE:
-		t = "흥부에게 약초 가져다주기"
+		t = tr("흥부에게 약초 가져다주기")
 	elif quest == Q_GOURD:
-		t = "흥부네 마당에서 박 타기 (%d/3)" % gourds_done
+		t = tr("흥부네 마당에서 박 타기 (%d/3)") % gourds_done
 	elif quest == Q_NOLBU2:
-		t = "시끌시끌한 놀부네에 가 보기"
+		t = tr("시끌시끌한 놀부네에 가 보기")
 	elif quest == Q_RETURN:
-		t = "흥부에게 돌아가 소식 전하기"
+		t = tr("흥부에게 돌아가 소식 전하기")
 	elif quest == Q_END:
-		t = "1장 끝! 마을을 둘러보고, 흥부에게 말을 걸면 엔딩을 다시 고를 수 있어요"
-	quest_label.text = "할 일: %s\n엽전 %d냥 | 조각 %d/%d | 심술 수습 %d/5" % [t, shown_coins, pieces_found, PIECE_TOTAL, mischief_done]
+		t = tr("1장 끝! 마을을 둘러보고, 흥부에게 말을 걸면 엔딩을 다시 고를 수 있어요")
+	quest_label.text = tr("할 일: %s\n엽전 %d냥 | 조각 %d/%d | 심술 수습 %d/5") % [t, shown_coins, pieces_found, PIECE_TOTAL, mischief_done]
 
 func talk_to(id: String) -> void:
 	if id == "nolbu":
@@ -2330,11 +2330,11 @@ func talk_to(id: String) -> void:
 		talk_kid1()
 	elif id == "kid2":
 		if gourds_done >= 1:
-			say([["막내", "쌀밥 세 그릇이나 먹었어! 배가 뽈록해."]], Callable())
+			say([[tr("막내"), tr("쌀밥 세 그릇이나 먹었어! 배가 뽈록해.")]], Callable())
 		else:
-			say([["막내", "배고파... 그래도 제비가 빨리 나았으면 좋겠어."]], Callable())
+			say([[tr("막내"), tr("배고파... 그래도 제비가 빨리 나았으면 좋겠어.")]], Callable())
 	elif id == "dokkaebi":
-		say([["도깨비", "껄껄, 책 밖에서 온 아이로구나. 너는 착하니 겁낼 것 없다."]], Callable())
+		say([[tr("도깨비"), tr("껄껄, 책 밖에서 온 아이로구나. 너는 착하니 겁낼 것 없다.")]], Callable())
 	elif id == "merchant":
 		shop()
 	elif id == "woodman":
@@ -2344,7 +2344,7 @@ func talk_to(id: String) -> void:
 	elif id == "choi":
 		talk_choi()
 	elif id == "sansin":
-		say([["산신령", "정직한 마음을 잊지 말거라. 그것이 금도끼보다 귀하니라."]], Callable())
+		say([[tr("산신령"), tr("정직한 마음을 잊지 말거라. 그것이 금도끼보다 귀하니라.")]], Callable())
 	else:
 		talk_villager(id)
 
@@ -2353,54 +2353,54 @@ func talk_to(id: String) -> void:
 func talk_nolbu() -> void:
 	if quest == Q_NOLBU:
 		say([
-			["놀부", "뭐냐, 웬 꼬마가 남의 집 앞에서 얼쩡거려?"],
-			["놀부", "옷차림은 또 그게 뭐냐? 저고리도 아니고, 신발은 왜 그 모양이야?"],
-			["놀부", "길을 잃었다고? 내 알 바 아니다! 책 속에서 왔다니, 별 실없는 소리를 다 듣겠네."],
-			["놀부", "밥? 흥! 물 한 모금도 아깝다. 길 건너 내 아우 흥부한테나 가 보든지."],
+			[tr("놀부"), tr("뭐냐, 웬 꼬마가 남의 집 앞에서 얼쩡거려?")],
+			[tr("놀부"), tr("옷차림은 또 그게 뭐냐? 저고리도 아니고, 신발은 왜 그 모양이야?")],
+			[tr("놀부"), tr("길을 잃었다고? 내 알 바 아니다! 책 속에서 왔다니, 별 실없는 소리를 다 듣겠네.")],
+			[tr("놀부"), tr("밥? 흥! 물 한 모금도 아깝다. 길 건너 내 아우 흥부한테나 가 보든지.")],
 		], func(): set_quest(Q_MEET))
 	elif quest == Q_NOLBU2:
 		say([
-			["놀부", "흥부 놈이 제비 덕에 부자가 됐다지? 그깟 거 나도 한다!"],
-			["놀부", "그래서 내가 제비 다리를 똑 부러뜨린 다음 고쳐 줬지. 으하하!"],
-			["놀부", "자, 봐라. 내 박은 흥부네 것보다 훨씬 크지? 슬근슬근 톱질하세..."],
-			["놀부", "어? 어어? 박 속에서 뭐가 나온다!"],
+			[tr("놀부"), tr("흥부 놈이 제비 덕에 부자가 됐다지? 그깟 거 나도 한다!")],
+			[tr("놀부"), tr("그래서 내가 제비 다리를 똑 부러뜨린 다음 고쳐 줬지. 으하하!")],
+			[tr("놀부"), tr("자, 봐라. 내 박은 흥부네 것보다 훨씬 크지? 슬근슬근 톱질하세...")],
+			[tr("놀부"), tr("어? 어어? 박 속에서 뭐가 나온다!")],
 		], after_nolbu_boast)
 	elif quest == Q_DOKKAEBI:
-		ask("놀부", "얘야... 염치없다만, 흥부한테 내 얘기 좀 잘 해 주겠느냐?", ["도와준다", "모른 척한다"], on_nolbu_choice)
+		ask(tr("놀부"), tr("얘야... 염치없다만, 흥부한테 내 얘기 좀 잘 해 주겠느냐?"), [tr("도와준다"), tr("모른 척한다")], on_nolbu_choice)
 	elif quest >= Q_RETURN:
 		if helped_nolbu:
-			say([["놀부", "네가 내 편을 들어 주다니... 박대해서 미안했다, 얘야. 이제 심술은 안 부리마."]], Callable())
+			say([[tr("놀부"), tr("네가 내 편을 들어 주다니... 박대해서 미안했다, 얘야. 이제 심술은 안 부리마.")]], Callable())
 		else:
-			say([["놀부", "내가 욕심이 과했다... 다 내 탓이지, 누굴 원망하겠느냐."]], Callable())
+			say([[tr("놀부"), tr("내가 욕심이 과했다... 다 내 탓이지, 누굴 원망하겠느냐.")]], Callable())
 	else:
-		say([["놀부", "아직도 안 갔느냐? 내 마당 흙 닳는다, 썩 가거라!"]], Callable())
+		say([[tr("놀부"), tr("아직도 안 갔느냐? 내 마당 흙 닳는다, 썩 가거라!")]], Callable())
 
 func talk_wife() -> void:
 	if quest == Q_RICE:
 		say([
-			["흥부", "형수님, 아이들이 굶고 있습니다. 쌀 한 되만 꾸어 주십시오."],
-			["놀부 마누라", "뭐야? 남 줄 쌀이 어디 있어! 이 밥주걱 맛이나 봐라!"],
-			["흥부", "아이고! ...어? 뺨에 밥풀이 붙었네. 형수님, 이쪽 뺨도 마저 때려 주십시오!"],
-			["흥부", "얘야, 바가지를 들고 튀는 밥풀을 받아 다오. 주걱은 피하고!"],
+			[tr("흥부"), tr("형수님, 아이들이 굶고 있습니다. 쌀 한 되만 꾸어 주십시오.")],
+			[tr("놀부 마누라"), tr("뭐야? 남 줄 쌀이 어디 있어! 이 밥주걱 맛이나 봐라!")],
+			[tr("흥부"), tr("아이고! ...어? 뺨에 밥풀이 붙었네. 형수님, 이쪽 뺨도 마저 때려 주십시오!")],
+			[tr("흥부"), tr("얘야, 바가지를 들고 튀는 밥풀을 받아 다오. 주걱은 피하고!")],
 		], start_rice)
 	elif quest >= Q_RETURN:
-		say([["놀부 마누라", "아이고, 내 팔자야... 주걱으로 때린 벌을 받나 보다."]], Callable())
+		say([[tr("놀부 마누라"), tr("아이고, 내 팔자야... 주걱으로 때린 벌을 받나 보다.")]], Callable())
 	else:
-		say([["놀부 마누라", "뭘 봐? 우리 집엔 남 줄 쌀 한 톨 없어!"]], Callable())
+		say([[tr("놀부 마누라"), tr("뭘 봐? 우리 집엔 남 줄 쌀 한 톨 없어!")]], Callable())
 
 func start_rice() -> void:
-	start_game("catch", {"world": true, "scene": "rice", "title": "놀부 마누라의 밥주걱은 피하고\n튀는 밥풀만 바가지로 받으세요", "goal": 12, "interval": 0.6, "speed": 0.42, "bad_ratio": 0.35, "good": "밥풀", "bad": "주걱", "basket": "바가지", "art": "world"}, rice_done)
+	start_game("catch", {"world": true, "scene": "rice", "title": tr("놀부 마누라의 밥주걱은 피하고\n튀는 밥풀만 바가지로 받으세요"), "goal": 12, "interval": 0.6, "speed": 0.42, "bad_ratio": 0.35, "good": tr("밥풀"), "bad": tr("주걱"), "basket": tr("바가지"), "art": "world"}, rice_done)
 
 func rice_done(ok: bool, _good: bool) -> void:
 	if not ok:
-		say([["흥부", "아이쿠, 주걱에 너무 많이 맞았다... 형수님께 다시 부탁해 보자꾸나."]], Callable())
+		say([[tr("흥부"), tr("아이쿠, 주걱에 너무 많이 맞았다... 형수님께 다시 부탁해 보자꾸나.")]], Callable())
 		return
 	var heungbu: Node3D = npcs["heungbu"]
 	heungbu.position = Vector3(-12, 0, 2.5)
 	say([
-		["흥부", "허허, 밥풀이 한 줌은 되는구나. 아이들 죽이라도 끓여 주겠다."],
-		["놀부 마누라", "저, 저런 못난이들! 썩 꺼져!"],
-		["흥부", "나는 품을 팔러 가야겠다. 형님 심술에 마을 사람들이 고생이 많은데, 네가 좀 도와주겠느냐?"],
+		[tr("흥부"), tr("허허, 밥풀이 한 줌은 되는구나. 아이들 죽이라도 끓여 주겠다.")],
+		[tr("놀부 마누라"), tr("저, 저런 못난이들! 썩 꺼져!")],
+		[tr("흥부"), tr("나는 품을 팔러 가야겠다. 형님 심술에 마을 사람들이 고생이 많은데, 네가 좀 도와주겠느냐?")],
 	], func(): set_quest(Q_VILLAGE))
 
 func after_nolbu_boast() -> void:
@@ -2415,67 +2415,67 @@ func after_nolbu_boast() -> void:
 	burst3d(dok.position + Vector3(0, 1.5, 0), Color(0.6, 0.68, 0.4), 30)
 	set_quest(Q_DOKKAEBI)
 	say([
-		["도깨비", "이놈 놀부야! 멀쩡한 제비 다리를 일부러 부러뜨려?"],
-		["놀부", "아이고, 도깨비님! 잘못했습니다, 살려 주십시오!"],
-		["도깨비", "욕심으로 얻은 재물은 내가 몽땅 가져가마. 뚝딱!"],
-		["놀부", "아이고, 내 재산... 내 기와집... 흑흑."],
-	], func(): ask("놀부", "얘야... 염치없다만, 흥부한테 내 얘기 좀 잘 해 주겠느냐?", ["도와준다", "모른 척한다"], on_nolbu_choice))
+		[tr("도깨비"), tr("이놈 놀부야! 멀쩡한 제비 다리를 일부러 부러뜨려?")],
+		[tr("놀부"), tr("아이고, 도깨비님! 잘못했습니다, 살려 주십시오!")],
+		[tr("도깨비"), tr("욕심으로 얻은 재물은 내가 몽땅 가져가마. 뚝딱!")],
+		[tr("놀부"), tr("아이고, 내 재산... 내 기와집... 흑흑.")],
+	], func(): ask(tr("놀부"), tr("얘야... 염치없다만, 흥부한테 내 얘기 좀 잘 해 주겠느냐?"), [tr("도와준다"), tr("모른 척한다")], on_nolbu_choice))
 
 func on_nolbu_choice(i: int) -> void:
 	helped_nolbu = i == 0
 	if helped_nolbu:
-		say([["놀부", "고, 고맙다... 박대한 나를 도와주다니. 내가 부끄럽구나."]], func(): set_quest(Q_RETURN))
+		say([[tr("놀부"), tr("고, 고맙다... 박대한 나를 도와주다니. 내가 부끄럽구나.")]], func(): set_quest(Q_RETURN))
 	else:
-		say([["놀부", "그래, 내가 한 짓이 있는데 무슨 낯으로... 흑흑."]], func(): set_quest(Q_RETURN))
+		say([[tr("놀부"), tr("그래, 내가 한 짓이 있는데 무슨 낯으로... 흑흑.")]], func(): set_quest(Q_RETURN))
 
 
 # ---------- 흥부네 ----------
 func talk_heungbu() -> void:
 	if quest == Q_NOLBU:
-		say([["흥부", "어서 오너라. 처음 보는 옷이로구나. 길을 잃었으면 저기 큰 기와집 형님께 먼저 여쭤 보렴."]], Callable())
+		say([[tr("흥부"), tr("어서 오너라. 처음 보는 옷이로구나. 길을 잃었으면 저기 큰 기와집 형님께 먼저 여쭤 보렴.")]], Callable())
 	elif quest == Q_MEET:
 		say([
-			["흥부", "아이고, 형님 댁에서 그냥 쫓겨났다고? 저런, 많이 놀랐겠구나."],
-			["흥부", "옛이야기 책을 펼쳤더니 여기였다고? 허허, 신기한 일도 다 있구나. 그 책 좀 보자."],
-			["흥부", "이런, 책장이 텅 비었구나. 이야기가 채워져야 돌아갈 길이 열리려나 보다."],
-			["흥부", "밥이라도 먹이고 싶다만... 실은 쌀이 똑 떨어졌단다."],
-			["흥부", "형님 댁에 쌀을 꾸러 가려던 참인데, 같이 가 주겠느냐?"],
+			[tr("흥부"), tr("아이고, 형님 댁에서 그냥 쫓겨났다고? 저런, 많이 놀랐겠구나.")],
+			[tr("흥부"), tr("옛이야기 책을 펼쳤더니 여기였다고? 허허, 신기한 일도 다 있구나. 그 책 좀 보자.")],
+			[tr("흥부"), tr("이런, 책장이 텅 비었구나. 이야기가 채워져야 돌아갈 길이 열리려나 보다.")],
+			[tr("흥부"), tr("밥이라도 먹이고 싶다만... 실은 쌀이 똑 떨어졌단다.")],
+			[tr("흥부"), tr("형님 댁에 쌀을 꾸러 가려던 참인데, 같이 가 주겠느냐?")],
 		], after_meet)
 	elif quest == Q_RICE:
-		say([["흥부", "형수님께 같이 부탁드려 보자꾸나. 바로 옆에 계신다."]], Callable())
+		say([[tr("흥부"), tr("형수님께 같이 부탁드려 보자꾸나. 바로 옆에 계신다.")]], Callable())
 	elif quest == Q_VILLAGE:
 		if mischief_done >= MISCHIEF_NEED:
 			say([
-				["흥부", "마을 사람들을 도와줬다고? 장하구나!"],
-				["흥부", "그런데 큰일이다! 처마 밑 제비 둥지에 구렁이가 나타났어!"],
+				[tr("흥부"), tr("마을 사람들을 도와줬다고? 장하구나!")],
+				[tr("흥부"), tr("그런데 큰일이다! 처마 밑 제비 둥지에 구렁이가 나타났어!")],
 			], func(): set_quest(Q_SNAKE))
 		else:
-			say([["흥부", "형님 심술에 당한 사람이 마을에 다섯이나 된단다. 셋만 도와줘도 큰 힘이 될 게다."]], Callable())
+			say([[tr("흥부"), tr("형님 심술에 당한 사람이 마을에 다섯이나 된단다. 셋만 도와줘도 큰 힘이 될 게다.")]], Callable())
 	elif quest == Q_SNAKE:
-		say([["흥부", "어서 둥지를 지켜 다오! 우리 집 처마 밑이다."]], Callable())
+		say([[tr("흥부"), tr("어서 둥지를 지켜 다오! 우리 집 처마 밑이다.")]], Callable())
 	elif quest == Q_HERB:
-		say([["흥부", "약초는 개울 건너 뒷산 숲에 있단다. 나무 사이를 잘 살펴보렴."]], Callable())
+		say([[tr("흥부"), tr("약초는 개울 건너 뒷산 숲에 있단다. 나무 사이를 잘 살펴보렴.")]], Callable())
 	elif quest == Q_GIVE:
 		say([
-			["흥부", "오오, 세 포기나! 정말 고맙구나."],
-			["흥부", "약초를 바르고 실로 다리를 감아 줘야 한단다."],
-			["흥부", "내 손은 거칠어서... 네가 살살 감아 주겠느냐?"],
+			[tr("흥부"), tr("오오, 세 포기나! 정말 고맙구나.")],
+			[tr("흥부"), tr("약초를 바르고 실로 다리를 감아 줘야 한단다.")],
+			[tr("흥부"), tr("내 손은 거칠어서... 네가 살살 감아 주겠느냐?")],
 		], start_heal)
 	elif quest == Q_GOURD:
-		say([["흥부", "박은 마당에 있단다. 하나씩 같이 타 보자꾸나."]], Callable())
+		say([[tr("흥부"), tr("박은 마당에 있단다. 하나씩 같이 타 보자꾸나.")]], Callable())
 	elif quest == Q_NOLBU2:
-		say([["흥부", "형님 댁이 시끌시끌하구나. 무슨 일인지 가 보겠느냐?"]], Callable())
+		say([[tr("흥부"), tr("형님 댁이 시끌시끌하구나. 무슨 일인지 가 보겠느냐?")]], Callable())
 	elif quest == Q_RETURN:
-		var lines := [["흥부", "형님이 도깨비한테 혼쭐이 나셨다고? 저런..."]]
+		var lines := [[tr("흥부"), tr("형님이 도깨비한테 혼쭐이 나셨다고? 저런...")]]
 		if helped_nolbu:
-			lines.append(["흥부", "네가 형님 편을 들어 주었구나. 고맙다. 우리 새 집에서 함께 지내시라 해야겠다."])
+			lines.append([tr("흥부"), tr("네가 형님 편을 들어 주었구나. 고맙다. 우리 새 집에서 함께 지내시라 해야겠다.")])
 		else:
-			lines.append(["흥부", "미워도 내 형님이다. 우리 새 집에서 함께 지내시라 해야겠구나."])
-		lines.append(["흥부", "얘야, 네 책 좀 보렴. 빈 책장에 우리 이야기가 거의 채워졌구나. 마지막 한 줄만 비어 있다."])
-		lines.append(["흥부", "그 한 줄은 네가 정해 다오. 네 덕에 제비도 살고 우리 식구도 살았으니."])
+			lines.append([tr("흥부"), tr("미워도 내 형님이다. 우리 새 집에서 함께 지내시라 해야겠구나.")])
+		lines.append([tr("흥부"), tr("얘야, 네 책 좀 보렴. 빈 책장에 우리 이야기가 거의 채워졌구나. 마지막 한 줄만 비어 있다.")])
+		lines.append([tr("흥부"), tr("그 한 줄은 네가 정해 다오. 네 덕에 제비도 살고 우리 식구도 살았으니.")])
 		say(lines, ask_final)
 	else:
-		ask("흥부", "집으로 돌아가는 길, 꼭 찾기를 바란다. 이야기의 마지막 한 줄을 다시 고르겠느냐?", ["다시 고를래요", "이대로 둘래요"], on_replay_choice)
+		ask(tr("흥부"), tr("집으로 돌아가는 길, 꼭 찾기를 바란다. 이야기의 마지막 한 줄을 다시 고르겠느냐?"), [tr("다시 고를래요"), tr("이대로 둘래요")], on_replay_choice)
 
 func after_meet() -> void:
 	var heungbu: Node3D = npcs["heungbu"]
@@ -2489,64 +2489,64 @@ func talk_kid1() -> void:
 			if t["kind"] == "hider":
 				var node: Node3D = t["node"]
 				node.visible = true
-		say([["첫째", "그 옷 어디서 났어? 처음 봐! 참, 심심한데 숨바꼭질 하자."], ["첫째", "동생 넷이 마을 어딘가에 숨었어. 다 찾으면 내 보물을 줄게!"]], Callable())
+		say([[tr("첫째"), tr("그 옷 어디서 났어? 처음 봐! 참, 심심한데 숨바꼭질 하자.")], [tr("첫째"), tr("동생 넷이 마을 어딘가에 숨었어. 다 찾으면 내 보물을 줄게!")]], Callable())
 	elif hide_state == 1:
 		if hiders_found >= 4:
 			hide_state = 2
 			earn(20)
-			say([["첫째", "벌써 다 찾았어? 대단하다! 약속한 보물이야."], ["", "엽전 20냥을 받았다!"]], Callable())
+			say([[tr("첫째"), tr("벌써 다 찾았어? 대단하다! 약속한 보물이야.")], ["", tr("엽전 20냥을 받았다!")]], Callable())
 		else:
-			say([["첫째", "아직 %d명 남았어. 집 뒤, 나무 뒤, 다리 밑을 잘 봐!" % (4 - hiders_found)]], Callable())
+			say([[tr("첫째"), tr("아직 %d명 남았어. 집 뒤, 나무 뒤, 다리 밑을 잘 봐!") % (4 - hiders_found)]], Callable())
 	elif gourds_done >= 2:
-		say([["첫째", "나도 새 옷 입었어! 다음엔 어느 이야기로 가? 나도 따라가고 싶다."]], Callable())
+		say([[tr("첫째"), tr("나도 새 옷 입었어! 다음엔 어느 이야기로 가? 나도 따라가고 싶다.")]], Callable())
 	else:
-		say([["첫째", "우리 아버지는 세상에서 제일 착해. 가난해도 제비까지 돌봐 준다니까!"]], Callable())
+		say([[tr("첫째"), tr("우리 아버지는 세상에서 제일 착해. 가난해도 제비까지 돌봐 준다니까!")]], Callable())
 
 # 구렁이 쫓기
 func start_snake() -> void:
-	start_game("tap", {"world": true, "scene": "snake", "title": "구렁이가 제비 둥지로 기어와요!\n닿기 전에 눌러서 쫓아내세요", "goal": 12, "interval": 0.75, "life": 1.6, "target": "구렁이", "center": "둥지", "color": Color(0.5, 0.38, 0.25), "art": "world"}, snake_done)
+	start_game("tap", {"world": true, "scene": "snake", "title": tr("구렁이가 제비 둥지로 기어와요!\n닿기 전에 눌러서 쫓아내세요"), "goal": 12, "interval": 0.75, "life": 1.6, "target": tr("구렁이"), "center": tr("둥지"), "color": Color(0.5, 0.38, 0.25), "art": "world"}, snake_done)
 
 func snake_done(ok: bool, _good: bool) -> void:
 	if not ok:
-		say([["흥부", "구렁이가 둥지에 닿았다! 얼른 다시 쫓아 다오!"]], Callable())
+		say([[tr("흥부"), tr("구렁이가 둥지에 닿았다! 얼른 다시 쫓아 다오!")]], Callable())
 		return
 	for t in things:
 		if t["kind"] == "herb":
 			var node: Node3D = t["node"]
 			node.visible = true
 	say([
-		["", "구렁이는 달아났지만, 놀란 새끼 제비 한 마리가 떨어져 다리를 다쳤다."],
-		["흥부", "저런, 가엾어라! 뒷산 숲에서 약초를 세 포기만 구해다 주겠느냐? 분홍빛 나는 풀이란다."],
+		["", tr("구렁이는 달아났지만, 놀란 새끼 제비 한 마리가 떨어져 다리를 다쳤다.")],
+		[tr("흥부"), tr("저런, 가엾어라! 뒷산 숲에서 약초를 세 포기만 구해다 주겠느냐? 분홍빛 나는 풀이란다.")],
 	], func(): set_quest(Q_HERB))
 
 # 제비 치료
 func start_heal() -> void:
-	start_game("circle", {"world": true, "scene": "heal", "art": "world", "trail": Color(1, 1, 1), "title": "다친 제비 다리에 부목을 대고\n둘레를 천천히 돌며 실을 감아요", "label": "제비", "turns": 6.0, "max_speed": 11.0, "warn": "너무 빨라요! 제비가 아파해요", "color": Color(0.2, 0.22, 0.35)}, heal_done)
+	start_game("circle", {"world": true, "scene": "heal", "art": "world", "trail": Color(1, 1, 1), "title": tr("다친 제비 다리에 부목을 대고\n둘레를 천천히 돌며 실을 감아요"), "label": tr("제비"), "turns": 6.0, "max_speed": 11.0, "warn": tr("너무 빨라요! 제비가 아파해요"), "color": Color(0.2, 0.22, 0.35)}, heal_done)
 
 func heal_done(ok: bool, good: bool) -> void:
 	if not ok:
-		say([["흥부", "제비가 놀라서 푸드덕거리는구나. 숨을 고르고 다시 살살 감아 보자."]], start_heal)
+		say([[tr("흥부"), tr("제비가 놀라서 푸드덕거리는구나. 숨을 고르고 다시 살살 감아 보자.")]], start_heal)
 		return
-	var lines := [["제비", "짹짹!"]]
+	var lines := [[tr("제비"), tr("짹짹!")]]
 	if good:
-		lines.append(["흥부", "허허, 아주 꼼꼼하게 감았구나. 제비가 하나도 안 아파하는구나."])
+		lines.append([tr("흥부"), tr("허허, 아주 꼼꼼하게 감았구나. 제비가 하나도 안 아파하는구나.")])
 	else:
-		lines.append(["흥부", "조금 놀랐나 보다만, 그래도 잘 감아 주었구나."])
-	lines.append(["흥부", "어라, 네 책에 제비 그림이 생겼구나! 이야기가 채워지고 있나 보다."])
-	lines.append(["흥부", "다 나으면 강남으로 날아가겠지. 고맙다, 얘야."])
+		lines.append([tr("흥부"), tr("조금 놀랐나 보다만, 그래도 잘 감아 주었구나.")])
+	lines.append([tr("흥부"), tr("어라, 네 책에 제비 그림이 생겼구나! 이야기가 채워지고 있나 보다.")])
+	lines.append([tr("흥부"), tr("다 나으면 강남으로 날아가겠지. 고맙다, 얘야.")])
 	say(lines, after_heal_talk)
 
 func after_heal_talk() -> void:
 	set_quest(Q_SEASON)
-	show_card("제비는 따뜻한 강남으로 날아갔어요.\n\n계절이 바뀌고,\n이듬해 봄...", 0.0, 3.0, after_season)
+	show_card(tr("제비는 따뜻한 강남으로 날아갔어요.\n\n계절이 바뀌고,\n이듬해 봄..."), 0.0, 3.0, after_season)
 
 func after_season() -> void:
 	set_quest(Q_SEED)
 	say([
-		["제비", "짹짹! 짹짹!"],
-		["흥부", "아니, 작년 그 제비가 아니냐! 입에 문 건... 박씨로구나."],
-		["흥부", "마당에 심었더니 어느새 커다란 박이 세 통이나 열렸단다."],
-		["흥부", "얘야, 나와 같이 박을 타 보지 않겠느냐? 박자가 너무 어긋나면 톱이 끼니 조심하고."],
+		[tr("제비"), tr("짹짹! 짹짹!")],
+		[tr("흥부"), tr("아니, 작년 그 제비가 아니냐! 입에 문 건... 박씨로구나.")],
+		[tr("흥부"), tr("마당에 심었더니 어느새 커다란 박이 세 통이나 열렸단다.")],
+		[tr("흥부"), tr("얘야, 나와 같이 박을 타 보지 않겠느냐? 박자가 너무 어긋나면 톱이 끼니 조심하고.")],
 	], after_seed)
 
 func after_seed() -> void:
@@ -2558,11 +2558,11 @@ func after_seed() -> void:
 
 # 박 타기
 func start_saw() -> void:
-	start_game("follow", {"world": true, "scene": "saw", "art": "world", "title": "슬근슬근 톱질하세! (%d번째 박)\n아래 손잡이를 흥부와 같이 좌우로" % (gourds_done + 1), "slow": 2.4 - gourds_done * 0.35, "tol": 0.42 - gourds_done * 0.04, "goal": 6.0, "patience": 4.0 - gourds_done * 0.5, "color": Color(0.82, 0.9, 0.62)}, saw_done)
+	start_game("follow", {"world": true, "scene": "saw", "art": "world", "title": tr("슬근슬근 톱질하세! (%d번째 박)\n아래 손잡이를 흥부와 같이 좌우로") % (gourds_done + 1), "slow": 2.4 - gourds_done * 0.35, "tol": 0.42 - gourds_done * 0.04, "goal": 6.0, "patience": 4.0 - gourds_done * 0.5, "color": Color(0.82, 0.9, 0.62)}, saw_done)
 
 func saw_done(ok: bool, _good: bool) -> void:
 	if not ok:
-		say([["흥부", "아이쿠, 박자가 어긋나 톱이 박에 끼었구나. 숨 한번 돌리고 다시 타 보자."]], Callable())
+		say([[tr("흥부"), tr("아이쿠, 박자가 어긋나 톱이 박에 끼었구나. 숨 한번 돌리고 다시 타 보자.")]], Callable())
 		return
 	var g: Node3D = saw_thing["node"]
 	g.visible = false
@@ -2575,20 +2575,20 @@ func saw_done(ok: bool, _good: bool) -> void:
 	treasure_pos.append(g.position)
 	var all_lines := [
 		[
-			["흥부", "아이고, 쌀이다! 하얀 쌀이 끝도 없이 쏟아지는구나!"],
-			["막내", "쌀밥이다! 아버지, 오늘은 배불리 먹어요?"],
-			["흥부", "그럼, 그럼. 네 몫으로 엽전도 나왔구나. 자, 다음 박도 타 보자."],
+			[tr("흥부"), tr("아이고, 쌀이다! 하얀 쌀이 끝도 없이 쏟아지는구나!")],
+			[tr("막내"), tr("쌀밥이다! 아버지, 오늘은 배불리 먹어요?")],
+			[tr("흥부"), tr("그럼, 그럼. 네 몫으로 엽전도 나왔구나. 자, 다음 박도 타 보자.")],
 		],
 		[
-			["흥부", "이번엔 비단이로구나! 고운 비단이 필필이 나온다!"],
-			["첫째", "우와, 우리도 새 옷 입는 거예요?"],
-			["흥부", "허허, 마지막 박이 남았구나. 톱질이 점점 빨라지니 잘 따라오너라."],
+			[tr("흥부"), tr("이번엔 비단이로구나! 고운 비단이 필필이 나온다!")],
+			[tr("첫째"), tr("우와, 우리도 새 옷 입는 거예요?")],
+			[tr("흥부"), tr("허허, 마지막 박이 남았구나. 톱질이 점점 빨라지니 잘 따라오너라.")],
 		],
 		[
-			["흥부", "아니, 이번엔 목수들이 우르르 나오는구나!"],
-			["흥부", "뚝딱뚝딱, 눈 깜짝할 사이에 새 집을 지어 주었구나!"],
-			["흥부", "착한 일을 하면 복이 온다더니... 이 은혜는 잊지 않으마."],
-			["흥부", "그런데 형님 댁이 왜 저리 시끄러울꼬? 한번 가 보겠느냐?"],
+			[tr("흥부"), tr("아니, 이번엔 목수들이 우르르 나오는구나!")],
+			[tr("흥부"), tr("뚝딱뚝딱, 눈 깜짝할 사이에 새 집을 지어 주었구나!")],
+			[tr("흥부"), tr("착한 일을 하면 복이 온다더니... 이 은혜는 잊지 않으마.")],
+			[tr("흥부"), tr("그런데 형님 댁이 왜 저리 시끄러울꼬? 한번 가 보겠느냐?")],
 		],
 	]
 	var lines: Array = all_lines[gourds_done]
@@ -2609,13 +2609,13 @@ func spawn_treasure(order: int, pos: Vector3) -> void:
 	add_child(pile)
 	if order == 0:
 		spawn_rice(pile)
-		add_tag(pile, "쌀", 2.0)
+		add_tag(pile, tr("쌀"), 2.0)
 	elif order == 1:
 		spawn_silk(pile)
-		add_tag(pile, "비단", 2.0)
+		add_tag(pile, tr("비단"), 2.0)
 	else:
 		spawn_gold(pile)
-		add_tag(pile, "금은보화", 1.6)
+		add_tag(pile, tr("금은보화"), 1.6)
 		hut.visible = false
 		pop3d(make_house(hut.position, Vector3(7, 3.4, 4.5), Color(0.96, 0.94, 0.88), Color(0.2, 0.35, 0.5), "tile"), true)
 	pop3d(pile, true)
@@ -2623,14 +2623,14 @@ func spawn_treasure(order: int, pos: Vector3) -> void:
 
 # ---------- 1장 엔딩 ----------
 func ask_final() -> void:
-	var opts := ["형님도 우리 집에서 함께 지내요", "형님은 벌 받은 대로 두어요"]
+	var opts := [tr("형님도 우리 집에서 함께 지내요"), tr("형님은 벌 받은 대로 두어요")]
 	if coins >= RICH_COINS:
-		opts.append("보물로 땅을 더 사서 불려요")
-	ask("흥부", "이야기의 마지막 한 줄이다. 형님을 어찌하면 좋을꼬?", opts, on_final_choice)
+		opts.append(tr("보물로 땅을 더 사서 불려요"))
+	ask(tr("흥부"), tr("이야기의 마지막 한 줄이다. 형님을 어찌하면 좋을꼬?"), opts, on_final_choice)
 
 func on_replay_choice(i: int) -> void:
 	if i == 0:
-		say([["흥부", "그래, 마지막 한 줄은 몇 번이고 다시 쓸 수 있지."]], ask_final)
+		say([[tr("흥부"), tr("그래, 마지막 한 줄은 몇 번이고 다시 쓸 수 있지.")]], ask_final)
 
 func on_final_choice(i: int) -> void:
 	var id := "original"
@@ -2646,12 +2646,12 @@ func on_final_choice(i: int) -> void:
 func ending_data(id: String) -> Array:
 	match id:
 		"true":
-			return ["함께 사는 집", "놀부는 마을 사람들을 하나하나 찾아가 고개를 숙였어요.\n처음엔 닫혀 있던 대문들이 하나둘 열렸고,\n흥부네 처마 밑 제비집은 둘로 늘었답니다.\n\n책의 첫 장이 환하게 채워졌어요."]
+			return [tr("함께 사는 집"), tr("놀부는 마을 사람들을 하나하나 찾아가 고개를 숙였어요.\n처음엔 닫혀 있던 대문들이 하나둘 열렸고,\n흥부네 처마 밑 제비집은 둘로 늘었답니다.\n\n책의 첫 장이 환하게 채워졌어요.")]
 		"awkward":
-			return ["아직은 어색한 화해", "흥부는 형님을 새 집에 모셨어요.\n하지만 놀부에게 상처받은 마을 사람들은\n아직 대문을 활짝 열지 못했어요.\n\n용서는 한 사람만의 일이라서\n시간이 더 필요한가 봐요.\n\n책의 첫 장이 반쯤 채워졌어요."]
+			return [tr("아직은 어색한 화해"), tr("흥부는 형님을 새 집에 모셨어요.\n하지만 놀부에게 상처받은 마을 사람들은\n아직 대문을 활짝 열지 못했어요.\n\n용서는 한 사람만의 일이라서\n시간이 더 필요한가 봐요.\n\n책의 첫 장이 반쯤 채워졌어요.")]
 		"greed":
-			return ["작은 놀부", "보물로 땅을 사고 또 사던 흥부네 대문은\n해마다 높아지고 굳게 닫혔어요.\n처마 밑 제비는 다른 집으로 떠났고,\n마을 사람들은 흥부를 '작은 놀부'라 불렀어요.\n\n책장의 글씨가 흐릿하게 번졌어요.\n욕심은 누구의 마음에든 찾아오나 봐요."]
-	return ["권선징악", "놀부는 도깨비에게 모든 것을 잃고\n흥부네 담장 밖을 오래 서성였어요.\n\n착한 마음에는 복이, 욕심에는 화가 따른다지만\n담장 밖 뒷모습이 자꾸 마음에 걸렸어요.\n\n책의 첫 장이 채워졌어요."]
+			return [tr("작은 놀부"), tr("보물로 땅을 사고 또 사던 흥부네 대문은\n해마다 높아지고 굳게 닫혔어요.\n처마 밑 제비는 다른 집으로 떠났고,\n마을 사람들은 흥부를 '작은 놀부'라 불렀어요.\n\n책장의 글씨가 흐릿하게 번졌어요.\n욕심은 누구의 마음에든 찾아오나 봐요.")]
+	return [tr("권선징악"), tr("놀부는 도깨비에게 모든 것을 잃고\n흥부네 담장 밖을 오래 서성였어요.\n\n착한 마음에는 복이, 욕심에는 화가 따른다지만\n담장 밖 뒷모습이 자꾸 마음에 걸렸어요.\n\n책의 첫 장이 채워졌어요.")]
 
 # 모은 엔딩을 파일에 기억해요. 지금까지 모은 개수를 돌려줘요
 func save_ending(id: String) -> int:
@@ -2669,7 +2669,7 @@ func finish_chapter(id: String) -> void:
 	var seen := save_ending(id)
 	set_quest(Q_END)
 	var d := ending_data(id)
-	show_card("%s\n\n엔딩 “%s” (모은 엔딩 %d/%d)\n1장 흥부와 놀부  끝" % [d[1], d[0], seen, ENDING_COUNT], 0.0, 5.0, Callable())
+	show_card(tr("%s\n\n엔딩 “%s” (모은 엔딩 %d/%d)\n1장 흥부와 놀부  끝") % [d[1], d[0], seen, ENDING_COUNT], 0.0, 5.0, Callable())
 
 
 # ---------- 마을 사람 돕기 ----------
@@ -2678,7 +2678,7 @@ func talk_villager(id: String) -> void:
 	var who: String = v["name"]
 	var state: int = mischief.get(id, 0)
 	if state == 2:
-		say([[who, "네 덕에 한시름 놓았다. 고맙다!"]], Callable())
+		say([[who, tr("네 덕에 한시름 놓았다. 고맙다!")]], Callable())
 	elif v.has("game"):
 		say(v["ask"], func(): start_game(v["game"], v["cfg"], villager_game_done.bind(id)))
 	elif state == 0:
@@ -2712,7 +2712,7 @@ func finish_mischief(id: String) -> void:
 	mischief[id] = 2
 	mischief_done += 1
 	earn(10)
-	say([[v["name"], v["done"]], ["", "엽전 10냥을 받았다! (놀부 심술 수습 %d/5)" % mischief_done]], Callable())
+	say([[v["name"], v["done"]], ["", tr("엽전 10냥을 받았다! (놀부 심술 수습 %d/5)") % mischief_done]], Callable())
 
 
 # ---------- 품팔이와 장터 ----------
@@ -2721,31 +2721,31 @@ func start_job(id: String) -> void:
 		start_well3d()
 		return
 	if id == "water_2d":
-		start_game("catch", {"art": "water", "title": "두레박을 좌우로 움직여 물방울만 받아요\n돌멩이는 피해요", "goal": 10, "interval": 0.55, "speed": 0.5, "bad_ratio": 0.3, "good": "물", "bad": "돌", "basket": "두레박"}, job_done)
+		start_game("catch", {"art": "water", "title": tr("두레박을 좌우로 움직여 물방울만 받아요\n돌멩이는 피해요"), "goal": 10, "interval": 0.55, "speed": 0.5, "bad_ratio": 0.3, "good": tr("물"), "bad": tr("돌"), "basket": tr("두레박")}, job_done)
 	elif id == "wood":
 		start_wood3d()
 	elif id == "gam":
 		start_gam3d()
 	elif id == "wood_2d":
-		start_game("tap", {"art": "wood", "title": "통나무가 올라오면\n눌러서 쩍! 장작을 패요", "goal": 10, "interval": 0.7, "life": 1.3, "target": "장작", "center": "나무", "color": Color(0.5, 0.35, 0.2)}, job_done)
+		start_game("tap", {"art": "wood", "title": tr("통나무가 올라오면\n눌러서 쩍! 장작을 패요"), "goal": 10, "interval": 0.7, "life": 1.3, "target": tr("장작"), "center": tr("나무"), "color": Color(0.5, 0.35, 0.2)}, job_done)
 	else:
-		start_game("circle", {"world": true, "scene": "straw", "art": "world", "trail": Color(0.9, 0.78, 0.42), "title": "짚을 빙글빙글 꼬아 짚신을 삼아요\n너무 빠르면 짚이 끊어져요", "label": "짚신", "turns": 5.0, "max_speed": 12.0, "warn": "짚이 끊어질 것 같아요!", "color": Color(0.8, 0.68, 0.35)}, job_done)
+		start_game("circle", {"world": true, "scene": "straw", "art": "world", "trail": Color(0.9, 0.78, 0.42), "title": tr("짚을 빙글빙글 꼬아 짚신을 삼아요\n너무 빠르면 짚이 끊어져요"), "label": tr("짚신"), "turns": 5.0, "max_speed": 12.0, "warn": tr("짚이 끊어질 것 같아요!"), "color": Color(0.8, 0.68, 0.35)}, job_done)
 
 func job_done(ok: bool, good: bool) -> void:
 	if not ok:
-		say([["", "일을 망쳐서 품삯을 받지 못했다. 다시 해 보자."]], Callable())
+		say([["", tr("일을 망쳐서 품삯을 받지 못했다. 다시 해 보자.")]], Callable())
 		return
 	var pay := 10
 	if good:
 		pay = 15
 	earn(pay)
 	if good:
-		say([["", "솜씨가 좋다고 덤까지 받았다. 엽전 %d냥!" % pay]], Callable())
+		say([["", tr("솜씨가 좋다고 덤까지 받았다. 엽전 %d냥!") % pay]], Callable())
 	else:
-		say([["", "품삯으로 엽전 %d냥을 받았다." % pay]], Callable())
+		say([["", tr("품삯으로 엽전 %d냥을 받았다.") % pay]], Callable())
 
 func shop() -> void:
-	ask("장터 상인", "어서 오너라! 무엇을 줄까? (가진 엽전 %d냥)" % coins, ["엿 5냥", "짚신 20냥 (발이 빨라져요)", "낫 15냥 (덤불을 베요)", "한복 40냥 (옷 갈아입기)", "그만 볼래요"], on_shop)
+	ask(tr("장터 상인"), tr("어서 오너라! 무엇을 줄까? (가진 엽전 %d냥)") % coins, [tr("엿 5냥"), tr("짚신 20냥 (발이 빨라져요)"), tr("낫 15냥 (덤불을 베요)"), tr("한복 40냥 (옷 갈아입기)"), tr("그만 볼래요")], on_shop)
 
 func on_shop(i: int) -> void:
 	if i >= 4:
@@ -2753,10 +2753,10 @@ func on_shop(i: int) -> void:
 	var prices := [5, 20, 15, 40]
 	var owned := (i == 0 and has_yeot) or (i == 1 and has_shoes) or (i == 2 and has_sickle) or (i == 3 and has_hanbok)
 	if owned:
-		say([["장터 상인", "그건 이미 가지고 있잖니."]], shop)
+		say([[tr("장터 상인"), tr("그건 이미 가지고 있잖니.")]], shop)
 		return
 	if coins < prices[i]:
-		say([["장터 상인", "엽전이 모자라는구나. 우물, 나무터, 짚더미, 감나무에서 품을 팔거나 남쪽 연못에서 낚시를 하고, 최 영감네 논일을 도우면 엽전을 벌 수 있단다."]], Callable())
+		say([[tr("장터 상인"), tr("엽전이 모자라는구나. 우물, 나무터, 짚더미, 감나무에서 품을 팔거나 남쪽 연못에서 낚시를 하고, 최 영감네 논일을 도우면 엽전을 벌 수 있단다.")]], Callable())
 		return
 	coins -= prices[i]
 	if i == 0:
@@ -2772,28 +2772,28 @@ func on_shop(i: int) -> void:
 		burst3d(player.position + Vector3(0, 1, 0), Color(0.45, 0.78, 0.72), 20)
 	sfx("coin")
 	update_quest_text()
-	say([["장터 상인", "옜다, 잘 쓰거라!"]], shop)
+	say([[tr("장터 상인"), tr("옜다, 잘 쓰거라!")]], shop)
 
 
 # ---------- 숨은 이야기: 금도끼 은도끼 ----------
 func talk_woodman() -> void:
 	if axe_done:
-		say([["나무꾼", "네 정직함 덕분에 어머니를 잘 모시게 됐어. 고마워!"]], Callable())
+		say([[tr("나무꾼"), tr("네 정직함 덕분에 어머니를 잘 모시게 됐어. 고마워!")]], Callable())
 		return
 	var sansin: Node3D = npcs["sansin"]
 	sansin.visible = true
 	pop3d(sansin, true)
 	burst3d(sansin.position + Vector3(0, 1, 0), Color(0.6, 0.8, 1.0), 20)
 	say([
-		["나무꾼", "엉엉... 하나뿐인 쇠도끼를 연못에 빠뜨렸어. 나무를 해야 어머니를 모시는데..."],
-		["산신령", "어흠. 나는 이 연못의 산신령이니라."],
-		["산신령", "책 밖에서 온 아이야, 네가 대신 시험을 받아 보아라."],
-		["산신령", "내가 연못에서 도끼를 하나씩 들어 올리마. 나무꾼의 낡은 쇠도끼일 때만 눌러 받거라."],
-		["산신령", "번쩍이는 금도끼, 은도끼에 손을 대면... 욕심으로 알겠느니라!"],
+		[tr("나무꾼"), tr("엉엉... 하나뿐인 쇠도끼를 연못에 빠뜨렸어. 나무를 해야 어머니를 모시는데...")],
+		[tr("산신령"), tr("어흠. 나는 이 연못의 산신령이니라.")],
+		[tr("산신령"), tr("책 밖에서 온 아이야, 네가 대신 시험을 받아 보아라.")],
+		[tr("산신령"), tr("내가 연못에서 도끼를 하나씩 들어 올리마. 나무꾼의 낡은 쇠도끼일 때만 눌러 받거라.")],
+		[tr("산신령"), tr("번쩍이는 금도끼, 은도끼에 손을 대면... 욕심으로 알겠느니라!")],
 	], start_axe_game)
 
 func start_axe_game() -> void:
-	start_game("axe", {"world": true, "art": "world", "title": "산신령이 도끼를 들어 올려요\n낡은 쇠도끼일 때만 눌러서 받아요!"}, axe_game_done)
+	start_game("axe", {"world": true, "art": "world", "title": tr("산신령이 도끼를 들어 올려요\n낡은 쇠도끼일 때만 눌러서 받아요!")}, axe_game_done)
 	var sansin: Node3D = npcs["sansin"]
 	var sp := sansin.position
 	var stand := Vector3(29.3, 0, -32.6)
@@ -2860,7 +2860,7 @@ func make_axe_model(kind: String) -> Node3D:
 
 func axe_info() -> void:
 	mg_progress = float(mg_count) / AXE_GOAL
-	mg_info.text = "쇠도끼 %d/%d | 남은 기회 %d" % [mg_count, AXE_GOAL, mg_lives]
+	mg_info.text = tr("쇠도끼 %d/%d | 남은 기회 %d") % [mg_count, AXE_GOAL, mg_lives]
 
 func axe_pick_next() -> String:
 	# 쇠도끼가 너무 오래 안 나오지 않게 해요
@@ -2912,7 +2912,7 @@ func update_axe(delta: float) -> void:
 				mg_perfect = false
 				sfx("bad")
 				shake(10)
-				float_text("쇠도끼를 놓쳤어요!", cam.unproject_position(top), Color(1, 0.55, 0.45), 1.1)
+				float_text(tr("쇠도끼를 놓쳤어요!"), cam.unproject_position(top), Color(1, 0.55, 0.45), 1.1)
 				axe_info()
 			axe_sink()
 	elif st == "sink":
@@ -2956,7 +2956,7 @@ func axe_tap() -> void:
 		hit_stop(0.05)
 		cam_kick = 0.15
 		burst3d(at, Color(0.6, 0.9, 1.0), 16)
-		float_text(["정직하구나!", "옳지!", "바로 그거다!"][mg_count % 3], cam.unproject_position(at), Color(1, 0.95, 0.7), 1.3)
+		float_text([tr("정직하구나!"), tr("옳지!"), tr("바로 그거다!")][mg_count % 3], cam.unproject_position(at), Color(1, 0.95, 0.7), 1.3)
 		# 도끼가 내 손으로 날아와요
 		w["state"] = "fly"
 		w["timer"] = 0.35
@@ -2967,7 +2967,7 @@ func axe_tap() -> void:
 		sfx("bad")
 		shake(14)
 		flash(Color(1, 0.3, 0.3))
-		float_text("욕심이로구나!", cam.unproject_position(at), Color(1, 0.5, 0.4), 1.3)
+		float_text(tr("욕심이로구나!"), cam.unproject_position(at), Color(1, 0.5, 0.4), 1.3)
 		axe_sink()
 	axe_info()
 
@@ -2978,10 +2978,10 @@ func axe_game_done(ok: bool, _good: bool) -> void:
 	axe_done = true
 	earn(30)
 	say([
-		["산신령", "참으로 정직하구나! 쇠도끼는 물론이고, 금도끼와 은도끼도 모두 주마."],
-		["나무꾼", "고맙다, 얘야! 네 덕분이야. 이건 내 마음이니 받아 줘."],
-		["", "엽전 30냥을 받았다!"],
-	], func(): get_piece_id(6, "산신령이 책에 이야기 한 조각을 새겨 주었다."))
+		[tr("산신령"), tr("참으로 정직하구나! 쇠도끼는 물론이고, 금도끼와 은도끼도 모두 주마.")],
+		[tr("나무꾼"), tr("고맙다, 얘야! 네 덕분이야. 이건 내 마음이니 받아 줘.")],
+		["", tr("엽전 30냥을 받았다!")],
+	], func(): get_piece_id(6, tr("산신령이 책에 이야기 한 조각을 새겨 주었다.")))
 
 func axe_lie() -> void:
 	axe_lied = true
@@ -2990,14 +2990,14 @@ func axe_lie() -> void:
 	sfx("bad")
 	shake(8)
 	say([
-		["산신령", "허허, 욕심에 눈이 흐려졌구나. 정직하지 못한 자에겐 아무것도 줄 수 없다."],
-		["", "산신령이 연못 속으로 사라졌다. 나무꾼에게 다시 말을 걸어 보자."],
+		[tr("산신령"), tr("허허, 욕심에 눈이 흐려졌구나. 정직하지 못한 자에겐 아무것도 줄 수 없다.")],
+		["", tr("산신령이 연못 속으로 사라졌다. 나무꾼에게 다시 말을 걸어 보자.")],
 	], Callable())
 
 
 # ---------- 감나무: 장대로 감 따기 (꼭대기 까치밥은 남겨요) ----------
 func start_gam3d() -> void:
-	start_game("gam", {"world": true, "art": "world", "title": "빨갛게 익은 감을 눌러 장대로 톡!\n초록 감과 꼭대기 까치밥은 남겨요"}, job_done)
+	start_game("gam", {"world": true, "art": "world", "title": tr("빨갛게 익은 감을 눌러 장대로 톡!\n초록 감과 꼭대기 까치밥은 남겨요")}, job_done)
 	var c := persimmon_ctr
 	var stand := Vector3(c.x + 1.9, 0, c.z + 3.0)
 	world_game_begin(stand, Vector3(c.x, 0, c.z), Vector3(c.x + 0.6, 1.3, c.z + 8.0), Vector3(c.x + 0.5, c.y + 0.15, c.z), job_spot("gam"))
@@ -3060,7 +3060,7 @@ func start_gam3d() -> void:
 
 func gam_info() -> void:
 	mg_progress = float(mg_count) / GAM_GOAL
-	mg_info.text = "감 %d/%d | 남은 기회 %d" % [mg_count, GAM_GOAL, mg_lives]
+	mg_info.text = tr("감 %d/%d | 남은 기회 %d") % [mg_count, GAM_GOAL, mg_lives]
 
 func gam_ripe_color(k: float) -> Color:
 	return Color(0.45, 0.65, 0.2).lerp(Color(0.98, 0.62, 0.12), clampf(k * 1.4, 0, 1)).lerp(Color(0.94, 0.32, 0.05), clampf(k * 1.4 - 0.4, 0, 1))
@@ -3111,7 +3111,7 @@ func update_gam(delta: float) -> void:
 					mg_perfect = false
 					sfx("bad")
 					shake(8)
-					float_text("홍시가 떨어졌어요!", cam.unproject_position(f["pos"]), Color(1, 0.55, 0.45), 1.0)
+					float_text(tr("홍시가 떨어졌어요!"), cam.unproject_position(f["pos"]), Color(1, 0.55, 0.45), 1.0)
 					gam_info()
 			"drop":
 				f["vy"] = float(f["vy"]) - 12.0 * delta
@@ -3186,7 +3186,7 @@ func gam_tap(pos: Vector2) -> void:
 		sfx("bad")
 		shake(10)
 		w["swing"] = 1.0
-		float_text("까치밥은 남겨 둬야지!", cam.unproject_position(kn2.global_position), Color(1, 0.5, 0.4), 1.2)
+		float_text(tr("까치밥은 남겨 둬야지!"), cam.unproject_position(kn2.global_position), Color(1, 0.5, 0.4), 1.2)
 		var bird: Node3D = w["bird"]
 		pop3d(bird)
 		sfx("chirp", 0.8)
@@ -3204,7 +3204,7 @@ func gam_pick(i: int) -> void:
 		mg_perfect = false
 		sfx("bad")
 		shake(8)
-		float_text("아직 떫어요!", cam.unproject_position(f["pos"]), Color(1, 0.55, 0.45), 1.1)
+		float_text(tr("아직 떫어요!"), cam.unproject_position(f["pos"]), Color(1, 0.55, 0.45), 1.1)
 		pop3d(n)
 		gam_info()
 		return
@@ -3217,7 +3217,7 @@ func gam_pick(i: int) -> void:
 	hit_stop(0.04)
 	cam_kick = 0.1
 	burst3d(n.global_position, Color(1.0, 0.7, 0.2), 10)
-	float_text(["톡!", "쏙!", "잘 익었다!"][mg_count % 3], cam.unproject_position(n.global_position), Color(1, 0.95, 0.7), 1.2)
+	float_text([tr("톡!"), tr("쏙!"), tr("잘 익었다!")][mg_count % 3], cam.unproject_position(n.global_position), Color(1, 0.95, 0.7), 1.2)
 	f["state"] = "pick"
 	f["dur"] = 0.0
 	f["from"] = n.global_position
@@ -3270,6 +3270,6 @@ func splat_forest(_x: float, z: float) -> float:
 
 # 남쪽 이정표: 2장으로 가요
 func on_gate() -> void:
-	ask("", "“이 길을 따라가면 해와 달이 된 오누이 이야기”\n2장으로 넘어갈까요?\n(1장 이야기는 저장돼요. 돌아오면 이어서 할 수 있어요.)", ["2장으로 가기", "다음에 갈게요"], func(i: int):
+	ask("", tr("“이 길을 따라가면 해와 달이 된 오누이 이야기”\n2장으로 넘어갈까요?\n(1장 이야기는 저장돼요. 돌아오면 이어서 할 수 있어요.)"), [tr("2장으로 가기"), tr("다음에 갈게요")], func(i: int):
 		if i == 0:
 			go_to_chapter("ch2"))

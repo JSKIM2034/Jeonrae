@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
-		<title>옛이야기 책 속으로</title>
+		<title>Lost Tales of Korea - 잃어버린 옛이야기</title>
 		<style>
 html, body, #canvas {
 	margin: 0;
@@ -133,7 +133,7 @@ html, body, #canvas {
 		<script>
 // 큰 엔진 파일(index.wasm)을 깃허브 웹 업로드 제한(25MB)에 맞춰 3조각으로 나눴어요. 여기서 다시 이어 붙여요.
 (function () {
-	var parts = ['index.wasm.part1', 'index.wasm.part2', 'index.wasm.part3'];
+	var parts = ['index.wasm.part1',  'index.wasm.part2'];
 	var origFetch = window.fetch.bind(window);
 	window.fetch = function (input, init) {
 		var url = (typeof input === 'string') ? input : ((input && input.url) || '');
@@ -263,7 +263,7 @@ html, body, #canvas {
 </script>
 <script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":50151296,"index.wasm":43699190},"focusCanvas":true,"gdextensionLibs":[]};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":52320176,"index.wasm":43699190},"focusCanvas":true,"gdextensionLibs":[]};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 

@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://cy0bebvt7ouua"
+path="res://.godot/imported/haenyeo_baked.jpg-2955e367d1765c6f3020a80f2d662279.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "209f816f75fc717e7965cb3b1b31451f"
+}
+
+[deps]
+
+source_file="res://models/haenyeo_baked.jpg"
+dest_files=["res://.godot/imported/haenyeo_baked.jpg-2955e367d1765c6f3020a80f2d662279.ctex"]
+
+[params]
+
+compress/mode=1
+compress/high_quality=false
+compress/lossy_quality=0.8
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1
