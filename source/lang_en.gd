@@ -133,8 +133,6 @@ const EN := {
 	"돌": "Stone",
 	"구렁이": "Snake",
 	"장작": "Firewood",
-	"전래": "Lost Tales",
-	"동화": "of Korea",
 	"화면을 누르면 넘어가요": "Tap the screen to continue",
 	"제비": "Swallow",
 	"+%d냥": "+%d nyang",
