@@ -782,6 +782,7 @@ func _ready() -> void:
 	load_world()
 	make_sounds()
 	build_chapter()
+	setup_style()
 	apply_ground_splat()
 	apply_distance_culling(self)
 	if light_mode:
@@ -5729,6 +5730,12 @@ func make_sounds() -> void:
 		"chirp": [[2200, 3000, 0.05, 0.3, 0], [3000, 2200, 0.05, 0.3, 0], [2400, 3200, 0.06, 0.3, 0]],
 		"win": [[523, 523, 0.09, 0.5, 0], [659, 659, 0.09, 0.5, 0], [784, 784, 0.09, 0.5, 0], [1046, 1046, 0.28, 0.5, 0]],
 		"fail": [[400, 300, 0.15, 0.45, 3], [300, 170, 0.32, 0.45, 3]],
+		# 밤 장면용: 문 두드리는 소리, 심장 소리, 깜짝 놀라는 소리, 으르렁
+		"knock": [[120, 70, 0.07, 1.0, 0], [0, 0, 0.12, 0.0, 0], [120, 70, 0.07, 1.0, 0], [0, 0, 0.04, 0.0, 0]],
+		"heart": [[75, 48, 0.09, 1.0, 0], [0, 0, 0.07, 0.0, 0], [62, 42, 0.12, 0.8, 0]],
+		"sting": [[1500, 620, 0.12, 0.45, 1], [0, 0, 0.3, 0.55, 2], [180, 90, 0.5, 0.6, 1]],
+		"growl": [[95, 70, 0.35, 0.55, 1], [70, 55, 0.5, 0.5, 1]],
+		"scratch": [[0, 0, 0.09, 0.6, 2], [0, 0, 0.04, 0.0, 0], [0, 0, 0.11, 0.6, 2], [0, 0, 0.04, 0.0, 0], [0, 0, 0.13, 0.55, 2]],
 	}
 	for key in defs:
 		sounds[key] = make_wave(defs[key])
@@ -5742,6 +5749,228 @@ func make_sounds() -> void:
 		var sp := AudioStreamPlayer.new()
 		add_child(sp)
 		sound_players.append(sp)
+
+# ---------- 그림체 통일: 만화 같은 명암(툰) + 캐릭터 외곽선 + 화면 색감 ----------
+# AI로 만든 캐릭터와 코드로 만든 소품의 느낌이 따로 놀지 않도록, 모든 물체를 같은 그림체로 맞춰요.
+var style_cache := {}
+var outline_mat: StandardMaterial3D
+var grade_mat: ShaderMaterial
+var grade_now := {"sat": 1.12, "bright": 1.02, "tint": Color(1.03, 1.0, 0.95), "vig": 0.18, "vig_col": Color(0.25, 0.12, 0.05)}
+var drone_player: AudioStreamPlayer
+
+const GRADE_SHADER := """
+shader_type canvas_item;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
+uniform float sat = 1.0;
+uniform float bright = 1.0;
+uniform vec3 tint = vec3(1.0);
+uniform float vig = 0.0;
+uniform vec3 vig_col = vec3(0.0);
+void fragment() {
+	vec3 c = textureLod(screen_tex, SCREEN_UV, 0.0).rgb;
+	float l = dot(c, vec3(0.299, 0.587, 0.114));
+	c = mix(vec3(l), c, sat) * bright * tint;
+	vec2 d = (SCREEN_UV - 0.5) * vec2(1.0, 1.25);
+	float v = smoothstep(0.32, 0.9, length(d)) * vig;
+	COLOR = vec4(mix(c, vig_col, v), 1.0);
+}
+"""
+
+func setup_style() -> void:
+	outline_mat = StandardMaterial3D.new()
+	outline_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	outline_mat.cull_mode = BaseMaterial3D.CULL_FRONT
+	outline_mat.grow = true
+	outline_mat.grow_amount = 0.016
+	outline_mat.albedo_color = Color(0.2, 0.12, 0.09)
+	stylize_tree(self)
+	get_tree().node_added.connect(func(n: Node):
+		if (n is MeshInstance3D or n is MultiMeshInstance3D) and is_ancestor_of(n):
+			stylize_node.call_deferred(n))
+	# 화면 색감 (3D 위, 글자와 버튼 아래)
+	var layer := CanvasLayer.new()
+	layer.layer = -1
+	add_child(layer)
+	var rect := ColorRect.new()
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	grade_mat = ShaderMaterial.new()
+	var sh := Shader.new()
+	sh.code = GRADE_SHADER
+	grade_mat.shader = sh
+	rect.material = grade_mat
+	layer.add_child(rect)
+	apply_grade(grade_now)
+	# 밤에 깔리는 낮은 웅웅 소리 (처음엔 꺼져 있어요)
+	drone_player = AudioStreamPlayer.new()
+	drone_player.stream = make_drone()
+	drone_player.volume_db = -80.0
+	add_child(drone_player)
+
+func apply_grade(g: Dictionary) -> void:
+	grade_now = g
+	if grade_mat == null:
+		return
+	grade_mat.set_shader_parameter("sat", g["sat"])
+	grade_mat.set_shader_parameter("bright", g["bright"])
+	var t: Color = g["tint"]
+	grade_mat.set_shader_parameter("tint", Vector3(t.r, t.g, t.b))
+	grade_mat.set_shader_parameter("vig", g["vig"])
+	var vc: Color = g["vig_col"]
+	grade_mat.set_shader_parameter("vig_col", Vector3(vc.r, vc.g, vc.b))
+
+# 낮(0) ~ 무서운 밤(1) 사이 색감을 섞어요. pulse 는 심장이 뛸 때 붉게 조이는 정도
+func grade_mix(h: float, pulse: float = 0.0) -> Dictionary:
+	h = clampf(h, 0.0, 1.0)
+	return {
+		"sat": lerpf(1.12, 0.5, h),
+		"bright": lerpf(1.02, 0.86, h),
+		"tint": Color(1.03, 1.0, 0.95).lerp(Color(0.86, 0.94, 1.12), h),
+		"vig": lerpf(0.18, 0.85, h) + pulse * 0.5,
+		"vig_col": Color(0.25, 0.12, 0.05).lerp(Color(0.02, 0.01, 0.03), h).lerp(Color(0.45, 0.0, 0.0), clampf(pulse, 0.0, 1.0)),
+	}
+
+func set_drone(level: float) -> void:
+	if drone_player == null:
+		return
+	if level <= 0.01 or not music_on:
+		if drone_player.playing:
+			drone_player.stop()
+		return
+	drone_player.volume_db = lerpf(-34.0, -6.0, clampf(level, 0.0, 1.0))
+	if not drone_player.playing:
+		drone_player.play()
+
+func make_drone() -> AudioStreamWAV:
+	var rate := 22050
+	var n := rate * 4
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var r := RandomNumberGenerator.new()
+	r.seed = 5
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / rate
+		lp = lerpf(lp, r.randf_range(-1.0, 1.0), 0.02)
+		var v := sin(t * TAU * 55.0) * 0.45 + sin(t * TAU * 58.0) * 0.35 + sin(t * TAU * 110.5) * 0.08 + lp * 0.9
+		v *= 0.75 + 0.25 * sin(t * TAU * 0.5)
+		data.encode_s16(i * 2, int(clampf(v * 0.6, -1.0, 1.0) * 32000.0))
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_16_BITS
+	w.mix_rate = rate
+	w.data = data
+	w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	w.loop_begin = 0
+	w.loop_end = n
+	return w
+
+func stylize_tree(n: Node) -> void:
+	if n is MeshInstance3D or n is MultiMeshInstance3D:
+		stylize_node(n)
+	for c in n.get_children():
+		stylize_tree(c)
+
+func stylize_node(n: Node) -> void:
+	if not is_instance_valid(n) or n.has_meta("styled"):
+		return
+	n.set_meta("styled", true)
+	if n is MeshInstance3D:
+		var mi := n as MeshInstance3D
+		var chara := mi.skin != null
+		if mi.material_override != null:
+			mi.material_override = style_toon(mi.material_override, false)
+			return
+		if mi.mesh == null:
+			return
+		for i in mi.mesh.get_surface_count():
+			var m: Material = mi.get_surface_override_material(i)
+			if m == null:
+				m = mi.mesh.surface_get_material(i)
+			if m != null:
+				var t := style_toon(m, chara)
+				if t != m:
+					mi.set_surface_override_material(i, t)
+	elif n is MultiMeshInstance3D:
+		var mm := n as MultiMeshInstance3D
+		if mm.material_override != null:
+			mm.material_override = style_toon(mm.material_override, false)
+		elif mm.multimesh != null and mm.multimesh.mesh != null and mm.multimesh.mesh.get_surface_count() == 1:
+			var m2: Material = mm.multimesh.mesh.surface_get_material(0)
+			if m2 != null:
+				var t2 := style_toon(m2, false)
+				if t2 != m2:
+					mm.material_override = t2
+
+func style_toon(m: Material, outline: bool) -> Material:
+	if not (m is BaseMaterial3D):
+		return m
+	var b := m as BaseMaterial3D
+	if b.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED:
+		return m
+	var key := "%d_%s" % [m.get_instance_id(), outline]
+	if style_cache.has(key):
+		return style_cache[key]
+	var t := b.duplicate() as BaseMaterial3D
+	t.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	t.specular_mode = BaseMaterial3D.SPECULAR_TOON
+	t.roughness = maxf(t.roughness, 0.65)
+	if outline and t.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
+		t.next_pass = outline_mat
+	style_cache[key] = t
+	return t
+
+# 깜짝 놀라는 장면용 화면 그림 (문구멍 너머의 눈, 문틈의 발톱)
+func scare_overlay(kind: String, hold: float = 0.9) -> void:
+	var c := Control.new()
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ui_layer.add_child(c)
+	var st := {"k": 0.0}
+	c.draw.connect(func():
+		var sz := c.size
+		var k: float = st["k"]
+		c.draw_rect(Rect2(Vector2.ZERO, sz), Color(0, 0, 0, 0.82))
+		if kind == "eye":
+			var ctr := sz * Vector2(0.5, 0.46)
+			var rx := sz.x * 0.42 * (0.85 + 0.15 * k)
+			var ry := rx * 0.62 * minf(1.0, k * 1.6)
+			c.draw_colored_polygon(ellipse_pts(ctr, rx * 1.08, ry * 1.12), Color(0.08, 0.05, 0.03))
+			c.draw_colored_polygon(ellipse_pts(ctr, rx, ry), Color(0.95, 0.9, 0.72))
+			for vi in 9:
+				var a := vi * TAU / 9.0 + 0.3
+				var p0 := ctr + Vector2(cos(a) * rx * 0.95, sin(a) * ry * 0.92)
+				c.draw_polyline(PackedVector2Array([p0, p0.lerp(ctr, 0.25) + Vector2(sin(vi * 3.1) * 8.0, cos(vi * 2.3) * 8.0), p0.lerp(ctr, 0.42)]), Color(0.75, 0.12, 0.1, 0.75), 3.0)
+			var ir := ry * 0.95
+			c.draw_circle(ctr, ir, Color(0.9, 0.55, 0.08))
+			c.draw_circle(ctr, ir * 0.78, Color(0.98, 0.72, 0.15))
+			c.draw_circle(ctr, ir * 0.5, Color(0.85, 0.45, 0.05))
+			c.draw_colored_polygon(ellipse_pts(ctr, ir * 0.16 * (1.2 - 0.4 * k), ir * 0.92), Color(0.02, 0.01, 0.01))
+			c.draw_circle(ctr + Vector2(-ir * 0.35, -ir * 0.4), ir * 0.12, Color(1, 1, 0.95, 0.9))
+		else:
+			for ci in 3:
+				var x := sz.x * (0.3 + ci * 0.2)
+				var y0 := sz.y * 0.18
+				var y1 := lerpf(y0, sz.y * 0.85, minf(1.0, k * 1.4))
+				var pts := PackedVector2Array()
+				for j in 12:
+					var tt := j / 11.0
+					pts.append(Vector2(x + sin(tt * 2.2) * sz.x * 0.06 - tt * sz.x * 0.05, lerpf(y0, y1, tt)))
+				c.draw_polyline(pts, Color(0.55, 0.0, 0.0, 0.9), sz.x * 0.035)
+				c.draw_polyline(pts, Color(0.95, 0.85, 0.7), sz.x * 0.012))
+	var tw := c.create_tween()
+	tw.tween_method(func(v: float):
+		st["k"] = v
+		c.queue_redraw(), 0.0, 1.0, 0.18)
+	tw.tween_interval(hold)
+	tw.tween_property(c, "modulate:a", 0.0, 0.35)
+	tw.tween_callback(c.queue_free)
+
+func ellipse_pts(ctr: Vector2, rx: float, ry: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in 40:
+		var a := i * TAU / 40.0
+		pts.append(ctr + Vector2(cos(a) * rx, sin(a) * ry))
+	return pts
 
 # ---------- 배경음, 자연 소리, 소리 켜고 끄기 ----------
 var music_on := true

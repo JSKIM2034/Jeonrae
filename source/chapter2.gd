@@ -89,6 +89,164 @@ func _process(delta: float) -> void:
 	var t := story_time(player.position.z)
 	set_time_of_day(lerpf(time_of_day, t, minf(1.0, delta * 2.0)))
 	update_story(delta)
+	update_mood(delta)
+
+# ---------- 낮은 아기자기, 밤은 섬뜩하게 ----------
+var mood_t := 0.0
+var heart_t := 0.0
+var festive: Array = []   # 낮에만 보이는 잔치 꾸밈 (꽃잎 등)
+var tiger_eyes: Array = []
+var scare_pulse := 0.0
+
+func night_level() -> float:
+	if quest >= S_END or quest < S_LEAVE:
+		return 0.0
+	if quest >= S_WARN:
+		return 1.0
+	return smoothstep(0.55, 1.0, time_of_day)
+
+func update_mood(delta: float) -> void:
+	mood_t += delta
+	var night := night_level()
+	# 낮: 잔칫집 사람들이 흥에 겨워 통통 튀어요
+	var day := 1.0 - night
+	for id in npcs:
+		var b := body_of(npcs[id])
+		if b == null:
+			continue
+		if day > 0.5 and (npcs[id] as Node3D).position.distance_to(VILLAGE_C) < 26.0 and not talking:
+			b.position.y = absf(sin(mood_t * 3.2 + float(id.hash() % 97) * 0.3)) * 0.05
+		else:
+			b.position.y = move_toward(b.position.y, 0.0, delta)
+	for f in festive:
+		(f as Node3D).visible = night < 0.3
+	for e in tiger_eyes:
+		(e as Node3D).visible = night > 0.7
+	# 밤: 색이 빠지고 가장자리가 어두워져요. 호랑이가 쳐다보면 심장이 뛰며 붉게 조여요
+	var pulse := scare_pulse
+	scare_pulse = move_toward(scare_pulse, 0.0, delta * 1.5)
+	var beat := 0.0
+	if sneak_on and sneak_state == "look":
+		beat = 0.55
+	elif sneak_on and sneak_state == "warn":
+		beat = 0.75
+	elif quest == S_RUN and run_active:
+		beat = 0.9
+	elif quest == S_DOOR and talking:
+		beat = 1.1
+	if beat > 0.0:
+		heart_t -= delta
+		if heart_t <= 0.0:
+			heart_t = beat
+			sfx("heart")
+			scare_pulse = maxf(scare_pulse, 0.35 if beat < 0.8 else 0.2)
+	apply_grade(grade_mix(night, pulse))
+	set_drone(night)
+
+func make_festival() -> void:
+	var c := VILLAGE_C
+	var top := c + Vector3(-1.0, 0, 3.0)
+	top.y = height_at(top.x, top.z)
+	add_mcyl(self, wood_mat, 0.07, 0.09, 4.6, top + Vector3(0, 2.3, 0))
+	var ends := [Vector3(-11, 0, -2), Vector3(8, 0, -5), Vector3(9, 0, 10), Vector3(-10, 0, 10), Vector3(1, 0, 14)]
+	var hub := top + Vector3(0, 4.5, 0)
+	for e in ends:
+		var p: Vector3 = c + e
+		p.y = height_at(p.x, p.z)
+		add_mcyl(self, wood_mat, 0.05, 0.06, 2.7, p + Vector3(0, 1.35, 0))
+		make_bunting(hub, p + Vector3(0, 2.65, 0))
+		# 청사초롱: 줄 중간에 빨강·파랑 등
+		for k in [0.35, 0.7]:
+			var lp: Vector3 = hub.lerp(p + Vector3(0, 2.65, 0), k) - Vector3(0, 0.45 + sin(k * PI) * 0.35, 0)
+			make_cheongsa(lp, k < 0.5)
+	# 바람에 날리는 꽃잎
+	var pt := CPUParticles3D.new()
+	pt.amount = 46
+	pt.lifetime = 7.0
+	pt.preprocess = 7.0
+	pt.position = c + Vector3(-1, 6.5, 3)
+	pt.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	pt.emission_box_extents = Vector3(13, 0.5, 11)
+	pt.direction = Vector3(0.4, -1, 0.2)
+	pt.spread = 25.0
+	pt.gravity = Vector3(0.15, -0.35, 0)
+	pt.initial_velocity_min = 0.2
+	pt.initial_velocity_max = 0.5
+	pt.angular_velocity_min = -90.0
+	pt.angular_velocity_max = 90.0
+	var q := QuadMesh.new()
+	q.size = Vector2(0.11, 0.09)
+	var pm := StandardMaterial3D.new()
+	pm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	pm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	pm.vertex_color_use_as_albedo = true
+	pm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	q.material = pm
+	pt.mesh = q
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1.0, 0.72, 0.82))
+	grad.set_color(1, Color(1.0, 0.97, 0.9))
+	pt.color_initial_ramp = grad
+	add_child(pt)
+	festive.append(pt)
+
+# 오방색 삼각 깃발 줄 (한 덩어리로 그려서 가벼워요)
+func make_bunting(a: Vector3, b: Vector3) -> void:
+	var cols := [Color(0.95, 0.3, 0.3), Color(0.98, 0.82, 0.25), Color(0.3, 0.55, 0.95), Color(0.98, 0.97, 0.92), Color(0.35, 0.75, 0.45), Color(0.95, 0.55, 0.75)]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := int(a.distance_to(b) / 0.55)
+	var side := (b - a).cross(Vector3.UP).normalized()
+	for i in n:
+		var t0 := float(i) / n
+		var t1 := float(i) + 0.75
+		t1 /= n
+		var p0 := a.lerp(b, t0) - Vector3(0, sin(t0 * PI) * 0.6, 0)
+		var p1 := a.lerp(b, t1) - Vector3(0, sin(t1 * PI) * 0.6, 0)
+		var tip := (p0 + p1) * 0.5 - Vector3(0, 0.32, 0) + side * 0.02
+		var col: Color = cols[i % cols.size()]
+		for v in [p0, p1, tip]:
+			st.set_color(col)
+			st.add_vertex(v)
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.roughness = 1.0
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+
+func make_cheongsa(pos: Vector3, red: bool) -> void:
+	var body := MeshInstance3D.new()
+	var cy := CylinderMesh.new()
+	cy.top_radius = 0.14
+	cy.bottom_radius = 0.14
+	cy.height = 0.34
+	body.mesh = cy
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.85, 0.15, 0.15) if red else Color(0.2, 0.35, 0.85)
+	m.emission_enabled = true
+	m.emission = Color(1.0, 0.55, 0.3) if red else Color(0.5, 0.6, 1.0)
+	m.emission_energy_multiplier = 0.5
+	body.material_override = m
+	body.position = pos
+	add_child(body)
+	for dy in [0.19, -0.19]:
+		add_box(self, Color(0.15, 0.1, 0.08), Vector3(0.3, 0.04, 0.3), pos + Vector3(0, dy, 0))
+
+# 밤의 호랑이: 턱 밑에서 붉게 비추는 빛 (손전등을 턱에 대고 무서운 얘기를 할 때처럼)
+func add_tiger_eyes() -> void:
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.35, 0.15)
+	l.light_energy = 4.0
+	l.omni_range = 3.2
+	l.omni_attenuation = 1.4
+	l.shadow_enabled = false
+	l.position = Vector3(0, 0.55, 0.75)
+	tiger.add_child(l)
+	tiger_eyes.append(l)
 
 func cam_ground(x: float, z: float) -> float:
 	return height_at(x, z)
@@ -248,6 +406,7 @@ func splat_forest(x: float, z: float) -> float:
 # ---------- 잔칫집 마을 (한낮, 시작) ----------
 
 func make_feast_village() -> void:
+	make_festival()
 	var r := RandomNumberGenerator.new()
 	r.seed = 12
 	var c := VILLAGE_C
@@ -594,6 +753,7 @@ func make_tiger() -> void:
 			var mdl := make_person(pair[0], pair[1], Color.WHITE, false)
 			if mdl != null and mdl.has_meta("skel"):
 				tiger_models.append(mdl)
+		add_tiger_eyes()
 		return
 	body.scale = Vector3.ONE * 1.25
 	var org := Color(0.96, 0.56, 0.18)
@@ -1161,6 +1321,7 @@ func update_sneak(delta: float) -> void:
 				sneak_state = "warn"
 				sneak_t = 0.6
 				sfx("crack", 0.5)
+				sfx("growl")
 		"warn":
 			sneak_banner.text = tr("으르렁...?")
 			sneak_banner.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
@@ -1499,6 +1660,11 @@ func update_run(delta: float) -> void:
 
 func after_warn() -> void:
 	set_quest(S_DOOR)
+	for d in [0.9, 1.9, 2.8]:
+		get_tree().create_timer(d).timeout.connect(func():
+			sfx("knock")
+			shake(6)
+			scare_pulse = maxf(scare_pulse, 0.25))
 	show_card(tr("깊은 밤이 되었어요.\n\n똑똑, 똑똑...\n누군가 문을 두드려요."), 0.0, 3.0, func():
 		tiger_show_disguised()
 		say([["???", tr("얘들아~ 엄마 왔다. 문 열어라~")]], Callable()))
@@ -1519,6 +1685,16 @@ func door_scene() -> void:
 	], func(): ask(tr("오빠"), tr("정말 엄마일까? 어떻게 알아보지?"), [tr("문틈으로 손을 보여 달라고 한다"), tr("얼굴을 보여 달라고 한다")], door_choice))
 
 func door_choice(i: int) -> void:
+	if i == 0:
+		scare_overlay("claw", 0.8)
+		sfx("scratch")
+		shake(10)
+	else:
+		scare_overlay("eye", 1.0)
+		sfx("sting")
+		shake(14)
+	scare_pulse = 1.0
+	get_tree().create_timer(0.7).timeout.connect(func(): sfx("growl"))
 	var l := []
 	if i == 0:
 		l.append(["", tr("문틈으로 손이 쑥 들어왔다. 누런 털이 숭숭, 발톱이 뾰족!")])
