@@ -924,6 +924,6 @@ const EN := {
 	"얼마 뒤 바닷가에 소식이 들려왔어요.\n용왕님이 산삼을 드시고\n씻은 듯이 나으셨대요.": "Some time later, news came to the shore.\nThe Dragon King ate the ginseng\nand recovered completely.",
 	"꾀 많은 토끼 이야기는\n바닷가 마을에 두고두고 전해졌대요.": "The tale of the clever rabbit\nwas told in the seaside village for years and years.",
 	"빈 책장에 별주부전 그림이 새로 생겼어요.\n\n세 이야기가 모두 채워졌어요!\n\n(체험판은 여기까지예요.\n다음 이야기 책장도 곧 열려요.)": "A picture of the Rabbit and the Turtle appeared on the blank page.\n\nAll three stories are filled in!\n\n(That's the end of the demo.\nThe next pages of the story will open soon.)",
-	"WASD나 방향키로 걷고, 스페이스로 점프해요\nE나 엔터로 말을 걸어요": "Walk with WASD or the arrow keys, jump with Space\nTalk with E or Enter",
+	"WASD나 방향키로 걷고, 스페이스로 점프해요\nE나 엔터로 말을 걸어요": "Walk: WASD / arrows   Jump: Space\nTalk: E / Enter",
 	"마우스 오른쪽 버튼을 누른 채 끌면 시야가 돌아가요.\n마우스 휠로 가까이, 멀리 볼 수 있어요.\n아주 가까이 당기면 하늘도 올려다볼 수 있어요!": "Hold the right mouse button and drag to turn the view.\nUse the mouse wheel to zoom in and out.\nZoom in really close and you can look up at the sky!",
 }

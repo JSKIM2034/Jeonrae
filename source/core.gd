@@ -2227,6 +2227,10 @@ func update_autosave(delta: float) -> void:
 		save_progress()
 
 func _notification(what: int) -> void:
+	# 마우스가 게임 화면 밖으로 나가거나 창을 벗어나면, 누르고 있던 마우스 버튼을 모두 뗀 것으로 쳐요
+	# (화면 밖에서 버튼을 떼면 게임이 그 신호를 못 받아서 계속 눌린 것처럼 되기 때문이에요)
+	if what in [NOTIFICATION_WM_MOUSE_EXIT, NOTIFICATION_WM_WINDOW_FOCUS_OUT, NOTIFICATION_APPLICATION_FOCUS_OUT]:
+		release_mouse_holds()
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
 		if player != null and not mg_active:
 			save_progress()
@@ -8454,6 +8458,14 @@ func swim_ceiling() -> float:
 	return 0.0
 
 const MOUSE_STICK := -2
+var rmb_turning := false
+func release_mouse_holds() -> void:
+	rmb_turning = false
+	jump_mouse = false
+	if stick_index == MOUSE_STICK:
+		stick_index = -1
+		touching = false
+		move_input = Vector2.ZERO
 # 휴대폰/태블릿이면 터치 안내, 컴퓨터면 키보드·마우스 안내를 보여 줘요
 func is_touch_device() -> bool:
 	if OS.has_feature("web_android") or OS.has_feature("web_ios") or OS.has_feature("android") or OS.has_feature("ios"):
@@ -8592,9 +8604,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and event.device != -1 and stick_index == MOUSE_STICK:
 		move_input = ((event.position - touch_start) / drag_range).limit_length(1.0)
 	# 마우스 오른쪽 버튼을 누른 채 좌우로 끌면 시야가 돌아가요 (컴퓨터용)
-	if event is InputEventMouseMotion and event.device != -1 and (event.button_mask & MOUSE_BUTTON_MASK_RIGHT) != 0:
-		cam_yaw_target -= event.relative.x * 0.006
-		cam_yaw = cam_yaw_target
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.device != -1:
+		rmb_turning = event.pressed
+	elif event is InputEventMouseMotion and event.device != -1 and rmb_turning:
+		if (event.button_mask & MOUSE_BUTTON_MASK_RIGHT) == 0:
+			rmb_turning = false   # 버튼을 뗀 신호를 놓쳤어도 실제로 안 눌려 있으면 멈춰요
+		else:
+			cam_yaw_target -= event.relative.x * 0.006
+			cam_yaw = cam_yaw_target
 	# 두 손가락으로 벌리고 오므려 확대/축소, 컴퓨터는 마우스 휠
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
