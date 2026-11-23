@@ -198,6 +198,30 @@ func pop_scale(c: Control) -> float:
 
 # --- 등장인물과 물건 ---
 
+# 고양이 손 같은 호랑이 앞발: 줄무늬 팔 끝에 말랑한 발, 분홍 젤리 발바닥. 내려칠 땐 발톱이 쏙
+func draw_cat_paw(ci: CanvasItem, p: Vector2, toward: Vector2, r: float, claws: bool) -> void:
+	var d := (toward - p).normalized()
+	var n := d.orthogonal()
+	var ang := d.angle()
+	var org := Color(0.96, 0.56, 0.18)
+	var bean := Color(1.0, 0.6, 0.7)
+	var arm_end := p - d * r * 3.2
+	d_poly(ci, PackedVector2Array([arm_end + n * r * 0.62, p + n * r * 0.62, p - n * r * 0.62, arm_end - n * r * 0.62]), org, 5.0)
+	for k in 3:
+		d_box(ci, p - d * r * (0.95 + k * 0.6), Vector2(r * 0.16, r * 1.16), ang, Color(0.25, 0.14, 0.08), 0.0)
+	if claws:
+		for k in 4:
+			var a := -0.75 + k * 0.5
+			var dir := d.rotated(a)
+			var base := p + dir * r * 0.75
+			var w := dir.orthogonal() * r * 0.1
+			d_poly(ci, PackedVector2Array([base + w, p + dir * r * 1.3, base - w]), Color(0.97, 0.95, 0.88), 3.0)
+	d_ell(ci, p, r * 0.85, r * 0.95, Color(1.0, 0.9, 0.76), ang, 5.0)
+	d_ell(ci, p - d * r * 0.18, r * 0.34, r * 0.42, bean, ang, 3.0)
+	for k in 4:
+		var a2 := -0.75 + k * 0.5
+		d_ell(ci, p + d.rotated(a2) * r * 0.55, r * 0.15, r * 0.13, bean, ang + a2, 3.0)
+
 func draw_swallow(ci: CanvasItem, c: Vector2, s: float, prog: float, ouch: bool) -> void:
 	var navy := Color(0.17, 0.2, 0.38)
 	d_shadow(ci, c + Vector2(0, s * 0.95), s * 0.8)
@@ -7242,12 +7266,15 @@ func custom_draw() -> void:
 				else:
 					grow = maxf(0.2, 0.9 - tm * 1.6)
 				var r := font_size * 1.6 * grow
-				ci.draw_circle(p, r, col)
-				for k in 3:
-					var ang := -0.6 + k * 0.6
-					var off := (c - p).normalized().rotated(ang) * r * 0.75
-					ci.draw_circle(p + off, r * 0.22, Color(1, 0.96, 0.9))
-				ci.draw_circle(p + (c - p).normalized() * r * 0.05, r * 0.38, Color(1, 0.96, 0.9))
+				if mg_cfg.get("scene", "") == "paws":
+					draw_cat_paw(ci, p, c, r, a["phase"] == "strike")
+				else:
+					ci.draw_circle(p, r, col)
+					for k in 3:
+						var ang := -0.6 + k * 0.6
+						var off := (c - p).normalized().rotated(ang) * r * 0.75
+						ci.draw_circle(p + off, r * 0.22, Color(1, 0.96, 0.9))
+					ci.draw_circle(p + (c - p).normalized() * r * 0.05, r * 0.38, Color(1, 0.96, 0.9))
 				if a["phase"] == "strike":
 					ci.draw_arc(p, r * 1.12, 0, TAU, 40, Color(1, 0.3, 0.25), 6.0)
 					var dirv := (p - c).normalized()
