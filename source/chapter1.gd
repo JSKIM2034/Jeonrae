@@ -279,7 +279,7 @@ func make_signpost(pos: Vector3) -> void:
 	var board := add_mbox(sign, plank_mat, Vector3(1.7, 0.42, 0.08), Vector3(0, 1.62, 0))
 	board.rotation.z = -0.05
 	var lab := Label3D.new()
-	lab.text = tr("이 길 끝은 2장\n해와 달이 된 오누이\n(준비 중)")
+	lab.text = tr("이 길 끝은 오누이 고갯길\n해와 달이 된 오누이")
 	lab.font = font
 	lab.font_size = 34
 	lab.modulate = Color(0.25, 0.14, 0.08)
@@ -2316,7 +2316,7 @@ func update_quest_text() -> void:
 	elif quest == Q_RETURN:
 		t = tr("흥부에게 돌아가 소식 전하기")
 	elif quest == Q_END:
-		t = tr("1장 끝! 마을을 둘러보고, 흥부에게 말을 걸면 엔딩을 다시 고를 수 있어요")
+		t = tr("흥부와 놀부 이야기 끝! 마을을 둘러보고, 흥부에게 말을 걸면 엔딩을 다시 고를 수 있어요")
 	quest_label.text = tr("할 일: %s\n엽전 %d냥 | 조각 %d/%d | 심술 수습 %d/5") % [t, shown_coins, pieces_found, PIECE_TOTAL, mischief_done]
 
 func talk_to(id: String) -> void:
@@ -2669,7 +2669,7 @@ func finish_chapter(id: String) -> void:
 	var seen := save_ending(id)
 	set_quest(Q_END)
 	var d := ending_data(id)
-	show_card(tr("%s\n\n엔딩 “%s” (모은 엔딩 %d/%d)\n1장 흥부와 놀부  끝") % [d[1], d[0], seen, ENDING_COUNT], 0.0, 5.0, Callable())
+	show_card(tr("%s\n\n엔딩 “%s” (모은 엔딩 %d/%d)\n흥부와 놀부  끝") % [d[1], d[0], seen, ENDING_COUNT], 0.0, 5.0, Callable())
 
 
 # ---------- 마을 사람 돕기 ----------
@@ -3270,7 +3270,7 @@ func splat_forest(_x: float, z: float) -> float:
 
 # 남쪽 이정표: 2장으로, 또는 버드나무 길 따라 집 마을(이야기골)로 가요
 func on_gate() -> void:
-	ask("", tr("“이 길을 따라가면 해와 달이 된 오누이 이야기”\n이정표 아래 작은 팻말: “버드나무 길: 이야기골(집 마을)”\n(1장 이야기는 저장돼요. 돌아오면 이어서 할 수 있어요.)"), [tr("2장으로 가기"), tr("이야기골(집 마을)로 가기"), tr("다음에 갈게요")], func(i: int):
+	ask("", tr("“이 길을 따라가면 해와 달이 된 오누이 이야기”\n이정표 아래 작은 팻말: “버드나무 길: 이야기골(집 마을)”\n(흥부네 마을 이야기는 저장돼요. 돌아오면 이어서 할 수 있어요.)"), [tr("오누이 고갯길로 가기"), tr("이야기골(집 마을)로 가기"), tr("다음에 갈게요")], func(i: int):
 		if i == 0:
 			go_to_chapter("ch2")
 		elif i == 1:

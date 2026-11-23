@@ -67,9 +67,9 @@ func start_chapter() -> void:
 	above_fog = [env_ref.fog_density, env_ref.fog_light_color, env_ref.ambient_light_color, sun_light.light_energy]
 	apply_story_state()
 	if resumed:
-		show_card(tr("3장 별주부전\n이어서 걸어요..."), 0.6, 1.6, Callable())
+		show_card(tr("바닷가 마을\n이어서 걸어요..."), 0.6, 1.6, Callable())
 		return
-	show_card(tr("3장\n별주부전\n\n책장을 넘기자\n짭조름한 바닷바람이 불어왔어요."), 1.0, 4.0, Callable())
+	show_card(tr("바닷가 마을\n별주부전\n\n책장을 넘기자\n짭조름한 바닷바람이 불어왔어요."), 1.0, 4.0, Callable())
 
 func cam_ground(x: float, z: float) -> float:
 	return height_at(x, z)
@@ -79,7 +79,7 @@ func cam_ceiling() -> float:
 
 # 남쪽 끝 이정표: 2장으로 돌아가요
 func on_gate() -> void:
-	ask("", tr("어디로 갈까요?\n(3장 이야기는 저장돼요.)"), [tr("갈대 나루 건너 이야기골(집 마을)로"), tr("2장 오누이네 고갯길로 돌아가기"), tr("더 둘러볼래요")], func(i: int):
+	ask("", tr("어디로 갈까요?\n(바닷가 마을 이야기는 저장돼요.)"), [tr("갈대 나루 건너 이야기골(집 마을)로"), tr("오누이 고갯길로 돌아가기"), tr("더 둘러볼래요")], func(i: int):
 		if i == 0:
 			go_to_chapter("home")
 		elif i == 1:
@@ -378,7 +378,7 @@ func make_shore_village() -> void:
 	var gate := make_spot(on_ground(3.2, 49.0), "gate", "", "", true)
 	add_mcyl(gate, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
-	add_tag(gate, tr("이야기골과 2장 고갯길로 가는 길"), 2.6)
+	add_tag(gate, tr("이야기골과 오누이 고갯길로 가는 길"), 2.6)
 
 func make_leaf_bush(pos: Vector3, size: Vector3, c: Color, seed_v: int) -> void:
 	if not tree_tried:
@@ -1147,7 +1147,7 @@ func update_quest_text() -> void:
 				else:
 					t = tr("용왕님이 아직 앓고 계세요. 뒷산 깊은 숲 나무 아래에서 약이 될 풀 찾기")
 			else:
-				t = tr("3장 끝! 체험판을 모두 마쳤어요. 바닷속을 마음껏 헤엄쳐 보세요")
+				t = tr("별주부전 이야기 끝! 체험판을 모두 마쳤어요. 바닷속을 마음껏 헤엄쳐 보세요")
 	var pc := 0
 	for b in pearls:
 		pc += 1 if b else 0
@@ -2629,7 +2629,7 @@ func ch3_ending_count_text() -> String:
 	var cf := ConfigFile.new()
 	cf.load(SAVE_PATH)
 	var got: Array = cf.get_value("ch3", "endings", [])
-	return tr("\n(3장 엔딩 %d/%d)") % [got.size(), CH3_ENDINGS.size()]
+	return tr("\n(별주부전 엔딩 %d/%d)") % [got.size(), CH3_ENDINGS.size()]
 
 func finish_trial() -> void:
 	event_lock = false

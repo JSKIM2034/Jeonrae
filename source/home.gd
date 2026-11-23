@@ -488,13 +488,13 @@ func granny_hints() -> Array:
 		out.append(tr("흥부네 박은 아직 다 안 탔니? 버드나무 길 끝 장승을 지나면 바로란다."))
 		out.append(tr("흥부네 마을 사람들은 일손이 늘 모자라. 품을 팔면 엽전도 모인단다."))
 	elif e1.size() < ENDING_COUNT:
-		out.append(tr("흥부 이야기는 끝이 하나가 아니란다. 엽전을 넉넉히 모으면 다른 길이 보일지도 모르지. (1장 엔딩 %d/%d)") % [e1.size(), ENDING_COUNT])
+		out.append(tr("흥부 이야기는 끝이 하나가 아니란다. 엽전을 넉넉히 모으면 다른 길이 보일지도 모르지. (흥부와 놀부 엔딩 %d/%d)") % [e1.size(), ENDING_COUNT])
 	if tales.has("ch1") and not tales.has("ch2"):
 		out.append(tr("흥부네 남쪽 이정표에서 고갯길로 가면 해와 달이 된 오누이 이야기가 있단다. 호랑이를 조심하렴."))
 	if tales.has("ch2") and not tales.has("ch3"):
 		out.append(tr("오누이 고갯길 북쪽 끝에서 바닷가로 내려가면 별주부 이야기가 기다린단다."))
 	if tales.has("ch3") and e3.size() < 3:
-		out.append(tr("용왕님 이야기도 끝이 여럿이란다. 자라에게 무엇을 주느냐에 따라 달라지지. (3장 엔딩 %d/3)") % e3.size())
+		out.append(tr("용왕님 이야기도 끝이 여럿이란다. 자라에게 무엇을 주느냐에 따라 달라지지. (별주부전 엔딩 %d/3)") % e3.size())
 	out.append(tr("북쪽 돌고개를 넘으면 오누이 고갯길, 동북쪽 갈대 나루에서 배를 타면 바닷가 마을이란다."))
 	out.append(tr("집에 들어가 푹 쉬어 가렴. 책장에는 네가 모은 이야기들이 꽂혀 있지."))
 	out.append(tr("이야기를 다 들려주고 나면, 저 빈 집터들도 북적북적해질 게다."))
@@ -527,11 +527,11 @@ func on_gate() -> void:
 				if i == 0:
 					go_to_chapter("ch1"))
 		"ch2":
-			ask("", tr("돌고개를 넘어 오누이 고갯길(2장)로 갈까요?\n(이야기골은 저장돼요.)"), [tr("오누이 고갯길로 가기"), tr("더 둘러볼래요")], func(i: int):
+			ask("", tr("돌고개를 넘어 오누이 고갯길로 갈까요?\n(이야기골은 저장돼요.)"), [tr("오누이 고갯길로 가기"), tr("더 둘러볼래요")], func(i: int):
 				if i == 0:
 					go_to_chapter("ch2"))
 		"ch3":
-			ask("", tr("갈대 나루에서 배를 타고 바닷가 마을(3장)로 갈까요?\n(이야기골은 저장돼요.)"), [tr("바닷가 마을로 가기"), tr("더 둘러볼래요")], func(i: int):
+			ask("", tr("갈대 나루에서 배를 타고 바닷가 마을로 갈까요?\n(이야기골은 저장돼요.)"), [tr("바닷가 마을로 가기"), tr("더 둘러볼래요")], func(i: int):
 				if i == 0:
 					go_to_chapter("ch3"))
 		_:

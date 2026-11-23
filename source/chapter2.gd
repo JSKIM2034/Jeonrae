@@ -77,9 +77,9 @@ func start_chapter() -> void:
 	time_of_day = story_time(player.position.z)
 	set_time_of_day(time_of_day)
 	if resumed:
-		show_card(tr("2장 해와 달이 된 오누이\n이어서 걸어요..."), 0.6, 1.6, Callable())
+		show_card(tr("오누이 고갯길\n이어서 걸어요..."), 0.6, 1.6, Callable())
 		return
-	show_card(tr("2장\n해와 달이 된 오누이\n\n책장을 넘기자\n왁자지껄한 잔칫집 마당이 펼쳐졌어요."), 1.0, 4.0, Callable())
+	show_card(tr("오누이 고갯길\n해와 달이 된 오누이\n\n책장을 넘기자\n왁자지껄한 잔칫집 마당이 펼쳐졌어요."), 1.0, 4.0, Callable())
 
 # 걸어갈수록 시간이 흘러요: 마을은 한낮, 첫째 고개 넘어 늦은 오후, 셋째 고개에서 해 질 녘, 오두막은 깊은 밤
 func _process(delta: float) -> void:
@@ -95,7 +95,7 @@ func cam_ground(x: float, z: float) -> float:
 
 # 남쪽 끝 이정표: 1장 마을로 돌아가요
 func on_gate() -> void:
-	ask("", tr("어디로 갈까요?\n(2장 이야기는 저장돼요.)"), [tr("돌고개 넘어 이야기골(집 마을)로"), tr("1장 흥부네 마을로 돌아가기"), tr("더 둘러볼래요")], func(i: int):
+	ask("", tr("어디로 갈까요?\n(오누이 고갯길 이야기는 저장돼요.)"), [tr("돌고개 넘어 이야기골(집 마을)로"), tr("흥부네 마을로 돌아가기"), tr("더 둘러볼래요")], func(i: int):
 		if i == 0:
 			go_to_chapter("home")
 		elif i == 1:
@@ -307,12 +307,12 @@ func make_feast_village() -> void:
 	var gate := make_spot(on_ground(3.2, 49.0), "gate", "", "", true)
 	add_mcyl(gate, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
-	add_tag(gate, tr("이야기골과 1장 마을로 가는 길"), 2.6)
+	add_tag(gate, tr("이야기골과 흥부네 마을로 가는 길"), 2.6)
 	# 북쪽 끝 이정표 (3장 바닷가로)
 	var gate3 := make_spot(on_ground(-6.0, -71.0), "gate", "ch3", "", true)
 	add_mcyl(gate3, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate3, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
-	add_tag(gate3, tr("3장 바닷가로 가는 길"), 2.6)
+	add_tag(gate3, tr("바닷가 마을로 가는 길"), 2.6)
 
 # ---------- 고개 셋 (숲과 바위) ----------
 
@@ -751,7 +751,7 @@ func update_quest_text() -> void:
 		S_ROPE:
 			t = tr("나무 아래에서 하늘에 빌기")
 		S_END:
-			t = tr("2장 끝! 마을과 고갯길을 둘러보세요")
+			t = tr("해와 달이 된 오누이 이야기 끝! 마을과 고갯길을 둘러보세요")
 	var extra := ""
 	if quest >= S_LEAVE and quest <= S_PASS3:
 		extra = tr(" | 떡 광주리 %d개 | 반딧불 %d/%d") % [basket, fireflies_got, FIREFLY_N]
@@ -1688,7 +1688,7 @@ func finish_chapter2() -> void:
 		npc(k).visible = false
 	if sky_rope != null:
 		sky_rope.queue_free()
-	say([["", tr("빈 책장에 해님 달님 그림이 새로 생겼다. 2장 이야기가 채워졌다!")]], Callable())
+	say([["", tr("빈 책장에 해님 달님 그림이 새로 생겼다. 오누이 이야기가 채워졌다!")]], Callable())
 
 # ---------- 물건 누르기 ----------
 
@@ -1752,7 +1752,7 @@ func on_action() -> void:
 		"gate":
 			sfx("tap")
 			if t["id"] == "ch3":
-				ask("", tr("“이 길을 따라가면 별주부전 이야기”\n3장 바닷가로 넘어갈까요?\n(2장 이야기는 저장돼요.)"), [tr("3장으로 가기"), tr("다음에 갈게요")], func(i: int):
+				ask("", tr("“이 길을 따라가면 별주부전 이야기”\n바닷가 마을로 넘어갈까요?\n(오누이 고갯길 이야기는 저장돼요.)"), [tr("바닷가 마을로 가기"), tr("다음에 갈게요")], func(i: int):
 					if i == 0:
 						go_to_chapter("ch3"))
 			else:
