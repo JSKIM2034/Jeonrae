@@ -1011,4 +1011,8 @@ const EN := {
 	"덤불에 숨었다! (%d/%d)": "Hidden in the bush! (%d/%d)",
 	"마지막 덤불! 이제 호랑이 뒤로 빠져나가요": "Last bush! Now slip past behind the tiger",
 	"덤불 뒤라 괜찮아요...": "Safe behind the bush...",
+	"구름이 걷히고 해가 났어요": "The clouds part and the sun comes out",
+	"하늘에 구름이 잔뜩 꼈어요": "The sky is full of clouds",
+	"후드득, 비가 내리기 시작했어요": "Pitter-patter, it starts to rain",
+	"뽀얀 안개가 피어올라요": "A soft white mist rises",
 }

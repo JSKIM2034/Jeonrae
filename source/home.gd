@@ -539,6 +539,9 @@ func on_gate() -> void:
 
 # ---------- 내 집 방 안 ----------
 
+func weather_sheltered() -> bool:
+	return in_room()
+
 func in_room() -> bool:
 	return player != null and player.position.x > ROOM_C.x - 20.0
 

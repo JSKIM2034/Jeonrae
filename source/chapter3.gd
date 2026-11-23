@@ -71,6 +71,13 @@ func start_chapter() -> void:
 		return
 	show_card(tr("바닷가 마을\n별주부전\n\n책장을 넘기자\n짭조름한 바닷바람이 불어왔어요."), 1.0, 4.0, Callable())
 
+# 바닷속은 빛과 안개를 따로 다뤄서 날씨는 들어올 때 정한 그대로예요
+func weather_can_change() -> bool:
+	return false
+
+func weather_sheltered() -> bool:
+	return player != null and (player.position.y < -0.4 or swimming)
+
 func cam_ground(x: float, z: float) -> float:
 	return height_at(x, z)
 
