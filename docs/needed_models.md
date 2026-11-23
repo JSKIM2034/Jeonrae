@@ -1,6 +1,13 @@
 # 새로 만들 모델 목록과 그림 프롬프트
 
-사용자가 ChatGPT로 원화를 뽑고 Meshy로 3D를 만들어 주는 목록이에요. 만든 파일을 저장소에 올리거나 Claude에게 주면 뼈대를 붙이고(tools/rig_meshy.py, tools/rig_npc.py) 게임에 넣어요.
+사용자가 ChatGPT로 원화를 뽑고 Meshy로 3D를 만들어 주는 목록이에요. 만든 파일은 아래 "올리는 곳"대로 GitHub 릴리스에 올리면, Claude가 받아서 뼈대를 붙이고(tools/rig_meshy.py, tools/rig_npc.py) 게임용으로 줄여 넣어요.
+
+## 올리는 곳 (2026-11-24 사용자 결정: 캐릭터는 릴리스로)
+
+- 새 캐릭터, 옷, 소품 3D 원본은 **저장소에 직접 올리지 않고 GitHub 릴리스에만** 올려요. 원본은 수십~수백 MB라 저장소에 넣으면 무거워지고 100MB 넘는 파일은 아예 안 올라가요.
+- 올리는 법 (컴퓨터에서): https://github.com/JSKIM2034/Jeonrae/releases/tag/model-1 → 오른쪽 위 연필(Edit) → 아래 "Attach binaries..." 칸에 .glb 를 끌어다 놓기 → **Update release**. 릴리스 하나에 파일이 너무 많아지면 model-2 처럼 새 릴리스를 만들어도 돼요.
+- 파일 이름은 Meshy 이름 그대로여도 괜찮아요. Claude가 화면으로 보고 누군지 알아내서 아래 "받은 3D 파일" 표에 이름과 주소를 적어요.
+- 저장소(source/models)에는 Claude가 게임용으로 줄인 결과(한 명 2~3MB)만 들어가요. 게임 용량(웹판 본체 파일 100MB 한도)은 따로 고민 중이에요.
 다 넣은 항목은 `[x]`로 바꾸고 docs/CREDITS.md 에 한 줄 더해 주세요.
 
 ## 뽑는 방법 (모든 항목 공통)
