@@ -1017,4 +1017,8 @@ const EN := {
 	"뽀얀 안개가 피어올라요": "A soft white mist rises",
 	"남쪽 갈림길\n이야기골(집 마을)\n오누이 고갯길": "South Fork\nStory Hollow (home)\nMountain Road",
 	"이야기골, 오누이 고갯길 가는 길": "To Story Hollow and the Mountain Road",
+	"해진 거적에 누워 한숨 잘까요?": "Lie down on the worn straw mat and take a nap?",
+	"목침을 베고 웅크려 잤어요.\n벽 틈으로 바람이 숭숭...\n\n언젠가 이 집을 꼭 고쳐야지!": "You curled up on a wooden pillow.\nThe wind whistled through the cracks...\n\nSomeday I will fix this house!",
+	"벽에 박은 판자 하나. 할머니가 준 이야기 책과 되찾은 이야기 %d권이 놓여 있다.": "A single plank nailed to the wall. It holds the story book from Granny and %d restored tales.",
+	"판자가 빠진 낡은 궤짝. 텅 비었다. (엽전을 모으고 이야기를 되찾으면 집을 고칠 수 있게 될 거예요. 준비 중)": "An old crate with a missing board. Empty. (Collect coins and restore tales to fix up the house. Coming soon)",
 }

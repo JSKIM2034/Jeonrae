@@ -29,6 +29,8 @@ var lot_tags: Array = []
 var room_walls: Array = []  # [벽 메시, 바깥 방향]
 var zoom_before := 1.0
 var room_was_in := false
+var leak_fx: CPUParticles3D
+var house_stage := 1   # 1 허름한 초가 → 2 고친 초가 → 3 넓은 초가 → 4 기와집 (고치기는 다음 작업)
 
 func chapter_id() -> String:
 	return "home"
@@ -37,11 +39,12 @@ func state_section() -> String:
 	return "home"
 
 func chapter_state() -> Dictionary:
-	return {"met": met_granny, "hint": granny_hint}
+	return {"met": met_granny, "hint": granny_hint, "stage": house_stage}
 
 func restore_chapter_state(d: Dictionary) -> void:
 	met_granny = d.get("met", false)
 	granny_hint = d.get("hint", 0)
+	house_stage = d.get("stage", 1)
 
 # 집 마을엔 개울이 없어요 (개울 소리와 풀 자리 계산이 멀리 가도록)
 func creek_z(_x: float) -> float:
@@ -670,11 +673,16 @@ func make_room() -> void:
 	# 방 밖은 어둑한 흙마당
 	var outside := add_solid(ROOM_C + Vector3(0, -0.5, 0), Vector3(40, 1, 40), Color(0.22, 0.18, 0.14))
 	(outside.get_parent().get_child(0) as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# 장판 바닥 (반들반들)
-	var floor_mat := make_tex_material(Color.WHITE, jangpan_tex(), 0.36, 0.5)
-	floor_mat.roughness = 0.45
-	add_mbox(self, floor_mat, Vector3(w, 0.06, d), ROOM_C + Vector3(0, 0.03, 0))
-	var wall_mat := plaster_mat(Color(0.93, 0.89, 0.8))
+	var shabby := house_stage <= 1
+	if shabby:
+		# 맨흙 바닥 (군데군데 패이고 얼룩진)
+		add_mbox(self, make_tex_material(Color(0.6, 0.48, 0.36), make_noise_tex(Color(0.7, 0.6, 0.5), Color(1, 0.95, 0.85), 0.06, 41), 0.6), Vector3(w, 0.06, d), ROOM_C + Vector3(0, 0.03, 0))
+	else:
+		# 장판 바닥 (반들반들)
+		var floor_mat := make_tex_material(Color.WHITE, jangpan_tex(), 0.36, 0.5)
+		floor_mat.roughness = 0.45
+		add_mbox(self, floor_mat, Vector3(w, 0.06, d), ROOM_C + Vector3(0, 0.03, 0))
+	var wall_mat := plaster_mat(Color(0.93, 0.89, 0.8) if not shabby else Color(0.7, 0.6, 0.48))
 	for wd in [[Vector3(0, h / 2.0, -d / 2.0), Vector3(w + 0.3, h, 0.15), Vector3(0, 0, -1)],
 			[Vector3(0, h / 2.0, d / 2.0), Vector3(w + 0.3, h, 0.15), Vector3(0, 0, 1)],
 			[Vector3(-w / 2.0, h / 2.0, 0), Vector3(0.15, h, d), Vector3(-1, 0, 0)],
@@ -688,16 +696,40 @@ func make_room() -> void:
 		var length: float = w if out_dir.x == 0.0 else d
 		var inset := -out_dir * 0.09
 		# 걸레받이, 머름(허리 높이 띠), 인방(위쪽 들보)
-		for band in [[0.09, 0.18, 0.05], [0.85, 0.07, 0.04], [h - 0.12, 0.2, 0.08]]:
+		for band in ([[0.09, 0.18, 0.05], [0.85, 0.07, 0.04], [h - 0.12, 0.2, 0.08]] if not shabby else [[h - 0.12, 0.16, 0.07]]):
 			var size := along * length + Vector3.UP * float(band[1]) + Vector3(absf(out_dir.x), 0, absf(out_dir.z)) * float(band[2])
 			add_mbox(holder, dark_wood_mat, size, inset + Vector3(0, float(band[0]) - h / 2.0, 0))
 		# 기둥 (둥근 나무 기둥)
 		for t in [-0.5, -0.17, 0.17, 0.5]:
 			if out_dir.z != 0.0 and absf(t) < 0.3 and out_dir.z > 0.0:
 				continue   # 문 자리
-			var post := add_mcyl(holder, wood_mat, 0.085, 0.095, h, inset + along * length * t)
+			var post := add_mcyl(holder, wood_mat if not shabby else dark_wood_mat, 0.085 if not shabby else 0.065, 0.095 if not shabby else 0.08, h, inset + along * length * t)
 			(post.mesh as CylinderMesh).radial_segments = 20
+			if shabby:
+				# 비뚤어진 기둥
+				post.rotation = Vector3(0.03 * t * 4.0, 0, -0.025 * t * 3.0)
 		room_walls.append([holder, out_dir])
+	if house_stage <= 1:
+		make_room_shabby(w, h, d)
+	else:
+		make_room_nice(w, h, d)
+	# 문 (남쪽 벽 가운데, 안쪽에서 나가기)
+	add_door(room_walls[1][0], Vector3(0, 0.95 - h / 2.0, -0.09), 1.0, 1.9)
+	make_spot(ROOM_C + Vector3(0, 0, d / 2.0 - 0.7), "door", "out", "", true)
+	var lamp := OmniLight3D.new()
+	lamp.position = ROOM_C + Vector3(0.9, 1.4, -1.9)
+	lamp.light_color = Color(1.0, 0.8, 0.5)
+	lamp.light_energy = 1.0 if house_stage > 1 else 0.45
+	lamp.omni_range = 7.0
+	add_child(lamp)
+	var fill := OmniLight3D.new()
+	fill.position = ROOM_C + Vector3(-0.5, 2.6, 0.8)
+	fill.light_color = Color(1.0, 0.92, 0.8)
+	fill.light_energy = 0.5 if house_stage > 1 else 0.3
+	fill.omni_range = 7.0
+	add_child(fill)
+
+func make_room_nice(w: float, h: float, d: float) -> void:
 	# 창문 (북쪽, 서쪽): 한지 바른 문살
 	add_lattice(room_walls[0][0], Vector3(1.6, 1.55 - h / 2.0, 0.1), 1.2, 0.9, 0.0)
 	add_lattice(room_walls[2][0], Vector3(0.1, 1.55 - h / 2.0, 1.4), 0.9, 0.8, PI / 2.0)
@@ -868,21 +900,122 @@ func make_room() -> void:
 		add_beam(rack, make_color(Color(0.6, 0.5, 0.36)), Vector3(ex, 1.9, 0), Vector3(ex, h, 0), 0.015, 0.015)
 	add_round(rack, cloth.call(Color(0.35, 0.55, 0.7)), Vector3(0.7, 0.55, 0.05), 0.02, Vector3(-0.25, 1.62, 0))
 	add_round(rack, cloth.call(Color(0.9, 0.86, 0.75)), Vector3(0.5, 0.7, 0.05), 0.02, Vector3(0.35, 1.53, 0.02))
-	# 문 (남쪽 벽 가운데, 안쪽에서 나가기)
-	add_door(room_walls[1][0], Vector3(0, 0.95 - h / 2.0, -0.09), 1.0, 1.9)
-	make_spot(ROOM_C + Vector3(0, 0, d / 2.0 - 0.7), "door", "out", "", true)
-	var lamp := OmniLight3D.new()
-	lamp.position = ROOM_C + Vector3(0.9, 1.4, -1.9)
-	lamp.light_color = Color(1.0, 0.8, 0.5)
-	lamp.light_energy = 1.0
-	lamp.omni_range = 7.0
-	add_child(lamp)
-	var fill := OmniLight3D.new()
-	fill.position = ROOM_C + Vector3(-0.5, 2.6, 0.8)
-	fill.light_color = Color(1.0, 0.92, 0.8)
-	fill.light_energy = 0.5
-	fill.omni_range = 7.0
-	add_child(fill)
+
+# 허름한 초가 방: 맨흙 바닥, 금 가고 구멍 난 흙벽, 찢어진 창호지, 해진 거적, 목침, 부서진 궤짝, 비 새는 자리
+# 집을 고치면(house_stage 2 이상) make_room_nice 의 고운 방으로 바뀌어요
+func make_room_shabby(w: float, h: float, d: float) -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = 17
+	var cloth := func(c: Color) -> StandardMaterial3D:
+		var m := StandardMaterial3D.new()
+		m.albedo_color = c
+		m.roughness = 1.0
+		return m
+	var crack_mat := make_color(Color(0.22, 0.17, 0.12))
+	# 벽: 흙을 덕지덕지 메운 자국, 금, 뚫린 구멍
+	for wi in 4:
+		var holder: Node3D = room_walls[wi][0]
+		var out_dir: Vector3 = room_walls[wi][1]
+		var along := Vector3(absf(out_dir.z), 0, absf(out_dir.x))
+		var length: float = w if out_dir.x == 0.0 else d
+		var face := -out_dir * 0.08
+		var patches := []
+		for k in 4:
+			var t := r.randf_range(-0.42, 0.42)
+			var y := r.randf_range(0.4, h - 0.6)
+			var sz := Vector3(r.randf_range(0.3, 0.6), r.randf_range(0.2, 0.45), 0.05)
+			var size := along * sz.x + Vector3.UP * sz.y + Vector3(absf(out_dir.x), 0, absf(out_dir.z)) * 0.025
+			patches.append([face + along * length * t + Vector3(0, y - h / 2.0, 0), size, Color(0.5, 0.4, 0.3).lerp(Color(0.62, 0.52, 0.4), r.randf())])
+		add_blobs(holder, patches)
+		# 지그재그 금
+		for k2 in 2:
+			var at := face * 1.05 + along * length * r.randf_range(-0.4, 0.4) + Vector3(0, r.randf_range(0.6, 1.4), 0)
+			for seg in 4:
+				var to := at + Vector3(0, r.randf_range(0.15, 0.28), 0) + along * r.randf_range(-0.1, 0.1)
+				add_beam(holder, crack_mat, at, to, 0.015, 0.015)
+				at = to
+	# 동쪽 벽에 뚫린 구멍 (밖이 보여요) + 쥐구멍
+	add_blobs(room_walls[3][0], [[Vector3(-0.09, 0.4, -1.4), Vector3(0.05, 0.35, 0.45), Color(0.12, 0.1, 0.08)], [Vector3(-0.09, -h / 2.0 + 0.1, 0.6), Vector3(0.05, 0.12, 0.18), Color(0.08, 0.06, 0.05)]])
+	# 창: 찢어진 창호지 문살
+	add_lattice(room_walls[0][0], Vector3(1.6, 1.55 - h / 2.0, 0.1), 1.2, 0.9, 0.0)
+	add_blobs(room_walls[0][0], [[Vector3(1.4, 1.65 - h / 2.0, 0.13), Vector3(0.22, 0.2, 0.02), Color(0.15, 0.12, 0.1)], [Vector3(1.9, 1.35 - h / 2.0, 0.13), Vector3(0.16, 0.14, 0.02), Color(0.15, 0.12, 0.1)],
+		[Vector3(1.75, 1.8 - h / 2.0, 0.14), Vector3(0.2, 0.16, 0.02), Color(0.74, 0.66, 0.5)]])
+	# 멍석 한 장 (끝이 해졌어요)
+	add_round(self, basket_mat, Vector3(2.2, 0.03, 1.6), 0.015, ROOM_C + Vector3(-0.6, 0.075, 0.3), 0.08)
+	# 거적 이부자리와 목침
+	var bed := make_spot(ROOM_C + Vector3(-2.3, 0, -0.9), "room", "bed", "", true)
+	add_round(bed, cloth.call(Color(0.56, 0.5, 0.42)), Vector3(1.0, 0.05, 1.9), 0.025, Vector3(0, 0.085, 0), 0.05)
+	add_round(bed, cloth.call(Color(0.48, 0.44, 0.4)), Vector3(0.9, 0.06, 1.0), 0.03, Vector3(0.05, 0.13, 0.35), -0.08)
+	# 기운 자국 (덧댄 천)
+	add_round(bed, cloth.call(Color(0.62, 0.42, 0.34)), Vector3(0.22, 0.01, 0.2), 0.005, Vector3(0.2, 0.165, 0.5), 0.3)
+	add_round(bed, cloth.call(Color(0.4, 0.46, 0.5)), Vector3(0.18, 0.01, 0.16), 0.005, Vector3(-0.2, 0.165, 0.2), -0.2)
+	add_round(bed, dark_wood_mat, Vector3(0.36, 0.12, 0.14), 0.02, Vector3(0, 0.17, -0.75))
+	# 이야기 책장 대신 벽에 박은 판자 하나: 할머니가 준 책과 되찾은 이야기책
+	var shelf := make_spot(ROOM_C + Vector3(2.6, 0, -2.4), "room", "shelf", "", true)
+	add_mbox(shelf, dark_wood_mat, Vector3(1.0, 0.04, 0.3), Vector3(0, 1.3, -0.05))
+	add_beam(shelf, dark_wood_mat, Vector3(-0.4, 1.28, -0.12), Vector3(-0.4, 1.05, -0.18), 0.04, 0.04)
+	add_beam(shelf, dark_wood_mat, Vector3(0.4, 1.28, -0.12), Vector3(0.4, 1.05, -0.18), 0.04, 0.04)
+	var book_cols := [Color(0.55, 0.3, 0.22), Color(0.3, 0.38, 0.5), Color(0.6, 0.5, 0.3), Color(0.35, 0.45, 0.32)]
+	for b in 1 + tales_count():
+		var bk := add_round(shelf, cloth.call(book_cols[b % book_cols.size()]), Vector3(0.08, 0.3, 0.22), 0.012, Vector3(-0.3 + b * 0.1, 1.47, -0.05))
+		bk.rotation.z = 0.12 if b == tales_count() else 0.0
+	# 부서진 나무 궤짝 (판자 하나가 빠졌어요)
+	var chest := make_spot(ROOM_C + Vector3(0.5, 0, -2.3), "room", "chest", "", true)
+	for py in [0.1, 0.3, 0.5]:
+		add_mbox(chest, dark_wood_mat, Vector3(0.9, 0.16, 0.04), Vector3(0, py, 0.22))
+	add_mbox(chest, dark_wood_mat, Vector3(0.9, 0.6, 0.04), Vector3(0, 0.3, -0.22))
+	for sx in [-0.43, 0.43]:
+		add_mbox(chest, dark_wood_mat, Vector3(0.04, 0.6, 0.44), Vector3(sx, 0.3, 0))
+	var loose := add_mbox(chest, dark_wood_mat, Vector3(0.9, 0.16, 0.04), Vector3(0.1, 0.03, 0.45))
+	loose.rotation = Vector3(PI / 2.0 - 0.1, 0.3, 0)
+	# 이 빠진 사발과 금 간 항아리
+	var bowl := MeshInstance3D.new()
+	var bsm := SphereMesh.new()
+	bsm.radius = 0.11
+	bsm.height = 0.12
+	bsm.is_hemisphere = true
+	bowl.mesh = bsm
+	bowl.material_override = cloth.call(Color(0.75, 0.7, 0.62))
+	bowl.rotation.x = PI
+	bowl.position = ROOM_C + Vector3(0.9, 0.18, 0.4)
+	add_child(bowl)
+	var jar := add_mcyl(self, glossy_mat(Color(0.38, 0.27, 0.2)), 0.16, 0.12, 0.42, ROOM_C + Vector3(2.9, 0.27, 1.9))
+	(jar.mesh as CylinderMesh).radial_segments = 20
+	add_beam(self, crack_mat, ROOM_C + Vector3(2.75, 0.45, 2.03), ROOM_C + Vector3(2.82, 0.2, 2.05), 0.012, 0.012)
+	# 비 새는 자리: 받쳐 둔 바가지 (비 오는 날엔 물방울이 똑똑)
+	var bucket_at := ROOM_C + Vector3(1.4, 0.06, -0.6)
+	add_mcyl(self, wood_mat, 0.2, 0.16, 0.18, bucket_at + Vector3(0, 0.09, 0))
+	add_mcyl(self, water_material(1, Vector4(bucket_at.x, bucket_at.z, 0.18, 0.18), Color(0.2, 0.3, 0.35), Color(0.4, 0.5, 0.55), Vector2.ZERO, 0.0), 0.17, 0.17, 0.01, bucket_at + Vector3(0, 0.14, 0))
+	leak_fx = CPUParticles3D.new()
+	leak_fx.position = bucket_at + Vector3(0, h - 0.1, 0)
+	leak_fx.amount = 3
+	leak_fx.lifetime = 0.7
+	leak_fx.direction = Vector3.DOWN
+	leak_fx.spread = 0.0
+	leak_fx.gravity = Vector3(0, -9.8, 0)
+	leak_fx.initial_velocity_min = 0.5
+	leak_fx.initial_velocity_max = 0.5
+	var drop := SphereMesh.new()
+	drop.radius = 0.025
+	drop.height = 0.07
+	var dm := StandardMaterial3D.new()
+	dm.albedo_color = Color(0.75, 0.85, 1.0, 0.8)
+	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	drop.material = dm
+	leak_fx.mesh = drop
+	leak_fx.emitting = false
+	add_child(leak_fx)
+	# 구석의 거미줄
+	var web := StandardMaterial3D.new()
+	web.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	web.albedo_color = Color(0.95, 0.95, 0.95, 0.5)
+	web.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	for corner in [Vector3(-w / 2.0 + 0.1, h - 0.1, -d / 2.0 + 0.1), Vector3(w / 2.0 - 0.1, h - 0.1, -d / 2.0 + 0.1)]:
+		var cx: Vector3 = ROOM_C + corner
+		var sx2: float = -signf(corner.x)
+		for k3 in 5:
+			var a := k3 * 0.35
+			add_beam(self, web, cx, cx + Vector3(sx2 * cos(a) * 0.6, -sin(a) * 0.6, 0.0) + Vector3(0, 0, 0.6 * sin(a * 0.5)), 0.006, 0.006)
 
 func enter_room() -> void:
 	zoom_before = cam_zoom_target
@@ -909,13 +1042,24 @@ func leave_room() -> void:
 func use_room(id: String) -> void:
 	match id:
 		"bed":
-			ask("", tr("이부자리에 누워 한숨 잘까요?"), [tr("잠자기"), tr("그만두기")], func(i: int):
-				if i == 0:
-					show_card(tr("포근한 이불 속에서\n옛이야기 꿈을 꾸었어요.\n\n개운하게 일어났어요!"), 1.0, 2.2, func(): save_progress()))
+			if house_stage <= 1:
+				ask("", tr("해진 거적에 누워 한숨 잘까요?"), [tr("잠자기"), tr("그만두기")], func(i: int):
+					if i == 0:
+						show_card(tr("목침을 베고 웅크려 잤어요.\n벽 틈으로 바람이 숭숭...\n\n언젠가 이 집을 꼭 고쳐야지!"), 1.0, 2.2, func(): save_progress()))
+			else:
+				ask("", tr("이부자리에 누워 한숨 잘까요?"), [tr("잠자기"), tr("그만두기")], func(i: int):
+					if i == 0:
+						show_card(tr("포근한 이불 속에서\n옛이야기 꿈을 꾸었어요.\n\n개운하게 일어났어요!"), 1.0, 2.2, func(): save_progress()))
 		"shelf":
-			say([["", tr("이야기 책장. 되찾은 이야기 %d권과 도감이 꽂혀 있다.") % tales_count()]], func(): open_book())
+			if house_stage <= 1:
+				say([["", tr("벽에 박은 판자 하나. 할머니가 준 이야기 책과 되찾은 이야기 %d권이 놓여 있다.") % tales_count()]], func(): open_book())
+			else:
+				say([["", tr("이야기 책장. 되찾은 이야기 %d권과 도감이 꽂혀 있다.") % tales_count()]], func(): open_book())
 		_:
-			say([["", tr("낡은 반닫이. 안에는 아직 아무것도 없다. (엽전을 모으면 집을 고칠 수 있게 될 거예요. 준비 중)")]], Callable())
+			if house_stage <= 1:
+				say([["", tr("판자가 빠진 낡은 궤짝. 텅 비었다. (엽전을 모으고 이야기를 되찾으면 집을 고칠 수 있게 될 거예요. 준비 중)")]], Callable())
+			else:
+				say([["", tr("낡은 반닫이. 안에는 아직 아무것도 없다. (엽전을 모으면 집을 고칠 수 있게 될 거예요. 준비 중)")]], Callable())
 
 # 카메라와 방 사이를 가리는 벽은 숨겨요 (부딪힘은 그대로)
 func _process(delta: float) -> void:
@@ -923,6 +1067,8 @@ func _process(delta: float) -> void:
 	if cam == null or room_walls.is_empty():
 		return
 	var inside := in_room()
+	if leak_fx != null:
+		leak_fx.emitting = inside and float(current_wx().get("rain", 0.0)) > 0.3
 	# 방 안에서는 바깥 안개·비 날씨가 뿌옇게 끼지 않게
 	if inside:
 		env_ref.fog_density = 0.0012
@@ -935,5 +1081,5 @@ func _process(delta: float) -> void:
 		var wall_pos := ROOM_C + out_dir * Vector3(ROOM_SIZE.x / 2.0, 0, ROOM_SIZE.z / 2.0)
 		var show := not inside or (cam.position - wall_pos).dot(out_dir) < 0.0
 		for c in holder.get_children():
-			if c is MeshInstance3D:
-				(c as MeshInstance3D).visible = show
+			if c is GeometryInstance3D:
+				(c as GeometryInstance3D).visible = show
