@@ -101,6 +101,12 @@ func run() -> void:
 	print("sneak ", m.sneak_on, " fireflies ", m.fireflies_got)
 	await wait(0.5)
 	await snap("sneak")
+	# 덤불을 안 거치고 지나가면 아직 성공이 아니에요
+	await go(-6, -53)
+	print("SNEAK skip blocked ", m.quest == m.S_PASS3 and m.sneak_on)
+	for sp in m.SNEAK_SPOTS:
+		await go(sp.x, sp.y)
+	print("SNEAK bushes ", m.sneak_next)
 	await go(-6, -53)
 	await wait(0.3)
 	print("Q run ", m.quest, " run_active ", m.run_active)

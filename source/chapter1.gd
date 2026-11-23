@@ -2816,7 +2816,8 @@ func start_axe_game() -> void:
 		axes[kind] = ax
 	w["axes"] = axes
 	w["sansin"] = sp
-	w["top"] = sp + dir * 0.75 + Vector3(0, 1.25, 0)
+	# 도끼 머리가 위쪽 안내판에 가리지 않게 낮게, 산신령 앞쪽으로 들어 올려요
+	w["top"] = sp + dir * 0.8 + side * 0.55 + Vector3(0, 0.65, 0)
 	w["state"] = "gap"
 	w["timer"] = 1.0
 	w["cur"] = ""
@@ -2893,13 +2894,14 @@ func make_axe_model(kind: String) -> Node3D:
 			metal.emission = Color(1.0, 0.68, 0.2)
 			metal.emission_energy_multiplier = 0.3
 		"silver":
-			body = Color(0.74, 0.78, 0.84)
-			edge = Color(0.98, 1.0, 1.0)
-			metal.metallic = 0.75
-			metal.roughness = 0.18
+			# 산신령의 흰 옷 앞에서도 보이게 푸른빛 도는 은색
+			body = Color(0.55, 0.62, 0.74)
+			edge = Color(0.95, 0.98, 1.0)
+			metal.metallic = 0.7
+			metal.roughness = 0.2
 			metal.emission_enabled = true
-			metal.emission = Color(0.7, 0.8, 0.95)
-			metal.emission_energy_multiplier = 0.22
+			metal.emission = Color(0.45, 0.62, 0.95)
+			metal.emission_energy_multiplier = 0.35
 		_:
 			body = Color(0.3, 0.29, 0.28)
 			edge = Color(0.62, 0.6, 0.58)
@@ -3017,7 +3019,7 @@ func update_axe(delta: float) -> void:
 		var ax2: Node3D = axes[cur]
 		var k := 1.0 - clampf(float(w["timer"]) / 0.35, 0.0, 1.0)
 		ax2.global_position = (sp + Vector3(0, 0.1, 0)).lerp(top, ease(k, 0.4))
-		ax2.rotation = Vector3(0, k * TAU, 0.2)
+		ax2.rotation = Vector3(0, axe_face_yaw(ax2.global_position) + (1.0 - k) * TAU, 0.2)
 		if float(w["timer"]) <= 0.0:
 			w["state"] = "show"
 			w["timer"] = show_time
@@ -3027,7 +3029,8 @@ func update_axe(delta: float) -> void:
 	elif st == "show":
 		var ax3: Node3D = axes[cur]
 		ax3.global_position = top + Vector3(0, sin(anim_t * 4.0) * 0.05, 0)
-		ax3.rotation = Vector3(0, sin(anim_t * 2.5) * 0.6, 0.2)
+		# 날의 넓은 면이 카메라를 보게 (옆에서 보면 얇은 막대로만 보여요)
+		ax3.rotation = Vector3(0, axe_face_yaw(ax3.global_position) + sin(anim_t * 2.5) * 0.3, 0.2)
 		if float(w["timer"]) <= 0.0:
 			if cur == "iron":
 				# 쇠도끼를 놓쳤어요
@@ -3059,6 +3062,9 @@ func update_axe(delta: float) -> void:
 			w["timer"] = 0.6
 	var sansin: Node3D = npcs["sansin"]
 	sansin.position.y = sin(anim_t * 1.8) * 0.06 + 0.1
+
+func axe_face_yaw(at: Vector3) -> float:
+	return atan2(cam.global_position.x - at.x, cam.global_position.z - at.z)
 
 func axe_sink() -> void:
 	w["state"] = "sink"

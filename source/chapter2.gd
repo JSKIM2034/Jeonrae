@@ -386,7 +386,7 @@ func make_cottage() -> void:
 	wc.position.y = 0.6
 	well.add_child(wc)
 	make_well_visual(well)
-	make_tree(c + Vector3(6.6, 0, -0.6), "Broad1")
+	make_well_tree(c + Vector3(6.6, 0, -0.6))
 	# 싸리 울타리
 	var fence := []
 	for k in 26:
@@ -756,7 +756,7 @@ func update_quest_text() -> void:
 	if quest >= S_LEAVE and quest <= S_PASS3:
 		extra = tr(" | 떡 광주리 %d개 | 반딧불 %d/%d") % [basket, fireflies_got, FIREFLY_N]
 	if sneak_on:
-		t = tr("호랑이가 돌아보면 꼼짝 마! 살금살금 호랑이 뒤로 지나가기")
+		t = tr("호랑이가 돌아보면 꼼짝 마! 빛나는 덤불 셋을 차례로 거쳐 호랑이 뒤로 지나가기 (%d/%d)") % [sneak_next, SNEAK_SPOTS.size()]
 	var st := 0
 	for b2 in stones:
 		if b2:
@@ -1127,12 +1127,117 @@ func update_stream(delta: float) -> void:
 		player.position = on_ground(back.x, back.y, 0.3)
 		player.velocity = Vector3.ZERO
 
+# 오두막 우물가 나무: 오누이가 오르는 나무라 아래쪽 가지는 훤히 보이고, 잎은 높이(뒤쪽으로) 달려요
+# (예전엔 둥근 나무 모델이라 잎에 가려 오누이와 호랑이가 잘 안 보였어요)
+func make_well_tree(pos: Vector3) -> void:
+	if not tree_tried:
+		load_trees()
+	var tree := StaticBody3D.new()
+	tree.position = Vector3(pos.x, height_at(pos.x, pos.z) - 0.1, pos.z)
+	add_child(tree)
+	var col := CollisionShape3D.new()
+	var shape := CylinderShape3D.new()
+	shape.radius = 0.45
+	shape.height = 2.0
+	col.shape = shape
+	col.position.y = 1.0
+	tree.add_child(col)
+	var bark := bark_mat if bark_mat != null else make_color(Color(0.45, 0.31, 0.19))
+	# 굽은 줄기 세 마디
+	var pts := [Vector3(0, 0, 0), Vector3(0.12, 2.2, 0.05), Vector3(-0.05, 4.4, -0.2), Vector3(0.1, 6.4, -0.5)]
+	var rads := [0.42, 0.34, 0.27, 0.2]
+	for i in 3:
+		var a: Vector3 = pts[i]
+		var b: Vector3 = pts[i + 1]
+		var seg := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.bottom_radius = rads[i]
+		cm.top_radius = rads[i + 1]
+		cm.height = a.distance_to(b)
+		cm.radial_segments = 14
+		seg.mesh = cm
+		seg.material_override = bark
+		tree.add_child(seg)
+		seg.position = (a + b) / 2.0
+		var dir := (b - a).normalized()
+		seg.basis = Basis(Quaternion(Vector3.UP, dir))
+	# 오누이가 디디는 굵은 가지들 (옆과 뒤로 뻗어요)
+	for br in [[Vector3(0.05, 2.6, 0.0), Vector3(-1.5, 3.6, -0.6)], [Vector3(0.0, 3.0, 0.0), Vector3(1.4, 4.1, -0.8)], [Vector3(-0.02, 3.8, -0.1), Vector3(-1.0, 5.4, -1.3)], [Vector3(0.05, 4.3, -0.2), Vector3(1.2, 5.9, -1.4)]]:
+		add_beam(tree, bark, br[0], br[1], 0.16, 0.16)
+	# 잎: 높이, 그리고 카메라 반대쪽(뒤)으로 몰아서 달아요
+	var r := RandomNumberGenerator.new()
+	r.seed = 77
+	var leaves := []
+	for i in 9:
+		var a2 := i * TAU / 9.0
+		var c := Vector3(cos(a2) * 1.6, 6.3 + r.randf_range(-0.3, 0.6), -1.0 + sin(a2) * 1.3)
+		leaves.append([c, Vector3(r.randf_range(1.6, 2.2), r.randf_range(1.2, 1.6), r.randf_range(1.6, 2.2)), Color(0.24, 0.52, 0.25).lerp(Color(0.38, 0.64, 0.3), r.randf())])
+	leaves.append([Vector3(0, 7.2, -0.9), Vector3(2.6, 1.6, 2.6), Color(0.34, 0.6, 0.3)])
+	for end in [Vector3(-1.5, 3.7, -0.7), Vector3(1.4, 4.2, -0.9)]:
+		leaves.append([end + Vector3(0, 0.2, -0.3), Vector3(0.9, 0.6, 0.9), Color(0.3, 0.58, 0.28)])
+	var canopy := add_blobs(tree, leaves)
+	sway_items.append([canopy, canopy.position, 0, pos.x * 0.7 + pos.z * 0.5, 0.4])
+
 # ---------- 무궁화 꽃이 피었습니다 (셋째 고개: 호랑이 몰래 지나가기) ----------
+# 바위 덤불 셋을 차례로 거쳐 호랑이 뒤로 지나가요. 덤불에 닿을 때마다 호랑이가 더 자주, 더 오래 돌아봐요.
+# 덤불 바로 옆에 숨어 있으면 호랑이가 돌아볼 때 움직여도 들키지 않아요.
 var sneak_on := false
 var sneak_state := "away"      # away(엄마를 봄) → warn(으르렁) → look(돌아봄)
 var sneak_t := 0.0
 var sneak_start := Vector3.ZERO
 var sneak_banner: Label
+const SNEAK_SPOTS := [Vector2(-10.2, -42.8), Vector2(-10.4, -48.6), Vector2(-3.2, -51.0)]
+const SNEAK_HIDE_R := 1.5
+var sneak_next := 0
+var sneak_marks: Array = []    # [덤불 노드, 빛 고리]
+
+func make_sneak_marks() -> void:
+	if not sneak_marks.is_empty():
+		return
+	var ring_mat := StandardMaterial3D.new()
+	ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ring_mat.albedo_color = Color(1.0, 0.9, 0.45)
+	ring_mat.emission_enabled = true
+	ring_mat.emission = Color(1.0, 0.85, 0.4)
+	var r := RandomNumberGenerator.new()
+	r.seed = 5
+	for i in SNEAK_SPOTS.size():
+		var p2: Vector2 = SNEAK_SPOTS[i]
+		var n := Node3D.new()
+		n.position = on_ground(p2.x, p2.y)
+		add_child(n)
+		# 바위 하나와 키 작은 덤불
+		add_blobs(n, [[Vector3(0.6, 0.35, -0.4), Vector3(1.2, 0.8, 1.0), stone_color(r)]], stone_blob_mat)
+		var leaves := []
+		for k in 6:
+			var a := k * TAU / 6.0
+			leaves.append([Vector3(cos(a) * 0.55, 0.55 + r.randf_range(-0.1, 0.2), sin(a) * 0.55 - 0.2), Vector3(0.9, 0.8, 0.9), Color(0.28, 0.5, 0.26).lerp(Color(0.4, 0.62, 0.3), r.randf())])
+		add_blobs(n, leaves)
+		var ring := MeshInstance3D.new()
+		var tor := TorusMesh.new()
+		tor.inner_radius = SNEAK_HIDE_R - 0.12
+		tor.outer_radius = SNEAK_HIDE_R
+		tor.rings = 32
+		ring.mesh = tor
+		ring.material_override = ring_mat
+		ring.position = Vector3(0, 0.12, 0)
+		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		n.add_child(ring)
+		add_tag(n, str(i + 1), 2.0)
+		sneak_marks.append([n, ring])
+
+func sneak_hidden() -> bool:
+	for i in mini(sneak_next + 1, SNEAK_SPOTS.size()):
+		var p2: Vector2 = SNEAK_SPOTS[i]
+		if Vector2(player.position.x, player.position.z).distance_to(p2) < SNEAK_HIDE_R:
+			return true
+	return false
+
+func update_sneak_marks() -> void:
+	for i in sneak_marks.size():
+		var ring: Node3D = sneak_marks[i][1]
+		ring.visible = sneak_on and i == sneak_next
+		ring.scale = Vector3.ONE * (1.0 + sin(anim_t * 4.0) * 0.06)
 
 func start_sneak() -> void:
 	event_lock = false
@@ -1141,6 +1246,9 @@ func start_sneak() -> void:
 	sneak_state = "away"
 	sneak_t = 2.5
 	sneak_start = player.position
+	sneak_next = 0
+	make_sneak_marks()
+	update_sneak_marks()
 	var mom := npc("mom")
 	tiger.rotation.y = atan2(mom.position.x - tiger.position.x, mom.position.z - tiger.position.z)
 	if sneak_banner == null:
@@ -1161,6 +1269,21 @@ func update_sneak(delta: float) -> void:
 	sneak_t -= delta
 	var face_mom := atan2(mom.position.x - tiger.position.x, mom.position.z - tiger.position.z)
 	var face_me := atan2(player.position.x - tiger.position.x, player.position.z - tiger.position.z)
+	var hard := float(sneak_next)   # 덤불을 지날수록 호랑이가 예민해져요
+	update_sneak_marks()
+	# 다음 덤불에 닿으면 한 단계
+	if sneak_next < SNEAK_SPOTS.size():
+		var np: Vector2 = SNEAK_SPOTS[sneak_next]
+		if Vector2(player.position.x, player.position.z).distance_to(np) < SNEAK_HIDE_R:
+			sneak_next += 1
+			sneak_start = player.position
+			sfx("good")
+			burst3d(on_ground(np.x, np.y, 0.8), Color(1.0, 0.9, 0.45), 14)
+			var msg := tr("덤불에 숨었다! (%d/%d)") % [sneak_next, SNEAK_SPOTS.size()]
+			if sneak_next >= SNEAK_SPOTS.size():
+				msg = tr("마지막 덤불! 이제 호랑이 뒤로 빠져나가요")
+			float_text(msg, get_viewport().get_visible_rect().size * Vector2(0.5, 0.45), Color(1, 0.95, 0.6), 1.2)
+			update_quest_text()
 	match sneak_state:
 		"away":
 			tiger.rotation.y = lerp_angle(tiger.rotation.y, face_mom, minf(1.0, delta * 8.0))
@@ -1168,30 +1291,36 @@ func update_sneak(delta: float) -> void:
 			sneak_banner.add_theme_color_override("font_color", Color(0.7, 1.0, 0.6))
 			if sneak_t <= 0.0:
 				sneak_state = "warn"
-				sneak_t = 0.6
+				sneak_t = maxf(0.35, 0.6 - hard * 0.08)
 				sfx("crack", 0.5)
 		"warn":
 			sneak_banner.text = tr("으르렁...?")
 			sneak_banner.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 			tiger_tail.rotation.y = sin(anim_t * 20.0) * 0.6
 			if sneak_t <= 0.0:
-				sneak_state = "look"
-				sneak_t = rng.randf_range(1.2, 2.0)
+				# 가끔은 돌아보는 척만 해요
+				if hard >= 1.0 and rng.randf() < 0.25:
+					sneak_state = "away"
+					sneak_t = rng.randf_range(0.6, 1.2)
+				else:
+					sneak_state = "look"
+					sneak_t = rng.randf_range(1.2, 2.0) + hard * 0.3
 		"look":
 			tiger.rotation.y = lerp_angle(tiger.rotation.y, face_me, minf(1.0, delta * 10.0))
-			sneak_banner.text = tr("멈춰! 꼼짝 마!")
-			sneak_banner.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4))
+			sneak_banner.text = tr("덤불 뒤라 괜찮아요...") if sneak_hidden() else tr("멈춰! 꼼짝 마!")
+			sneak_banner.add_theme_color_override("font_color", Color(0.7, 0.9, 1.0) if sneak_hidden() else Color(1.0, 0.45, 0.4))
 			var mv := Vector2(player.velocity.x, player.velocity.z).length()
-			if mv > 0.6 and absf(angle_difference(tiger.rotation.y, face_me)) < 0.4:
+			if mv > 0.6 and absf(angle_difference(tiger.rotation.y, face_me)) < 0.4 and not sneak_hidden():
 				sneak_caught()
 				return
 			if sneak_t <= 0.0:
 				sneak_state = "away"
-				sneak_t = rng.randf_range(1.6, 3.2)
-	# 호랑이 뒤로 다 지나가면 성공
-	if player.position.z < tiger.position.z - 5.0:
+				sneak_t = rng.randf_range(1.6, 3.2) * (1.0 - hard * 0.15)
+	# 덤불 셋을 다 거쳐 호랑이 뒤로 지나가면 성공
+	if sneak_next >= SNEAK_SPOTS.size() and player.position.z < tiger.position.z - 5.0:
 		sneak_on = false
 		sneak_banner.visible = false
+		update_sneak_marks()
 		sfx("good")
 		float_text(tr("지나갔다! 이제 달려요!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.9, 0.4), 1.6)
 		start_run()

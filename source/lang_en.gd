@@ -1007,4 +1007,8 @@ const EN := {
 	"갈대 나루 건너 이야기골(집 마을)로": "Go home to Story Hollow",
 	"오누이 고갯길로 돌아가기": "Back to the mountain road",
 	"이야기골과 오누이 고갯길로 가는 길": "Road to Story Hollow and the mountain road",
+	"호랑이가 돌아보면 꼼짝 마! 빛나는 덤불 셋을 차례로 거쳐 호랑이 뒤로 지나가기 (%d/%d)": "Freeze when the tiger turns! Hide behind the three glowing bushes in order, then slip past behind the tiger (%d/%d)",
+	"덤불에 숨었다! (%d/%d)": "Hidden in the bush! (%d/%d)",
+	"마지막 덤불! 이제 호랑이 뒤로 빠져나가요": "Last bush! Now slip past behind the tiger",
+	"덤불 뒤라 괜찮아요...": "Safe behind the bush...",
 }
