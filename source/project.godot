@@ -11,3 +11,10 @@ renderer/rendering_method="mobile"
 [internationalization]
 
 locale/fallback="ko"
+
+[importer_defaults]
+
+scene={
+"meshes/create_shadow_meshes": false,
+"meshes/generate_lods": false
+}
