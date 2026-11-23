@@ -18,6 +18,11 @@ Create a 3D game character concept: full body, front view, standing in a relaxed
 Setting: a cozy storybook version of Joseon-era Korea.
 ```
 
+## 원화 상태 (2026-11-23)
+
+15장 모두 원화를 뽑았어요. `docs/concepts/<파일 이름>.jpg` 에 보관 (예: docs/concepts/hero_girl.jpg). 3D 변환은 Meshy 크레딧이 돌아오면 진행.
+3D가 오기 전에는 이 원화를 보고 옷가게 화면의 옷 그림, 임시 인물의 옷 색을 맞춰요. 어부 소년(outfit_m_fisher)은 등의 삿갓을 뺀 그림으로 확정.
+
 ## 1. 여자 주인공 (가장 먼저)
 
 지금 주인공은 파란 점퍼와 노란 가방을 멘 요즘 남자아이예요. 처음 시작할 때 남자/여자 주인공을 고를 수 있게 하려면 같은 그림체의 여자아이가 필요해요.
