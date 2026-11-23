@@ -113,7 +113,7 @@ Wears an elegant child-sized dangui ceremonial jacket in soft green with gold fl
 이 인물들은 걷기 동작이 꼭 필요하지 않아서 뼈대 없이 Meshy "Image to 3D"까지만 해 주면 돼요(뼈대는 Claude가 tools/rig_npc.py 로 붙여요).
 지금 있는 할머니·아저씨 모델로 대신할 수도 있지만, 얼굴이 겹치지 않게 새로 뽑으면 더 좋아요. 위 "공통 앞부분"을 붙이되 "child" 대신 각 인물 설명을 써요.
 
-- [x] (3D 받음, 뼈대 전) **이야기꾼 할머니** (집 마을, 처음 대화 상대) · 파일: `storyteller.glb`
+- [x] (2026-11-24 뼈대 붙여 게임에 넣음: source/models/storyteller.glb, tools/rig_cfg/storyteller.json) **이야기꾼 할머니** (집 마을, 처음 대화 상대) · 파일: `storyteller.glb`
 ```
 A kind elderly Korean grandmother storyteller, small and slightly hunched, white hair in a low bun with a wooden binyeo hairpin, warm smiling wrinkled face. Wears a muted plum jeogori and a gray chima skirt, with a cloth-wrapped old picture book tied on her back (attached, not held in hands).
 ```

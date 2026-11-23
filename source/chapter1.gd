@@ -3268,8 +3268,17 @@ func paint_ground_splat() -> void:
 func splat_forest(_x: float, z: float) -> float:
 	return clampf((-17.5 - z) / 4.0, 0.0, 1.0)
 
-# 남쪽 이정표: 2장으로 가요
+# 남쪽 이정표: 2장으로, 또는 버드나무 길 따라 집 마을(이야기골)로 가요
 func on_gate() -> void:
-	ask("", tr("“이 길을 따라가면 해와 달이 된 오누이 이야기”\n2장으로 넘어갈까요?\n(1장 이야기는 저장돼요. 돌아오면 이어서 할 수 있어요.)"), [tr("2장으로 가기"), tr("다음에 갈게요")], func(i: int):
+	ask("", tr("“이 길을 따라가면 해와 달이 된 오누이 이야기”\n이정표 아래 작은 팻말: “버드나무 길: 이야기골(집 마을)”\n(1장 이야기는 저장돼요. 돌아오면 이어서 할 수 있어요.)"), [tr("2장으로 가기"), tr("이야기골(집 마을)로 가기"), tr("다음에 갈게요")], func(i: int):
 		if i == 0:
-			go_to_chapter("ch2"))
+			go_to_chapter("ch2")
+		elif i == 1:
+			go_to_chapter("home"))
+
+# 집 마을에서 버드나무 길로 돌아오면 남쪽 이정표 안쪽에서 북쪽을 보고 서요
+func arrive_from(from: String) -> void:
+	if from == "home":
+		player.position = Vector3(-2.0, 0.3, 29.0)
+		cam_yaw = 0.0
+		cam_yaw_target = 0.0
