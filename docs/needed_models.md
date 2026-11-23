@@ -142,6 +142,12 @@ A sturdy, sun-tanned Korean seaside fisherman in his forties, short beard, a whi
 | 약초꾼 할아버지 | herbalist.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_214039.glb |
 | 갯바위 어부 아저씨 | seafisher.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_1396de.glb |
 
+| (다시 받음) 엄마 원본 | mom.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/Little.Hanbok.Helper_Meshy_AI_2026-11-19_7bd92a.glb |
+| (다시 받음) 놀부 원본 | nolbu.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/Smiling.Joseon.Nobleman_Meshy_AI_2026-11-18_062d1d.glb |
+
+- 원본이 백만 면 넘게 무거우면 rig_cfg 에 "keep_uv": true 를 넣어 다시 굽지 않고 줄여요(다시 구우면 그림이 잘게 쪼개져 얼굴이 금 간 것처럼 보여요). 3만 면으로 줄이면 그림 이음매에 금이 남아서 6만 면으로.
+- 새 모델은 모두 이 릴리스(model-1)에 "Edit → 파일 추가" 로 올려 달라고 안내해요.
+
 ## 메모 (Claude가 구현할 때)
 
 - 지금 주인공은 뼈대가 있는 모델이라 `recolor_outfit()` 이 바로 return 해요. 그래서 1장 "한복"(has_hanbok)을 사도 실제로 옷이 안 바뀌고 있어요. 옷 갈아입기는 "옷마다 주인공 모델 하나를 바꿔 끼우기"로 만들고, 걷기·뛰기·헤엄 동작은 지금 주인공 동작을 같은 뼈대 이름으로 옮겨 씌워요(tools/merge_anims.py).

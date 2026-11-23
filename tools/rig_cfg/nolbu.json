@@ -1,6 +1,6 @@
 {
  "name": "Nolbu",
- "polys": 30000,
+ "polys": 60000,
  "hips": [
   -0.45,
   -0.12
@@ -63,5 +63,6 @@
  ],
  "robe_bottom": -0.77,
  "robe_leg": 0.45,
- "tex": 1024
+ "tex": 1024,
+ "keep_uv": true
 }

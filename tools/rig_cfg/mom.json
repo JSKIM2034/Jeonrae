@@ -1,6 +1,6 @@
 {
  "name": "Mom",
- "polys": 30000,
+ "polys": 60000,
  "tex": 1024,
  "hips": [
   -0.05,
@@ -83,5 +83,6 @@
   0.3
  ],
  "robe_bottom": -0.86,
- "robe_leg": 0.3
+ "robe_leg": 0.3,
+ "keep_uv": true
 }

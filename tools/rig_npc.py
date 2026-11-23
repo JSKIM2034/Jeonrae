@@ -13,6 +13,7 @@
 #   "crotch": -0.45, "hip_top": -0.3,                                              다리와 엉덩이가 섞이는 높이
 #   "neck": [0.3, 0.4], "waist": [-0.25, -0.05],
 #   "robe_bottom": -2.0, "robe_leg": 1.0                                           두루마기·치마: 이 높이 위는 다리 영향을 줄여요
+#   "keep_uv": true                                                                다시 굽지 않고 원본 그림 자리 그대로 줄이기
 # }
 import bpy, sys, json
 from mathutils import Vector
@@ -47,6 +48,12 @@ if n > target * 1.2:
     # 매끈하게: 모서리 각이 큰 곳만 각지게
     for poly in mesh.data.polygons:
         poly.use_smooth = True
+if n > target * 1.2 and C.get("keep_uv", False):
+    # 원본 그림 자리를 그대로 두고 모양만 줄여요 (다시 구우면 그림이 잘게 쪼개져 금 간 것처럼 보이는 인물용: 엄마, 놀부)
+    bpy.data.objects.remove(high)
+    bpy.context.view_layer.objects.active = mesh
+    mesh.select_set(True)
+elif n > target * 1.2:
     # 새 그림 자리
     while len(mesh.data.uv_layers) > 0:
         mesh.data.uv_layers.remove(mesh.data.uv_layers[0])
@@ -245,6 +252,8 @@ bsdf.inputs["Metallic"].default_value = 0.0
 bsdf.inputs["Roughness"].default_value = 0.75
 # 갓 챙, 소매, 치맛자락처럼 얇은 곳은 뒷면도 보이게
 mat.use_backface_culling = False
+if base_img is not None and C.get("keep_uv", False):
+    base_img.name = "baked"   # 게임에서 <이름>_baked.jpg 로 꺼내져 손실 압축 설정을 그대로 받아요
 if base_img is not None and base_img.size[0] > C.get("tex", 1024):
     base_img.scale(C.get("tex", 1024), C.get("tex", 1024))
 mat.name = C.get("name", "Npc") + "Skin"
