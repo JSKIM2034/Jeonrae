@@ -224,39 +224,42 @@ func make_paw3d() -> void:
 	paw3d = Node3D.new()
 	world_node(paw3d)
 	var org := Color(0.88, 0.45, 0.1)
-	var org_l := Color(0.92, 0.52, 0.16)
-	var stripe := Color(0.25, 0.14, 0.08)
-	var fur := Color(1.0, 0.93, 0.82)
+	var stripe := Color(0.22, 0.12, 0.07)
+	var fur := Color(1.0, 0.96, 0.9)
 	var bean := Color(1.0, 0.55, 0.66)
-	# 굵고 짧은 팔 (발보다 살짝 가늘게, 손목은 털이 부숭부숭)
+	# 굵고 짧은 팔, 손목 쪽은 하얀 털
 	var arm := [
 		[Vector3(0, 1.2, -0.1), Vector3(0.86, 2.0, 0.72), org],
-		[Vector3(0, 0.38, -0.02), Vector3(0.84, 0.55, 0.7), org],
+		[Vector3(0, 0.36, -0.02), Vector3(0.82, 0.5, 0.68), fur],
 	]
-	for y in [0.62, 0.98, 1.34, 1.7]:
-		arm.append([Vector3(0, y, -0.1), Vector3(0.9, 0.12, 0.76), stripe])
+	# 호랑이 줄무늬: 원판처럼 감지 않고, 보이는 쪽 겉에 양옆에서 들어오는 뾰족한 무늬로
+	var bands := [[0.75, 0.0], [1.12, 0.06], [1.5, -0.04], [1.86, 0.05]]
+	for band in bands:
+		var y: float = band[0]
+		var sh: float = band[1]
+		for sx in [-1.0, 1.0]:
+			arm.append([Vector3(sx * 0.24 + sh, y, 0.18), Vector3(0.36, 0.075, 0.16), stripe, Vector3(0, 0, sx * -22.0)])
 	add_blobs(paw3d, arm)
-	# 발은 손바닥이 정면을 보지 않게 비스듬히 (내려치는 듯 앞으로 숙이고 살짝 옆으로)
+	# 발: 하얀 털에 분홍 젤리. 광주리 쪽으로 손을 뻗어 움켜쥐려는 각도 (발바닥이 앞을 보며 살짝 이쪽으로)
 	var hand := Node3D.new()
 	paw3d.add_child(hand)
-	hand.rotation = Vector3(-0.35, 0.95, 0.0)
+	hand.rotation = Vector3(0.5, 0.25, 0.0)
 	var items := [
-		[Vector3(0, 0, 0), Vector3(1.0, 0.82, 0.64), org_l],
+		[Vector3(0, 0, 0), Vector3(0.98, 0.82, 0.64), fur],
 		[Vector3(0, 0.02, 0.3), Vector3(0.42, 0.32, 0.1), bean],
 	]
-	# 앞쪽에 오동통한 발가락 넷 (테두리가 울퉁불퉁해야 고양이 손처럼 보여요)
 	for k in 4:
 		var x := -0.34 + k * 0.227
 		var y := -0.36 - (0.04 if k == 1 or k == 2 else 0.0)
-		items.append([Vector3(x, y, 0.0), Vector3(0.3, 0.32, 0.52), fur])
-		items.append([Vector3(x, y - 0.04, 0.26), Vector3(0.15, 0.13, 0.08), bean])
+		items.append([Vector3(x, y, 0.04), Vector3(0.3, 0.32, 0.5), fur])
+		items.append([Vector3(x, y - 0.03, 0.29), Vector3(0.15, 0.13, 0.08), bean])
 	add_blobs(hand, items)
 	paw3d_claws = Node3D.new()
 	hand.add_child(paw3d_claws)
 	var cl := []
 	for k in 4:
 		var x2 := -0.34 + k * 0.227
-		cl.append([Vector3(x2, -0.58, 0.04), Vector3(0.07, 0.2, 0.07), Color(0.98, 0.97, 0.92)])
+		cl.append([Vector3(x2, -0.58, 0.12), Vector3(0.07, 0.2, 0.07), Color(0.98, 0.97, 0.92)])
 	add_blobs(paw3d_claws, cl)
 	for mi in paw3d.find_children("*", "GeometryInstance3D", true, false):
 		(mi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
