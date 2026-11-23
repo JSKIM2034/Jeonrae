@@ -28,6 +28,7 @@ var tales := {}            # 끝낸 이야기 {"ch1": true, ...} (각 장의 저
 var lot_tags: Array = []
 var room_walls: Array = []  # [벽 메시, 바깥 방향]
 var zoom_before := 1.0
+var room_was_in := false
 
 func chapter_id() -> String:
 	return "home"
@@ -545,16 +546,135 @@ func weather_sheltered() -> bool:
 func in_room() -> bool:
 	return player != null and player.position.x > ROOM_C.x - 20.0
 
+# ---- 방 안 소품을 곱게 만드는 도구들 ----
+
+# 모서리가 둥근 상자 (요, 이불, 베개, 방석처럼 폭신한 것)
+func rounded_box(size: Vector3, r: float, seg: int = 8) -> ArrayMesh:
+	# 잘게 나눈 정육면체의 점을 안쪽 상자 + 둥근 껍질로 옮겨요
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var half := size / 2.0
+	var inner := (half - Vector3.ONE * r).max(Vector3.ZERO)
+	var faces := [[Vector3.RIGHT, Vector3.BACK, Vector3.UP], [Vector3.LEFT, Vector3.FORWARD, Vector3.UP], [Vector3.UP, Vector3.RIGHT, Vector3.BACK],
+		[Vector3.DOWN, Vector3.RIGHT, Vector3.FORWARD], [Vector3.BACK, Vector3.LEFT, Vector3.UP], [Vector3.FORWARD, Vector3.RIGHT, Vector3.UP]]
+	for f in faces:
+		var nrm: Vector3 = f[0]
+		var u: Vector3 = f[1]
+		var v: Vector3 = f[2]
+		var grid := []
+		for a in seg + 1:
+			var row := []
+			for b in seg + 1:
+				var cube := nrm + u * (2.0 * a / seg - 1.0) + v * (2.0 * b / seg - 1.0)
+				var full := cube * half
+				var core := full.clamp(-inner, inner)
+				var dir := full - core
+				var n := dir.normalized() if dir.length() > 0.0001 else nrm
+				row.append([core + n * r, n])
+			grid.append(row)
+		for a in seg:
+			for b in seg:
+				var q := [grid[a][b], grid[a + 1][b], grid[a + 1][b + 1], grid[a][b + 1]]
+				for k in [0, 1, 2, 0, 2, 3]:
+					st.set_normal(q[k][1])
+					st.add_vertex(q[k][0])
+	return st.commit()
+
+func add_round(parent: Node3D, mat: Material, size: Vector3, r: float, pos: Vector3, rot_y: float = 0.0) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = rounded_box(size, r)
+	mi.material_override = mat
+	mi.position = pos
+	mi.rotation.y = rot_y
+	parent.add_child(mi)
+	return mi
+
+# 장판: 누런 기름종이를 이어 붙인 바닥 (이음매가 살짝 짙어요)
+func jangpan_tex() -> ImageTexture:
+	var n := 256
+	var img := Image.create(n, n, true, Image.FORMAT_RGB8)
+	var r := RandomNumberGenerator.new()
+	r.seed = 11
+	var base := Color(0.88, 0.68, 0.36)
+	for y in n:
+		for x in n:
+			var c := base.darkened(r.randf_range(0.0, 0.05))
+			# 종이결: 가로로 은은한 줄
+			c = c.lightened(0.04 * sin(y * 0.7 + sin(x * 0.05) * 2.0))
+			if x % 64 < 2 or y % 64 < 2:
+				c = c.darkened(0.22)
+			elif x % 64 < 4 or y % 64 < 4:
+				c = c.darkened(0.08)
+			img.set_pixel(x, y, c)
+	return tex_from(img)
+
+# 조각보: 알록달록한 천 조각을 이어 붙인 이불 무늬
+func jogakbo_tex() -> ImageTexture:
+	var n := 256
+	var img := Image.create(n, n, true, Image.FORMAT_RGB8)
+	img.fill(Color(0.97, 0.94, 0.86))
+	var r := RandomNumberGenerator.new()
+	r.seed = 3
+	var cols := [Color(0.85, 0.36, 0.4), Color(0.96, 0.78, 0.4), Color(0.45, 0.62, 0.82), Color(0.55, 0.75, 0.55), Color(0.9, 0.6, 0.7), Color(0.98, 0.92, 0.8), Color(0.62, 0.48, 0.75)]
+	var rects := [Rect2i(0, 0, n, n)]
+	for k in 40:
+		var idx := r.randi() % rects.size()
+		var rc: Rect2i = rects[idx]
+		if rc.size.x < 40 and rc.size.y < 40:
+			continue
+		rects.remove_at(idx)
+		if rc.size.x > rc.size.y:
+			var cut := r.randi_range(rc.size.x / 3, rc.size.x * 2 / 3)
+			rects.append(Rect2i(rc.position, Vector2i(cut, rc.size.y)))
+			rects.append(Rect2i(rc.position + Vector2i(cut, 0), Vector2i(rc.size.x - cut, rc.size.y)))
+		else:
+			var cut2 := r.randi_range(rc.size.y / 3, rc.size.y * 2 / 3)
+			rects.append(Rect2i(rc.position, Vector2i(rc.size.x, cut2)))
+			rects.append(Rect2i(rc.position + Vector2i(0, cut2), Vector2i(rc.size.x, rc.size.y - cut2)))
+	for rc in rects:
+		var c: Color = cols[r.randi() % cols.size()]
+		img.fill_rect(Rect2i(rc.position + Vector2i(2, 2), rc.size - Vector2i(4, 4)), c)
+	return tex_from(img)
+
+# 병풍 그림: 하늘, 먼 산, 소나무, 꽃
+func screen_tex() -> ImageTexture:
+	var w := 128
+	var h := 256
+	var img := Image.create(w, h, true, Image.FORMAT_RGB8)
+	for y in h:
+		for x in w:
+			var t := float(y) / h
+			var c := Color(0.96, 0.92, 0.82).lerp(Color(0.92, 0.86, 0.72), t)
+			# 먼 산 두 겹
+			var m1 := 0.45 + 0.08 * sin(x * 0.06) + 0.05 * sin(x * 0.17 + 1.0)
+			var m2 := 0.6 + 0.06 * sin(x * 0.09 + 2.0) + 0.04 * sin(x * 0.23)
+			if t > m1:
+				c = c.lerp(Color(0.62, 0.7, 0.66), 0.55)
+			if t > m2:
+				c = c.lerp(Color(0.4, 0.55, 0.42), 0.6)
+			# 물결 아래
+			if t > 0.85:
+				c = c.lerp(Color(0.5, 0.66, 0.78), 0.5 + 0.1 * sin(x * 0.4 + y * 0.8))
+			img.set_pixel(x, y, c)
+	# 붉은 해
+	for y in 30:
+		for x in 30:
+			if Vector2(x - 15, y - 15).length() < 12:
+				img.set_pixel(85 + x, 40 + y, Color(0.86, 0.32, 0.28))
+	return tex_from(img)
+
 func make_room() -> void:
 	var w := ROOM_SIZE.x
 	var h := ROOM_SIZE.y
 	var d := ROOM_SIZE.z
-	# 바닥: 장판 방(누런 장판) + 방 밖은 어둑한 흙마당
+	# 방 밖은 어둑한 흙마당
 	var outside := add_solid(ROOM_C + Vector3(0, -0.5, 0), Vector3(40, 1, 40), Color(0.22, 0.18, 0.14))
 	(outside.get_parent().get_child(0) as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var floor_mi := add_box(self, Color(0.86, 0.66, 0.36), Vector3(w, 0.06, d), ROOM_C + Vector3(0, 0.03, 0))
-	floor_mi.material_override = glossy_mat(Color(0.86, 0.66, 0.36))
-	var wall_mat := plaster_mat(Color(0.86, 0.8, 0.68))
+	# 장판 바닥 (반들반들)
+	var floor_mat := make_tex_material(Color.WHITE, jangpan_tex(), 0.36, 0.5)
+	floor_mat.roughness = 0.45
+	add_mbox(self, floor_mat, Vector3(w, 0.06, d), ROOM_C + Vector3(0, 0.03, 0))
+	var wall_mat := plaster_mat(Color(0.93, 0.89, 0.8))
 	for wd in [[Vector3(0, h / 2.0, -d / 2.0), Vector3(w + 0.3, h, 0.15), Vector3(0, 0, -1)],
 			[Vector3(0, h / 2.0, d / 2.0), Vector3(w + 0.3, h, 0.15), Vector3(0, 0, 1)],
 			[Vector3(-w / 2.0, h / 2.0, 0), Vector3(0.15, h, d), Vector3(-1, 0, 0)],
@@ -563,58 +683,206 @@ func make_room() -> void:
 		var holder := col.get_parent() as Node3D
 		var mi := holder.get_child(0) as MeshInstance3D
 		mi.material_override = wall_mat
-		# 아래 걸레받이 나무
-		add_mbox(holder, dark_wood_mat, Vector3(wd[1].x + 0.02, 0.18, wd[1].z + 0.02), ROOM_C + wd[0] + Vector3(0, -h / 2.0 + 0.09, 0) - holder.position)
-		add_mbox(holder, dark_wood_mat, Vector3(wd[1].x + 0.04, 0.14, wd[1].z + 0.04), ROOM_C + wd[0] + Vector3(0, h / 2.0 - 0.07, 0) - holder.position)
-		room_walls.append([holder, wd[2]])
-	# 북쪽 벽 창문 (문살)
-	add_lattice(room_walls[0][0], Vector3(1.6, 1.5 - h / 2.0, 0.1), 1.2, 0.9, 0.0)
-	# 이부자리: 요와 이불, 베개 (서쪽)
-	var bed := make_spot(ROOM_C + Vector3(-2.3, 0, -0.6), "room", "bed", "", true)
-	add_box(bed, Color(0.92, 0.88, 0.8), Vector3(1.4, 0.12, 2.2), Vector3(0, 0.08, 0))
-	add_box(bed, Color(0.78, 0.36, 0.38), Vector3(1.36, 0.14, 1.5), Vector3(0, 0.2, 0.3))
-	add_box(bed, Color(0.95, 0.82, 0.4), Vector3(1.36, 0.02, 0.2), Vector3(0, 0.28, -0.35))
-	add_blobs(bed, [[Vector3(0, 0.24, -0.82), Vector3(0.7, 0.2, 0.32), Color(0.4, 0.55, 0.78)]])
-	# 이야기 책장 (북동쪽)
-	var shelf := make_spot(ROOM_C + Vector3(2.4, 0, -1.9), "room", "shelf", "", true)
-	add_mbox(shelf, dark_wood_mat, Vector3(1.5, 1.7, 0.45), Vector3(0, 0.85, 0))
-	var books := []
+		var out_dir: Vector3 = wd[2]
+		var along := Vector3(absf(out_dir.z), 0, absf(out_dir.x))
+		var length: float = w if out_dir.x == 0.0 else d
+		var inset := -out_dir * 0.09
+		# 걸레받이, 머름(허리 높이 띠), 인방(위쪽 들보)
+		for band in [[0.09, 0.18, 0.05], [0.85, 0.07, 0.04], [h - 0.12, 0.2, 0.08]]:
+			var size := along * length + Vector3.UP * float(band[1]) + Vector3(absf(out_dir.x), 0, absf(out_dir.z)) * float(band[2])
+			add_mbox(holder, dark_wood_mat, size, inset + Vector3(0, float(band[0]) - h / 2.0, 0))
+		# 기둥 (둥근 나무 기둥)
+		for t in [-0.5, -0.17, 0.17, 0.5]:
+			if out_dir.z != 0.0 and absf(t) < 0.3 and out_dir.z > 0.0:
+				continue   # 문 자리
+			var post := add_mcyl(holder, wood_mat, 0.085, 0.095, h, inset + along * length * t)
+			(post.mesh as CylinderMesh).radial_segments = 20
+		room_walls.append([holder, out_dir])
+	# 창문 (북쪽, 서쪽): 한지 바른 문살
+	add_lattice(room_walls[0][0], Vector3(1.6, 1.55 - h / 2.0, 0.1), 1.2, 0.9, 0.0)
+	add_lattice(room_walls[2][0], Vector3(0.1, 1.55 - h / 2.0, 1.4), 0.9, 0.8, PI / 2.0)
+	# 병풍 (서쪽 벽 앞, 여섯 폭이 지그재그로 접혀요)
+	var paint := make_tex_material(Color.WHITE, screen_tex(), 0.9)
+	paint.uv1_triplanar = false
+	paint.uv1_world_triplanar = false
+	for k in 6:
+		var panel := Node3D.new()
+		var zz := -2.25 + k * 0.42
+		panel.position = ROOM_C + Vector3(-w / 2.0 + 0.32 + (0.06 if k % 2 == 0 else -0.06), 0, zz)
+		panel.rotation.y = PI / 2.0 + (0.28 if k % 2 == 0 else -0.28)
+		add_child(panel)
+		var pm := MeshInstance3D.new()
+		var qm := QuadMesh.new()
+		qm.size = Vector2(0.38, 1.25)
+		pm.mesh = qm
+		pm.material_override = paint
+		pm.position = Vector3(0, 0.82, 0.016)
+		panel.add_child(pm)
+		var back := pm.duplicate() as MeshInstance3D
+		back.rotation.y = PI
+		back.position.z = -0.016
+		panel.add_child(back)
+		for fr in [[Vector3(0, 1.47, 0), Vector3(0.44, 0.05, 0.04)], [Vector3(0, 0.17, 0), Vector3(0.44, 0.05, 0.04)], [Vector3(-0.2, 0.82, 0), Vector3(0.04, 1.36, 0.04)], [Vector3(0.2, 0.82, 0), Vector3(0.04, 1.36, 0.04)]]:
+			add_mbox(panel, dark_wood_mat, fr[1], fr[0])
+		add_mbox(panel, dark_wood_mat, Vector3(0.05, 0.14, 0.05), Vector3(-0.19, 0.07, 0))
+	# 이부자리: 요, 조각보 이불, 베개
+	var bed := make_spot(ROOM_C + Vector3(-1.9, 0, -0.6), "room", "bed", "", true)
+	var cloth := func(c: Color) -> StandardMaterial3D:
+		var m := StandardMaterial3D.new()
+		m.albedo_color = c
+		m.roughness = 0.9
+		return m
+	add_round(bed, cloth.call(Color(0.96, 0.95, 0.9)), Vector3(1.25, 0.16, 2.1), 0.07, Vector3(0, 0.1, 0))
+	var quilt_mat := make_tex_material(Color.WHITE, jogakbo_tex(), 0.8)
+	quilt_mat.roughness = 0.9
+	add_round(bed, quilt_mat, Vector3(1.3, 0.16, 1.45), 0.07, Vector3(0, 0.24, 0.3))
+	# 접힌 이불 끝자락
+	add_round(bed, quilt_mat, Vector3(1.3, 0.1, 0.32), 0.05, Vector3(0, 0.36, -0.3))
+	add_round(bed, cloth.call(Color(0.42, 0.58, 0.8)), Vector3(0.62, 0.16, 0.3), 0.07, Vector3(0, 0.26, -0.78))
+	for sx in [-0.31, 0.31]:
+		var cap := MeshInstance3D.new()
+		var cy := CylinderMesh.new()
+		cy.top_radius = 0.075
+		cy.bottom_radius = 0.075
+		cy.height = 0.02
+		cy.radial_segments = 20
+		cap.mesh = cy
+		cap.material_override = cloth.call(Color(0.9, 0.35, 0.35))
+		cap.rotation.z = PI / 2.0
+		cap.position = Vector3(sx, 0.26, -0.78)
+		bed.add_child(cap)
+	# 이야기 책장 (북동쪽): 옆판, 뒤판, 선반 넷
+	var shelf := make_spot(ROOM_C + Vector3(2.5, 0, -2.2), "room", "shelf", "", true)
+	for sx2 in [-0.72, 0.72]:
+		add_mbox(shelf, dark_wood_mat, Vector3(0.06, 1.8, 0.42), Vector3(sx2, 0.9, 0))
+	add_mbox(shelf, wood_mat, Vector3(1.44, 1.8, 0.03), Vector3(0, 0.9, -0.2))
+	for row in 4:
+		add_mbox(shelf, dark_wood_mat, Vector3(1.5, 0.05, 0.44), Vector3(0, 0.08 + row * 0.55, 0))
 	var r := RandomNumberGenerator.new()
 	r.seed = 4
-	var lit := tales_count()
+	var book_cols := [Color(0.62, 0.22, 0.2), Color(0.22, 0.36, 0.58), Color(0.82, 0.66, 0.28), Color(0.28, 0.5, 0.32), Color(0.88, 0.85, 0.76), Color(0.45, 0.3, 0.5)]
 	for row in 3:
-		var x := -0.6
+		var x := -0.66
 		while x < 0.6:
-			var bw := r.randf_range(0.07, 0.13)
-			var c: Color = [Color(0.7, 0.25, 0.22), Color(0.25, 0.4, 0.62), Color(0.85, 0.7, 0.3), Color(0.3, 0.55, 0.35), Color(0.9, 0.88, 0.8)][r.randi() % 5]
-			if row == 2 and x > 0.0:
-				break
-			books.append([Vector3(x + bw / 2.0, 0.42 + row * 0.5, 0.18), Vector3(bw, r.randf_range(0.3, 0.4), 0.3), c])
-			x += bw + 0.01
-		add_mbox(shelf, plank_mat, Vector3(1.4, 0.04, 0.4), Vector3(0, 0.22 + row * 0.5, 0.0))
-	add_blobs(shelf, books)
-	# 반닫이(궤) 와 호롱불
-	var chest := make_spot(ROOM_C + Vector3(0.6, 0, -2.2), "room", "chest", "", true)
-	add_mbox(chest, wood_mat, Vector3(1.2, 0.7, 0.5), Vector3(0, 0.35, 0.0))
-	for bx in [-0.4, 0.0, 0.4]:
-		add_box(chest, Color(0.75, 0.6, 0.25), Vector3(0.12, 0.12, 0.02), Vector3(bx, 0.45, 0.26))
-	add_lantern(chest, Vector3(0.35, 0.72, 0))
-	# 밥상과 방석
-	add_mcyl(self, wood_mat, 0.5, 0.45, 0.06, ROOM_C + Vector3(1.2, 0.34, 0.6))
-	for lx in [-0.3, 0.3]:
-		for lz in [-0.3, 0.3]:
-			add_mbox(self, dark_wood_mat, Vector3(0.06, 0.32, 0.06), ROOM_C + Vector3(1.2 + lx, 0.16, 0.6 + lz))
-	add_blobs(self, [[ROOM_C + Vector3(1.2, 0.42, 0.6), Vector3(0.22, 0.1, 0.22), Color(0.96, 0.95, 0.9)],
-		[ROOM_C + Vector3(0.1, 0.05, 0.9), Vector3(0.7, 0.08, 0.7), Color(0.55, 0.3, 0.45)]])
+			var bw := r.randf_range(0.06, 0.11)
+			var bh := r.randf_range(0.32, 0.44)
+			var c: Color = book_cols[r.randi() % book_cols.size()]
+			var bk := add_round(shelf, cloth.call(c), Vector3(bw, bh, 0.3), 0.012, Vector3(x + bw / 2.0, 0.105 + row * 0.55 + bh / 2.0, 0.0))
+			bk.rotation.z = r.randf_range(-0.04, 0.04)
+			# 책등 띠
+			add_mbox(bk, cloth.call(c.lightened(0.45)), Vector3(bw + 0.004, 0.02, 0.302), Vector3(0, bh * 0.3, 0))
+			x += bw + 0.008
+			if r.randf() < 0.12:
+				x += 0.12
+	# 맨 위: 두루마리와 작은 항아리
+	for k2 in 3:
+		var sc := add_mcyl(shelf, cloth.call(Color(0.95, 0.9, 0.78)), 0.04, 0.04, 0.5, Vector3(-0.3 + k2 * 0.02, 1.8 + k2 * 0.08, 0.0))
+		sc.rotation.z = PI / 2.0
+	var vase := MeshInstance3D.new()
+	var vs := SphereMesh.new()
+	vs.radius = 0.12
+	vs.height = 0.26
+	vase.mesh = vs
+	vase.material_override = glossy_mat(Color(0.35, 0.55, 0.62))
+	vase.position = Vector3(0.4, 1.78 + 0.13, 0)
+	shelf.add_child(vase)
+	# 반닫이: 나무 궤에 놋쇠 장식
+	var chest := make_spot(ROOM_C + Vector3(0.6, 0, -2.25), "room", "chest", "", true)
+	add_round(chest, wood_mat, Vector3(1.2, 0.62, 0.5), 0.02, Vector3(0, 0.39, 0))
+	add_round(chest, dark_wood_mat, Vector3(1.26, 0.05, 0.54), 0.02, Vector3(0, 0.72, 0))
+	for lx2 in [-0.55, 0.55]:
+		add_mbox(chest, dark_wood_mat, Vector3(0.08, 0.1, 0.48), Vector3(lx2, 0.05, 0))
+	var brass := glossy_mat(Color(0.86, 0.68, 0.3))
+	brass.metallic = 0.6
+	brass.roughness = 0.3
+	for bx in [-0.42, 0.42]:
+		for by in [0.2, 0.58]:
+			var disc := add_mcyl(chest, brass, 0.06, 0.06, 0.015, Vector3(bx, by, 0.255))
+			disc.rotation.x = PI / 2.0
+			(disc.mesh as CylinderMesh).radial_segments = 20
+	# 가운데 자물쇠 장식 (나비 모양 둘)
+	for wing in [-1.0, 1.0]:
+		var bw2 := add_mcyl(chest, brass, 0.08, 0.08, 0.015, Vector3(wing * 0.07, 0.48, 0.258))
+		bw2.rotation.x = PI / 2.0
+		bw2.scale = Vector3(1.0, 1.0, 0.7)
+	add_mbox(chest, brass, Vector3(0.05, 0.16, 0.03), Vector3(0, 0.42, 0.27))
+	# 호롱불 (반닫이 위, 등잔대)
+	var lamp_stand := Node3D.new()
+	lamp_stand.position = Vector3(0.38, 0.745, 0)
+	chest.add_child(lamp_stand)
+	add_mcyl(lamp_stand, dark_wood_mat, 0.07, 0.09, 0.03, Vector3(0, 0.015, 0))
+	add_mcyl(lamp_stand, dark_wood_mat, 0.015, 0.02, 0.34, Vector3(0, 0.19, 0))
+	add_mcyl(lamp_stand, glossy_mat(Color(0.9, 0.88, 0.82)), 0.06, 0.035, 0.05, Vector3(0, 0.38, 0))
+	var flame := MeshInstance3D.new()
+	var fsm := SphereMesh.new()
+	fsm.radius = 0.025
+	fsm.height = 0.08
+	flame.mesh = fsm
+	var fm := StandardMaterial3D.new()
+	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fm.albedo_color = Color(1.0, 0.75, 0.3)
+	flame.material_override = fm
+	flame.position = Vector3(0, 0.44, 0)
+	lamp_stand.add_child(flame)
+	sway_items.append([flame, flame.position, 0, 2.0, 0.15])
+	# 소반과 방석
+	var table := Node3D.new()
+	table.position = ROOM_C + Vector3(1.1, 0, 0.5)
+	add_child(table)
+	var top := add_mcyl(table, wood_mat, 0.5, 0.48, 0.05, Vector3(0, 0.36, 0))
+	(top.mesh as CylinderMesh).radial_segments = 40
+	var rim := MeshInstance3D.new()
+	var tor := TorusMesh.new()
+	tor.inner_radius = 0.47
+	tor.outer_radius = 0.52
+	tor.rings = 40
+	tor.ring_segments = 8
+	rim.mesh = tor
+	rim.material_override = dark_wood_mat
+	rim.position = Vector3(0, 0.39, 0)
+	table.add_child(rim)
+	for k3 in 4:
+		var a := k3 * TAU / 4.0 + PI / 4.0
+		add_beam(table, dark_wood_mat, Vector3(cos(a) * 0.32, 0.34, sin(a) * 0.32), Vector3(cos(a) * 0.4, 0.0, sin(a) * 0.4), 0.05, 0.05)
+	var bowl := MeshInstance3D.new()
+	var bsm := SphereMesh.new()
+	bsm.radius = 0.11
+	bsm.height = 0.12
+	bsm.is_hemisphere = true
+	bowl.mesh = bsm
+	bowl.material_override = glossy_mat(Color(0.95, 0.94, 0.9))
+	bowl.rotation.x = PI
+	bowl.position = Vector3(-0.1, 0.5, 0.0)
+	table.add_child(bowl)
+	add_blobs(table, [[Vector3(-0.1, 0.45, 0.0), Vector3(0.17, 0.05, 0.17), Color(0.98, 0.98, 0.95)]])
+	add_mcyl(table, brass, 0.006, 0.006, 0.26, Vector3(0.15, 0.4, 0.1)).rotation.z = PI / 2.0
+	add_round(self, cloth.call(Color(0.6, 0.28, 0.42)), Vector3(0.62, 0.1, 0.62), 0.05, ROOM_C + Vector3(0.15, 0.06, 0.95))
+	# 횃대 (남쪽 벽 쪽 옷걸이 막대)에 걸린 저고리
+	var rack := Node3D.new()
+	rack.position = ROOM_C + Vector3(w / 2.0 - 0.3, 0, 0.9)
+	rack.rotation.y = PI / 2.0
+	add_child(rack)
+	var pole := add_mcyl(rack, dark_wood_mat, 0.025, 0.025, 1.4, Vector3(0, 1.9, 0))
+	pole.rotation.z = PI / 2.0
+	for ex in [-0.68, 0.68]:
+		add_beam(rack, make_color(Color(0.6, 0.5, 0.36)), Vector3(ex, 1.9, 0), Vector3(ex, h, 0), 0.015, 0.015)
+	add_round(rack, cloth.call(Color(0.35, 0.55, 0.7)), Vector3(0.7, 0.55, 0.05), 0.02, Vector3(-0.25, 1.62, 0))
+	add_round(rack, cloth.call(Color(0.9, 0.86, 0.75)), Vector3(0.5, 0.7, 0.05), 0.02, Vector3(0.35, 1.53, 0.02))
 	# 문 (남쪽 벽 가운데, 안쪽에서 나가기)
 	add_door(room_walls[1][0], Vector3(0, 0.95 - h / 2.0, -0.09), 1.0, 1.9)
 	make_spot(ROOM_C + Vector3(0, 0, d / 2.0 - 0.7), "door", "out", "", true)
 	var lamp := OmniLight3D.new()
-	lamp.position = ROOM_C + Vector3(0, 2.2, 0)
-	lamp.light_color = Color(1.0, 0.85, 0.6)
-	lamp.light_energy = 0.8
-	lamp.omni_range = 6.0
+	lamp.position = ROOM_C + Vector3(0.9, 1.4, -1.9)
+	lamp.light_color = Color(1.0, 0.8, 0.5)
+	lamp.light_energy = 1.0
+	lamp.omni_range = 7.0
 	add_child(lamp)
+	var fill := OmniLight3D.new()
+	fill.position = ROOM_C + Vector3(-0.5, 2.6, 0.8)
+	fill.light_color = Color(1.0, 0.92, 0.8)
+	fill.light_energy = 0.5
+	fill.omni_range = 7.0
+	add_child(fill)
 
 func enter_room() -> void:
 	zoom_before = cam_zoom_target
@@ -655,6 +923,12 @@ func _process(delta: float) -> void:
 	if cam == null or room_walls.is_empty():
 		return
 	var inside := in_room()
+	# 방 안에서는 바깥 안개·비 날씨가 뿌옇게 끼지 않게
+	if inside:
+		env_ref.fog_density = 0.0012
+	elif room_was_in:
+		apply_weather_look()
+	room_was_in = inside
 	for rw in room_walls:
 		var holder: Node3D = rw[0]
 		var out_dir: Vector3 = rw[1]

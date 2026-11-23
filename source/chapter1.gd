@@ -279,15 +279,21 @@ func make_signpost(pos: Vector3) -> void:
 	var board := add_mbox(sign, plank_mat, Vector3(1.7, 0.42, 0.08), Vector3(0, 1.62, 0))
 	board.rotation.z = -0.05
 	var lab := Label3D.new()
-	lab.text = tr("이 길 끝은 오누이 고갯길\n해와 달이 된 오누이")
+	lab.text = tr("남쪽 갈림길\n이야기골(집 마을)\n오누이 고갯길")
 	lab.font = font
 	lab.font_size = 34
 	lab.modulate = Color(0.25, 0.14, 0.08)
 	lab.outline_size = 0
 	lab.position = Vector3(0, 1.62, 0.05)
 	lab.pixel_size = 0.0034
+	lab.double_sided = false
 	sign.add_child(lab)
-	add_tag(sign, tr("다음 이야기로 가는 길"), 2.4)
+	# 뒤쪽(마을 쪽)에서도 글이 바로 읽히게 한 장 더
+	var lab2 := lab.duplicate() as Label3D
+	lab2.rotation.y = PI
+	lab2.position.z = -0.05
+	sign.add_child(lab2)
+	add_tag(sign, tr("이야기골, 오누이 고갯길 가는 길"), 2.4)
 
 func make_border(r: RandomNumberGenerator) -> void:
 	# 보이지 않는 벽 바깥에 나무와 덤불을 둘러 심어, 마을이 숲에 감싸인 것처럼

@@ -2602,11 +2602,11 @@ func make_rain_fx() -> void:
 	rain_fx.initial_velocity_min = 13.0
 	rain_fx.initial_velocity_max = 16.0
 	var drop := BoxMesh.new()
-	drop.size = Vector3(0.03, 0.7, 0.03)
+	drop.size = Vector3(0.016, 0.6, 0.016)
 	var dm := StandardMaterial3D.new()
 	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	dm.albedo_color = Color(0.86, 0.91, 1.0, 0.6)
+	dm.albedo_color = Color(0.86, 0.91, 1.0, 0.42)
 	drop.material = dm
 	rain_fx.mesh = drop
 	rain_fx.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

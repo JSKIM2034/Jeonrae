@@ -1015,4 +1015,6 @@ const EN := {
 	"하늘에 구름이 잔뜩 꼈어요": "The sky is full of clouds",
 	"후드득, 비가 내리기 시작했어요": "Pitter-patter, it starts to rain",
 	"뽀얀 안개가 피어올라요": "A soft white mist rises",
+	"남쪽 갈림길\n이야기골(집 마을)\n오누이 고갯길": "South Fork\nStory Hollow (home)\nMountain Road",
+	"이야기골, 오누이 고갯길 가는 길": "To Story Hollow and the Mountain Road",
 }
