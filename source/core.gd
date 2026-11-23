@@ -227,19 +227,26 @@ func make_paw3d() -> void:
 	var stripe := Color(0.25, 0.14, 0.08)
 	var fur := Color(1.0, 0.86, 0.66)
 	var bean := Color(1.0, 0.55, 0.66)
+	var arm := [[Vector3(0, 1.45, -0.12), Vector3(0.66, 2.5, 0.6), org]]
+	for y in [0.75, 1.2, 1.65, 2.1]:
+		arm.append([Vector3(0, y, -0.12), Vector3(0.7, 0.1, 0.64), stripe])
+	add_blobs(paw3d, arm)
+	# 발은 손바닥이 정면을 보지 않게 비스듬히 (내려치는 듯 앞으로 숙이고 살짝 옆으로)
+	var hand := Node3D.new()
+	paw3d.add_child(hand)
+	hand.rotation = Vector3(0.8, 0.0, 0.35)
 	var items := [
-		[Vector3(0, 1.45, -0.12), Vector3(0.66, 2.5, 0.6), org],
 		[Vector3(0, 0, 0), Vector3(0.92, 0.98, 0.62), fur],
 		[Vector3(0, 0.1, 0.28), Vector3(0.4, 0.36, 0.1), bean],
 	]
-	for y in [0.75, 1.2, 1.65, 2.1]:
-		items.append([Vector3(0, y, -0.12), Vector3(0.7, 0.1, 0.64), stripe])
 	for k in 4:
 		var a := -0.75 + k * 0.5
 		items.append([Vector3(sin(a) * 0.3, -cos(a) * 0.3, 0.27), Vector3(0.17, 0.15, 0.08), bean])
-	add_blobs(paw3d, items)
+		# 발등 쪽 동글동글한 발가락
+		items.append([Vector3(sin(a) * 0.3, -cos(a) * 0.34, -0.06), Vector3(0.24, 0.24, 0.34), fur])
+	add_blobs(hand, items)
 	paw3d_claws = Node3D.new()
-	paw3d.add_child(paw3d_claws)
+	hand.add_child(paw3d_claws)
 	var cl := []
 	for k in 4:
 		var a2 := -0.75 + k * 0.5
