@@ -198,6 +198,82 @@ func pop_scale(c: Control) -> float:
 
 # --- 등장인물과 물건 ---
 
+# 막기 놀이에서 공격(앞발)이 화면 어디에 얼마나 크게 있는지: [위치, 반지름, 가운데]
+func swipe_geom(a: Dictionary, W: float, H: float, jitter: bool) -> Array:
+	var c := Vector2(W * 0.5, H * 0.55)
+	var edge := {"left": Vector2(W * 0.17, H * 0.55), "right": Vector2(W * 0.83, H * 0.55), "up": Vector2(W * 0.5, H * 0.42)}   # 위쪽은 제목 칸에 가리지 않게
+	var p: Vector2 = edge[a["dir"]]
+	var tm: float = a["time"]
+	var grow := 0.6
+	if a["phase"] == "tele":
+		grow = 0.55 + tm * 0.5
+		if jitter:
+			p += Vector2(rng.randf_range(-3, 3), rng.randf_range(-3, 3))
+	elif a["phase"] == "strike":
+		grow = 1.25
+		p = p.lerp(c, minf(1.0, tm * 1.4) * 0.35)
+	else:
+		grow = maxf(0.2, 0.9 - tm * 1.6)
+	return [p, font_size * 1.6 * grow, c]
+
+# 3D 호랑이 앞발 (고양이 손 모양). 화면의 앞발 자리에 진짜 입체 앞발을 띄워요
+var paw3d: Node3D
+var paw3d_claws: Node3D
+
+func make_paw3d() -> void:
+	paw3d = Node3D.new()
+	world_node(paw3d)
+	var org := Color(0.96, 0.56, 0.18)
+	var stripe := Color(0.25, 0.14, 0.08)
+	var fur := Color(1.0, 0.86, 0.66)
+	var bean := Color(1.0, 0.55, 0.66)
+	var items := [
+		[Vector3(0, 1.45, -0.12), Vector3(0.66, 2.5, 0.6), org],
+		[Vector3(0, 0, 0), Vector3(0.92, 0.98, 0.62), fur],
+		[Vector3(0, 0.1, 0.28), Vector3(0.4, 0.36, 0.1), bean],
+	]
+	for y in [0.75, 1.2, 1.65, 2.1]:
+		items.append([Vector3(0, y, -0.12), Vector3(0.7, 0.1, 0.64), stripe])
+	for k in 4:
+		var a := -0.75 + k * 0.5
+		items.append([Vector3(sin(a) * 0.3, -cos(a) * 0.3, 0.27), Vector3(0.17, 0.15, 0.08), bean])
+	add_blobs(paw3d, items)
+	paw3d_claws = Node3D.new()
+	paw3d.add_child(paw3d_claws)
+	var cl := []
+	for k in 4:
+		var a2 := -0.75 + k * 0.5
+		cl.append([Vector3(sin(a2) * 0.5, -cos(a2) * 0.5, 0.08), Vector3(0.07, 0.22, 0.07), Color(0.98, 0.97, 0.92), Vector3(0, 0, rad_to_deg(a2))])
+	add_blobs(paw3d_claws, cl)
+	for mi in paw3d.find_children("*", "GeometryInstance3D", true, false):
+		(mi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+func update_paw3d() -> void:
+	if not mg_world or mg_cfg.get("scene", "") != "paws" or cam == null:
+		return
+	if paw3d == null or not is_instance_valid(paw3d):
+		make_paw3d()
+	var a: Dictionary = cg.get("atk", {})
+	if a.is_empty():
+		paw3d.visible = false
+		return
+	var geo := swipe_geom(a, mg_overlay.size.x, mg_overlay.size.y, false)
+	var base := mg_overlay.global_position
+	var p: Vector2 = base + geo[0]
+	var c: Vector2 = base + geo[2]
+	var depth := 4.0
+	if w.has("basket"):
+		depth = maxf(1.5, cam.global_position.distance_to(w["basket"]) * 0.8)
+	var wp := cam.project_position(p, depth)
+	var wr := cam.project_position(p + Vector2(geo[1], 0), depth).distance_to(wp)
+	var to_cam := (cam.global_position - wp).normalized()
+	var out := (wp - cam.project_position(c, depth)).normalized()   # 가운데에서 앞발 쪽 (팔이 뻗어 나온 쪽)
+	out = (out - to_cam * out.dot(to_cam)).normalized()
+	var xb := out.cross(to_cam).normalized()
+	paw3d.global_transform = Transform3D(Basis(xb, out, to_cam).scaled(Vector3.ONE * wr / 0.46), wp)
+	paw3d.visible = true
+	paw3d_claws.visible = a["phase"] == "strike"
+
 # 고양이 손 같은 호랑이 앞발: 줄무늬 팔 끝에 말랑한 발, 분홍 젤리 발바닥. 내려칠 땐 발톱이 쏙
 func draw_cat_paw(ci: CanvasItem, p: Vector2, toward: Vector2, r: float, claws: bool) -> void:
 	var d := (toward - p).normalized()
@@ -6608,6 +6684,7 @@ func update_custom(delta: float) -> void:
 			update_rhythm(delta)
 		"swipe":
 			update_swipe(delta)
+			update_paw3d()
 		"alternate":
 			update_alternate(delta)
 		"mash":
@@ -7251,23 +7328,14 @@ func custom_draw() -> void:
 		"swipe":
 			var a: Dictionary = cg["atk"]
 			if not a.is_empty():
-				var c := Vector2(W * 0.5, H * 0.55)
-				var edge := {"left": Vector2(W * 0.1, H * 0.55), "right": Vector2(W * 0.9, H * 0.55), "up": Vector2(W * 0.5, H * 0.34)}
-				var p: Vector2 = edge[a["dir"]]
-				var tm: float = a["time"]
-				var grow := 0.6
+				var geo := swipe_geom(a, W, H, true)
+				var p: Vector2 = geo[0]
+				var r: float = geo[1]
+				var c: Vector2 = geo[2]
 				var col := Color(0.96, 0.56, 0.18)
-				if a["phase"] == "tele":
-					grow = 0.55 + tm * 0.5
-					p += Vector2(rng.randf_range(-3, 3), rng.randf_range(-3, 3))
-				elif a["phase"] == "strike":
-					grow = 1.25
-					p = p.lerp(c, minf(1.0, tm * 1.4) * 0.35)
-				else:
-					grow = maxf(0.2, 0.9 - tm * 1.6)
-				var r := font_size * 1.6 * grow
 				if mg_cfg.get("scene", "") == "paws":
-					draw_cat_paw(ci, p, c, r, a["phase"] == "strike")
+					if not (paw3d != null and is_instance_valid(paw3d)):
+						draw_cat_paw(ci, p, c, r, a["phase"] == "strike")
 				else:
 					ci.draw_circle(p, r, col)
 					for k in 3:
