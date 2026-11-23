@@ -2823,38 +2823,161 @@ func start_axe_game() -> void:
 	w["since_iron"] = 0
 	axe_info()
 
+# 도끼 머리: 둥글게 휜 날, 날 쪽으로 얇아지는 두께, 반짝이는 날끝 (코드로 만든 고운 모양)
+func axe_head_mesh(edge_col: Color, body_col: Color) -> ArrayMesh:
+	# 옆에서 본 모양 (x: 날 쪽, y: 위). 자루 구멍(눈)은 x=0 근처
+	var outline := PackedVector2Array()
+	outline.append(Vector2(-0.075, 0.30))
+	outline.append(Vector2(0.0, 0.295))
+	for i in 7:
+		var t := i / 6.0
+		# 아래쪽 턱: 날 쪽으로 갈수록 아래로 휘어 내려가요
+		outline.append(Vector2(0.03 + t * 0.22, 0.29 - t * t * 0.11))
+	for i in 13:
+		var t := -1.0 + i / 6.0
+		# 날끝: 바깥으로 둥글게 부풀어요
+		outline.append(Vector2(0.265 + 0.045 * (1.0 - t * t), 0.365 + t * 0.19))
+	for i in 7:
+		var t := 1.0 - i / 6.0
+		outline.append(Vector2(0.03 + t * 0.22, 0.43 + t * t * 0.125))
+	outline.append(Vector2(0.0, 0.425))
+	outline.append(Vector2(-0.075, 0.42))
+	var tris := Geometry2D.triangulate_polygon(outline)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# 두께: 눈 쪽 두껍고 날 쪽 얇게
+	var thick := func(x: float) -> float:
+		return lerpf(0.075, 0.012, clampf((x + 0.02) / 0.32, 0.0, 1.0))
+	var col_at := func(p: Vector2) -> Color:
+		var edge := clampf((p.x - 0.22) / 0.08, 0.0, 1.0)
+		return body_col.lerp(edge_col, edge)
+	for side in [1.0, -1.0]:
+		for k in range(0, tris.size(), 3):
+			var ids := [tris[k], tris[k + 1], tris[k + 2]]
+			if side < 0.0:
+				ids = [tris[k], tris[k + 2], tris[k + 1]]
+			for id in ids:
+				var p: Vector2 = outline[id]
+				st.set_color(col_at.call(p))
+				st.add_vertex(Vector3(p.x, p.y, side * thick.call(p.x) * 0.5))
+	# 둘레 띠
+	var n := outline.size()
+	for i in n:
+		var a: Vector2 = outline[i]
+		var b: Vector2 = outline[(i + 1) % n]
+		var ta: float = thick.call(a.x) * 0.5
+		var tb: float = thick.call(b.x) * 0.5
+		var ca: Color = col_at.call(a)
+		var cb: Color = col_at.call(b)
+		var q := [[Vector3(a.x, a.y, ta), ca], [Vector3(b.x, b.y, tb), cb], [Vector3(b.x, b.y, -tb), cb], [Vector3(a.x, a.y, -ta), ca]]
+		for idx in [0, 2, 1, 0, 3, 2]:
+			st.set_color(q[idx][1])
+			st.add_vertex(q[idx][0])
+	st.generate_normals()
+	return st.commit()
+
 func make_axe_model(kind: String) -> Node3D:
 	var n := Node3D.new()
 	world_node(n)
 	var metal := StandardMaterial3D.new()
+	metal.vertex_color_use_as_albedo = true
+	var body := Color.WHITE
+	var edge := Color.WHITE
 	match kind:
 		"gold":
-			metal.albedo_color = Color(1.0, 0.78, 0.22)
-			metal.metallic = 0.85
-			metal.roughness = 0.25
+			body = Color(0.95, 0.68, 0.16)
+			edge = Color(1.0, 0.93, 0.62)
+			metal.metallic = 0.75
+			metal.roughness = 0.22
 			metal.emission_enabled = true
-			metal.emission = Color(1.0, 0.7, 0.2)
-			metal.emission_energy_multiplier = 0.35
+			metal.emission = Color(1.0, 0.68, 0.2)
+			metal.emission_energy_multiplier = 0.3
 		"silver":
-			metal.albedo_color = Color(0.86, 0.9, 0.95)
-			metal.metallic = 0.85
-			metal.roughness = 0.2
+			body = Color(0.74, 0.78, 0.84)
+			edge = Color(0.98, 1.0, 1.0)
+			metal.metallic = 0.75
+			metal.roughness = 0.18
 			metal.emission_enabled = true
 			metal.emission = Color(0.7, 0.8, 0.95)
-			metal.emission_energy_multiplier = 0.25
+			metal.emission_energy_multiplier = 0.22
 		_:
-			metal.albedo_color = Color(0.36, 0.34, 0.33)
-			metal.metallic = 0.3
-			metal.roughness = 0.85
-	var handle: Material = metal if kind != "iron" else wood_mat
-	add_mcyl(n, handle, 0.032, 0.038, 0.95, Vector3(0, 0, 0))
-	add_mbox(n, metal, Vector3(0.22, 0.17, 0.07), Vector3(0.1, 0.36, 0))
-	add_mbox(n, metal, Vector3(0.07, 0.3, 0.06), Vector3(0.22, 0.36, 0))
-	add_mbox(n, metal, Vector3(0.08, 0.12, 0.08), Vector3(-0.04, 0.36, 0))
+			body = Color(0.3, 0.29, 0.28)
+			edge = Color(0.62, 0.6, 0.58)
+			metal.metallic = 0.35
+			metal.roughness = 0.75
+	var head := MeshInstance3D.new()
+	head.mesh = axe_head_mesh(edge, body)
+	head.material_override = metal
+	n.add_child(head)
+	# 자루: 아래로 살짝 굵어지고 끝에 둥근 꼭지
+	var plain := StandardMaterial3D.new()
+	plain.metallic = metal.metallic
+	plain.roughness = metal.roughness + 0.1
+	plain.albedo_color = body
+	if metal.emission_enabled:
+		plain.emission_enabled = true
+		plain.emission = metal.emission
+		plain.emission_energy_multiplier = metal.emission_energy_multiplier
+	var handle: Material = plain if kind != "iron" else wood_mat
+	var hc := MeshInstance3D.new()
+	var cy := CylinderMesh.new()
+	cy.top_radius = 0.028
+	cy.bottom_radius = 0.036
+	cy.height = 0.98
+	cy.radial_segments = 24
+	cy.rings = 4
+	hc.mesh = cy
+	hc.material_override = handle
+	hc.position = Vector3(0, 0.0, 0)
+	n.add_child(hc)
+	var knob := MeshInstance3D.new()
+	var sp := SphereMesh.new()
+	sp.radius = 0.045
+	sp.height = 0.07
+	sp.radial_segments = 20
+	sp.rings = 10
+	knob.mesh = sp
+	knob.material_override = handle
+	knob.position = Vector3(0, -0.5, 0)
+	n.add_child(knob)
+	# 자루 꼭대기와 손잡이 띠 (금·은은 무늬 띠, 쇠도끼는 감은 끈)
+	var band_mat: Material = metal if kind != "iron" else make_color(Color(0.55, 0.42, 0.28))
+	var band_y := [0.47, -0.22, -0.3, -0.38] if kind != "iron" else [-0.24, -0.29, -0.34, -0.39]
+	for by in band_y:
+		var bm := MeshInstance3D.new()
+		var tor := TorusMesh.new()
+		tor.inner_radius = 0.03
+		tor.outer_radius = 0.042
+		tor.rings = 20
+		tor.ring_segments = 8
+		bm.mesh = tor
+		bm.material_override = band_mat
+		bm.position = Vector3(0, by, 0)
+		n.add_child(bm)
 	if kind == "iron":
-		# 녹슨 자국
-		add_ball(n, Color(0.55, 0.32, 0.18), 0.035, Vector3(0.12, 0.4, 0.035))
-		add_ball(n, Color(0.5, 0.3, 0.18), 0.025, Vector3(0.05, 0.31, 0.035))
+		# 녹슨 자국과 이 빠진 날
+		# 날 표면에 얇게 번진 녹 (납작한 얼룩)
+		add_blobs(n, [[Vector3(0.12, 0.4, 0.024), Vector3(0.07, 0.045, 0.006), Color(0.55, 0.32, 0.18)],
+			[Vector3(0.06, 0.33, 0.03), Vector3(0.05, 0.03, 0.006), Color(0.5, 0.3, 0.18)],
+			[Vector3(0.17, 0.32, -0.019), Vector3(0.06, 0.04, 0.006), Color(0.48, 0.28, 0.16)]])
+	else:
+		# 날에 박힌 보석 한 알
+		var gem := MeshInstance3D.new()
+		var gs := SphereMesh.new()
+		gs.radius = 0.022
+		gs.height = 0.03
+		gem.mesh = gs
+		var gm := StandardMaterial3D.new()
+		gm.albedo_color = Color(0.85, 0.15, 0.2) if kind == "gold" else Color(0.2, 0.45, 0.9)
+		gm.emission_enabled = true
+		gm.emission = gm.albedo_color
+		gm.emission_energy_multiplier = 0.5
+		gm.roughness = 0.1
+		gem.material_override = gm
+		for z in [0.034, -0.034]:
+			var g2 := gem.duplicate() as MeshInstance3D
+			g2.position = Vector3(0.05, 0.36, z)
+			n.add_child(g2)
 	n.scale = Vector3.ONE * 1.5
 	return n
 
