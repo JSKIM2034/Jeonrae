@@ -79,9 +79,18 @@ func cam_ceiling() -> float:
 
 # 남쪽 끝 이정표: 2장으로 돌아가요
 func on_gate() -> void:
-	ask("", tr("2장 오누이네 고갯길로 돌아갈까요?"), [tr("돌아가기"), tr("더 둘러볼래요")], func(i: int):
+	ask("", tr("어디로 갈까요?\n(3장 이야기는 저장돼요.)"), [tr("갈대 나루 건너 이야기골(집 마을)로"), tr("2장 오누이네 고갯길로 돌아가기"), tr("더 둘러볼래요")], func(i: int):
 		if i == 0:
+			go_to_chapter("home")
+		elif i == 1:
 			go_to_chapter("ch2"))
+
+# 집 마을에서 갈대 나루를 건너오면 남쪽 어귀에서 바다(북쪽)를 보고 서요
+func arrive_from(from: String) -> void:
+	if from == "home":
+		player.position = Vector3(0, height_at(0, 46) + 0.3, 46)
+		cam_yaw = 0.0
+		cam_yaw_target = 0.0
 
 # ---------- 땅 높이 ----------
 
@@ -369,7 +378,7 @@ func make_shore_village() -> void:
 	var gate := make_spot(on_ground(3.2, 49.0), "gate", "", "", true)
 	add_mcyl(gate, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
-	add_tag(gate, tr("2장 고갯길로 가는 길"), 2.6)
+	add_tag(gate, tr("이야기골과 2장 고갯길로 가는 길"), 2.6)
 
 func make_leaf_bush(pos: Vector3, size: Vector3, c: Color, seed_v: int) -> void:
 	if not tree_tried:

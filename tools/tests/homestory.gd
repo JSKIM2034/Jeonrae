@@ -1,6 +1,6 @@
 extends Node
 # 집 마을(이야기골) 테스트: 1장 남쪽 이정표 -> 집 마을 도착 자리 -> 할머니 첫 인사 -> [home] 칸 저장
-# -> 버드나무 길 이정표로 1장 남쪽에 돌아오기 -> 1장 엔딩이 있으면 정자나무 등불과 빈 집터 팻말이 바뀜
+# -> 내 집 방 안 -> 돌고개(2장)·갈대 나루(3장) 오가기 -> 버드나무 길 이정표로 1장 남쪽에 돌아오기 -> 1장 엔딩이 있으면 정자나무 등불과 빈 집터 팻말이 바뀜
 var m
 func settle() -> void:
 	var idle := 0
@@ -71,10 +71,40 @@ func run() -> void:
 	m.talk_to("storyteller")
 	await settle()
 	check(m.granny_hint == 1, "granny gives a hint")
+	# 내 집 안으로 들어갔다 나오기
+	m.enter_room()
+	await settle()
+	check(m.in_room(), "entered my house")
+	m.current_thing = m.find_thing()
+	check(not m.current_thing.is_empty() and m.current_thing["kind"] == "door" and m.current_thing["id"] == "out", "exit door is right behind you")
+	m.use_room("bed")
+	check(m.asking, "bed asks to sleep")
+	m.on_option(0)
+	await settle()
+	m.leave_room()
+	await settle()
+	check(not m.in_room() and m.player.position.distance_to(Vector3(0, 0.3, 11.4)) < 1.0, "left the house to the yard")
+	# 돌고개 -> 2장 남쪽 -> 다시 집 마을 돌고개 입구
 	m.current_thing = {"kind": "gate", "id": "ch2", "node": m}
 	m.on_gate()
-	await settle()
-	check(m.chapter_id() == "home", "stone pass road not open yet")
+	m.on_option(0)
+	await wait_scene("ch2")
+	check(m.chapter_id() == "ch2" and m.player.position.z > 44.0, "stone pass leads to chapter 2 south entrance")
+	m.on_gate()
+	check(m.options_box.get_child_count() == 3, "chapter 2 south sign offers home")
+	m.on_option(0)
+	await wait_scene("home")
+	check(m.player.position.distance_to(Vector3(0.8, 0.3, -25.5)) < 1.5, "back at stone pass entrance")
+	# 갈대 나루 -> 3장 -> 집 마을
+	m.current_thing = {"kind": "gate", "id": "ch3", "node": m}
+	m.on_gate()
+	m.on_option(0)
+	await wait_scene("ch3")
+	check(m.chapter_id() == "ch3" and m.player.position.z > 44.0, "reed ferry leads to chapter 3 south entrance")
+	m.on_gate()
+	m.on_option(0)
+	await wait_scene("home")
+	check(m.player.position.distance_to(Vector3(23.0, 0.3, -15.0)) < 1.5, "back at reed ferry entrance")
 	m.current_thing = {"kind": "gate", "id": "ch1", "node": m}
 	m.on_gate()
 	check(m.asking, "willow road asks")

@@ -137,7 +137,7 @@ A sturdy, sun-tanned Korean seaside fisherman in his forties, short beard, a whi
 
 | 인물 | 게임 파일 이름 | 내려받기 |
 |---|---|---|
-| 이야기꾼 할머니 | storyteller.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_9a96d5.glb |
+| 이야기꾼 할머니 (각져 보여서 다시 받으면 좋음: 같은 원화로 Meshy 를 더 높은 면 수로 뽑아 이 릴리스에 올려 주세요) | storyteller.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_9a96d5.glb |
 | 옷가게 아주머니 | tailor.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_3de71a.glb |
 | 약초꾼 할아버지 | herbalist.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_214039.glb |
 | 갯바위 어부 아저씨 | seafisher.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_1396de.glb |

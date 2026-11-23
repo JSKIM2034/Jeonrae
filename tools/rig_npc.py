@@ -31,6 +31,21 @@ bpy.context.view_layer.objects.active = mesh
 mesh.select_set(True)
 bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
+# 0) 아주 가벼운(각진) 원본은 이음매를 붙이고 한 번 잘게 나눠 둥글게 ("subdiv": 1)
+if C.get("subdiv", 0) > 0:
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.mesh.remove_doubles(threshold=0.0001)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    sub = mesh.modifiers.new("sub", "SUBSURF")
+    sub.levels = C["subdiv"]
+    sub.render_levels = C["subdiv"]
+    sub.uv_smooth = "NONE"   # 그림 자리는 그대로 (둥글게 펴면 눈·입이 밀려요)
+    bpy.ops.object.modifier_apply(modifier="sub")
+if C.get("smooth", False) or C.get("subdiv", 0) > 0:
+    for poly in mesh.data.polygons:
+        poly.use_smooth = True
+
 # 1) 면 줄이기 (Meshy 원본은 수십만~백만 면이라 폰에서 무거워요)
 # 그냥 줄이면 그림 이음매가 뭉개져 얼굴과 옷 무늬가 찌그러져요.
 # 그래서 줄인 모양에 새로 그림 자리를 펴고, 원본의 색을 그대로 구워 옮겨요.

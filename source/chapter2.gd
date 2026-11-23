@@ -95,9 +95,18 @@ func cam_ground(x: float, z: float) -> float:
 
 # 남쪽 끝 이정표: 1장 마을로 돌아가요
 func on_gate() -> void:
-	ask("", tr("1장 흥부네 마을로 돌아갈까요?"), [tr("돌아가기"), tr("더 둘러볼래요")], func(i: int):
+	ask("", tr("어디로 갈까요?\n(2장 이야기는 저장돼요.)"), [tr("돌고개 넘어 이야기골(집 마을)로"), tr("1장 흥부네 마을로 돌아가기"), tr("더 둘러볼래요")], func(i: int):
 		if i == 0:
+			go_to_chapter("home")
+		elif i == 1:
 			go_to_chapter("ch1"))
+
+# 집 마을에서 돌고개를 넘어오면 남쪽 어귀에서 북쪽을 보고 서요
+func arrive_from(from: String) -> void:
+	if from == "home":
+		player.position = Vector3(0, height_at(0, 46) + 0.3, 46)
+		cam_yaw = 0.0
+		cam_yaw_target = 0.0
 
 # ---------- 땅 높이 ----------
 
@@ -298,7 +307,7 @@ func make_feast_village() -> void:
 	var gate := make_spot(on_ground(3.2, 49.0), "gate", "", "", true)
 	add_mcyl(gate, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
-	add_tag(gate, tr("1장 마을로 가는 길"), 2.6)
+	add_tag(gate, tr("이야기골과 1장 마을로 가는 길"), 2.6)
 	# 북쪽 끝 이정표 (3장 바닷가로)
 	var gate3 := make_spot(on_ground(-6.0, -71.0), "gate", "ch3", "", true)
 	add_mcyl(gate3, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
