@@ -268,7 +268,7 @@ const EN := {
 	"쩍!": "Crack!",
 	"쩌억!": "Craaack!",
 	"빗나갔어요!": "Missed!",
-	"손가락으로 위로 쓸어 줄을 당겨요\n너무 세게 당기면 물이 쏟아져요!": "Swipe up to pull the rope\nPull too hard and the water spills!",
+	"손가락으로 위로 살살, 여러 번 쓸어 줄을 당겨요\n홱 잡아채면 물이 쏟아져요!": "Swipe up gently, again and again, to pull the rope\nYank it and the water spills!",
 	"두레박을 내려요...": "Lowering the bucket...",
 	"물이 차오르고 있어요": "The bucket is filling up",
 	"물이 다 쏟아졌어요!": "All the water spilled!",

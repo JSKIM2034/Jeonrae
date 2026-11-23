@@ -866,7 +866,7 @@ func wood_impact(hit: bool) -> void:
 func start_well3d() -> void:
 	var well := job_spot("water")
 	var p := well.position
-	start_game("well3d", {"world": true, "art": "world", "title": tr("손가락으로 위로 쓸어 줄을 당겨요\n너무 세게 당기면 물이 쏟아져요!")}, job_done)
+	start_game("well3d", {"world": true, "art": "world", "title": tr("손가락으로 위로 살살, 여러 번 쓸어 줄을 당겨요\n홱 잡아채면 물이 쏟아져요!")}, job_done)
 	world_game_begin(p + Vector3(0, 0, 1.3), p, p + Vector3(-2.2, 2.4, 3.0), p + Vector3(0, 0.8, 0), well)
 	for k in ["bucket", "rope"]:
 		if well.has_meta(k):
@@ -896,6 +896,7 @@ func start_well3d() -> void:
 	w["fill"] = 0.0
 	w["pull_anim"] = 0.0
 	w["last_y"] = -1.0
+	w["target"] = WELL_TOP
 
 func update_well3d(delta: float) -> void:
 	var st: String = w["state"]
@@ -914,8 +915,12 @@ func update_well3d(delta: float) -> void:
 		w["water"] = minf(1.0, float(w["timer"]) / 0.6)
 		if float(w["timer"]) > 0.7:
 			w["state"] = "pull"
+			w["target"] = y
 		mg_info.text = tr("물이 차오르고 있어요")
 	elif st == "pull":
+		# 두레박은 손가락을 그대로 따라오지 않고, 당긴 만큼을 일정한 빠르기로 천천히 따라 올라와요
+		# (한 번에 휙 쓸어 올려도 바로 올라오지 않아요)
+		y = move_toward(y, float(w["target"]), delta * WELL_PULL_SPEED)
 		var sway: float = w["sway"]
 		if sway > 0.5:
 			# 너무 흔들리면 물이 쏟아져요
@@ -962,18 +967,27 @@ func update_well3d(delta: float) -> void:
 	rope.scale = Vector3(1, maxf(0.05, top.distance_to(bot)), 1)
 	rope.rotation = Vector3(0, 0, -swing * 0.3)
 
+const WELL_PULL_SPEED := 0.16   # 두레박이 올라오는 가장 빠른 빠르기 (한 동이에 2.5초쯤)
+const WELL_PULL_GAIN := 0.32    # 화면을 한 번 끝까지 쓸어도 우물 깊이의 4분의 3쯤만 당겨요
+const WELL_CALM := 0.45         # 이보다 빨리 당기면 두레박이 흔들려요
+
 func well_drag(dy: float, dt_ms: float) -> void:
 	if w.get("state", "") != "pull":
 		return
 	var h := mg_overlay.size.y
-	var rise := dy / h * 1.1
+	var rise := dy / h * WELL_PULL_GAIN
 	if rise <= 0.0:
 		return
-	w["y"] = minf(WELL_TOP, float(w["y"]) + rise)
+	# 이미 당겨 둔 줄이 많이 남아 있으면 더 당겨도 줄이 느슨하게 쌓일 뿐이에요
+	var target: float = w.get("target", float(w["y"]))
+	w["target"] = minf(WELL_TOP, minf(target + rise, float(w["y"]) + 0.18))
 	w["pull_anim"] = float(w["pull_anim"]) + rise * 14.0
 	var speed := rise / maxf(dt_ms / 1000.0, 0.008)
-	if speed > 1.1:
-		w["sway"] = minf(1.6, float(w["sway"]) + (speed - 1.1) * 0.12)
+	if speed > WELL_CALM:
+		w["sway"] = minf(1.6, float(w["sway"]) + (speed - WELL_CALM) * 0.6)
+		# 홱 잡아채면 그 자리에서 물이 출렁 쏟아져요
+		if speed > WELL_CALM * 2.0:
+			w["water"] = maxf(0.0, float(w["water"]) - (speed - WELL_CALM * 2.0) * 0.12)
 	if rng.randf() < 0.3:
 		sfx("tick", rng.randf_range(0.7, 0.9))
 
