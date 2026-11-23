@@ -3481,6 +3481,9 @@ const RIGGED_PEOPLE := {
 	"flatfish": {"scale": 1.35, "arm_down": 0.0},
 	"haenyeo": {"scale": 1.2, "arm_down": 0.25},
 	"storyteller": {"scale": 1.1, "arm_down": 0.2},
+	"tailor": {"scale": 1.2, "arm_down": 0.2},
+	"herbalist": {"scale": 1.2, "arm_down": 0.2},
+	"seafisher": {"scale": 1.25, "arm_down": 0.2},
 }
 
 # 마을 사람: 기본 체형 5개(Meshy)를 옷 색, 모자, 수염만 바꿔 여러 사람으로 써요

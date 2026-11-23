@@ -113,19 +113,19 @@ Wears an elegant child-sized dangui ceremonial jacket in soft green with gold fl
 이 인물들은 걷기 동작이 꼭 필요하지 않아서 뼈대 없이 Meshy "Image to 3D"까지만 해 주면 돼요(뼈대는 Claude가 tools/rig_npc.py 로 붙여요).
 지금 있는 할머니·아저씨 모델로 대신할 수도 있지만, 얼굴이 겹치지 않게 새로 뽑으면 더 좋아요. 위 "공통 앞부분"을 붙이되 "child" 대신 각 인물 설명을 써요.
 
-- [x] (2026-11-24 뼈대 붙여 게임에 넣음: source/models/storyteller.glb, tools/rig_cfg/storyteller.json) **이야기꾼 할머니** (집 마을, 처음 대화 상대) · 파일: `storyteller.glb`
+- [x] (2026-11-24 고운 모양으로 다시 받아 뼈대 붙여 게임에 넣음: source/models/storyteller.glb) **이야기꾼 할머니** (집 마을, 처음 대화 상대) · 파일: `storyteller.glb`
 ```
 A kind elderly Korean grandmother storyteller, small and slightly hunched, white hair in a low bun with a wooden binyeo hairpin, warm smiling wrinkled face. Wears a muted plum jeogori and a gray chima skirt, with a cloth-wrapped old picture book tied on her back (attached, not held in hands).
 ```
-- [x] (3D 받음, 뼈대 전) **옷가게 아주머니** (장터 옷가게, 옷을 파는 사람) · 파일: `tailor.glb`
+- [x] (2026-11-24 뼈대 붙임: source/models/tailor.glb, 아직 게임에 안 나옴) **옷가게 아주머니** (장터 옷가게, 옷을 파는 사람) · 파일: `tailor.glb`
 ```
 A cheerful middle-aged Korean cloth merchant woman, round face, hair in a bun with a red cloth band, a measuring cord hanging around her neck, a bright yellow jeogori, a deep blue chima skirt with a striped apron, and a small pincushion tied at her wrist.
 ```
-- [x] (3D 받음, 뼈대 전) **약초꾼 할아버지** (2장 산 계곡 약초 자리) · 파일: `herbalist.glb`
+- [x] (2026-11-24 뼈대 붙임: source/models/herbalist.glb, 아직 게임에 안 나옴) **약초꾼 할아버지** (2장 산 계곡 약초 자리) · 파일: `herbalist.glb`
 ```
 A lean, friendly old Korean mountain herb gatherer, long thin white beard, a straw pae-raeng-i hat, a faded green hemp jacket, gray trousers with leg wraps, straw sandals, and a woven bamboo jigae back-basket full of leaves strapped to his back.
 ```
-- [x] (3D 받음, 뼈대 전) **갯바위 어부 아저씨** (3장 갯바위 낚시터) · 파일: `seafisher.glb`
+- [x] (2026-11-24 뼈대 붙임: source/models/seafisher.glb, 아직 게임에 안 나옴) **갯바위 어부 아저씨** (3장 갯바위 낚시터) · 파일: `seafisher.glb`
 ```
 A sturdy, sun-tanned Korean seaside fisherman in his forties, short beard, a white towel tied around his head, an indigo short jacket with rolled sleeves, knee-length trousers, straw sandals, and a woven fish basket tied at his hip.
 ```
@@ -133,14 +133,14 @@ A sturdy, sun-tanned Korean seaside fisherman in his forties, short beard, a whi
 ## 받은 3D 파일 (GitHub 릴리스 model-1, 저장소에는 너무 커서 안 넣음)
 
 파일이 40~50MB(4K 텍스처 3장)라서 저장소 대신 릴리스에 있어요. 작업할 때 내려받아(curl -L) 쓰고, 게임용으로 줄인 결과만 source/models 에 넣어요.
-모양은 약 1000면으로 가볍고, 뼈대는 없어요. tools/rig_npc.py + tools/rig_cfg/<이름>.json 으로 뼈대를 붙이고 텍스처는 1024 로 줄여요.
+(2026-11-24 다시 받음) 모양이 70만~380만 면으로 고와서 "keep_uv": true, "polys": 40000 으로 줄여요. 아주 무거운 원본(약초꾼 380만 면)은 메모리가 모자라니 한 번에 하나씩 돌려요. 뼈대는 없어요. tools/rig_npc.py + tools/rig_cfg/<이름>.json 으로 뼈대를 붙이고 텍스처는 1024 로 줄여요.
 
 | 인물 | 게임 파일 이름 | 내려받기 |
 |---|---|---|
-| 이야기꾼 할머니 (각져 보여서 다시 받으면 좋음: 같은 원화로 Meshy 를 더 높은 면 수로 뽑아 이 릴리스에 올려 주세요) | storyteller.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_9a96d5.glb |
-| 옷가게 아주머니 | tailor.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_3de71a.glb |
-| 약초꾼 할아버지 | herbalist.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_214039.glb |
-| 갯바위 어부 아저씨 | seafisher.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_1396de.glb |
+| 이야기꾼 할머니 | storyteller.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_fe281b.glb |
+| 옷가게 아주머니 | tailor.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_d45e56.glb |
+| 약초꾼 할아버지 | herbalist.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_7bdb73.glb |
+| 갯바위 어부 아저씨 | seafisher.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/export_Meshy_AI_2026-11-23_16fd8a.glb |
 
 | (다시 받음) 엄마 원본 | mom.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/Little.Hanbok.Helper_Meshy_AI_2026-11-19_7bd92a.glb |
 | (다시 받음) 놀부 원본 | nolbu.glb | https://github.com/JSKIM2034/Jeonrae/releases/download/model-1/Smiling.Joseon.Nobleman_Meshy_AI_2026-11-18_062d1d.glb |
