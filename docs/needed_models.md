@@ -18,6 +18,12 @@ Create a 3D game character concept: full body, front view, standing in a relaxed
 Setting: a cozy storybook version of Joseon-era Korea.
 ```
 
+## 리깅은 이제 필요 없어요 (2026-11-23)
+
+여자 주인공을 만들면서, 지금 주인공의 뼈대와 동작(걷기·뛰기·헤엄·끄덕·깜짝·오르기)을 새 모델에 그대로 씌우는 도구(tools/rig_from_hero.py)를 만들었어요.
+그래서 옷 입은 주인공도 **Meshy에서 Image to 3D만** 해 주면 돼요(리깅 크레딧 아낌). 받은 파일은 tools/<이름>_meshy_source.glb 로 보관하고,
+rig_from_hero.py 의 관절 위치(어깨, 손끝, 목, 머리, 무릎)를 그 모델에 맞춰 넣은 뒤 prep_meshy_anim.py 로 마무리해요. 치마·도포는 다리 사이가 이어져 있어서 걸을 때 늘어날 수 있으니 화면으로 꼭 확인.
+
 ## 원화 상태 (2026-11-23)
 
 15장 모두 원화를 뽑았어요. `docs/concepts/<파일 이름>.jpg` 에 보관 (예: docs/concepts/hero_girl.jpg). 3D 변환은 Meshy 크레딧이 돌아오면 진행.
@@ -27,7 +33,7 @@ Setting: a cozy storybook version of Joseon-era Korea.
 
 지금 주인공은 파란 점퍼와 노란 가방을 멘 요즘 남자아이예요. 처음 시작할 때 남자/여자 주인공을 고를 수 있게 하려면 같은 그림체의 여자아이가 필요해요.
 
-- [ ] **여자 주인공 기본 옷** · 파일: `hero_girl.glb`
+- [x] **여자 주인공 기본 옷** · 파일: `hero_girl.glb` (2026-11-23 받음. Meshy 리깅 없이 주인공 뼈대와 동작을 tools/rig_from_hero.py 로 씌움. 걷기·뛰기·헤엄 확인)
 
 ```
 A modern-day Korean girl, about 10 years old, the same age and height as the reference boy. Shoulder-length dark brown hair with a small hair clip, friendly bright eyes. Wears a light coral zip-up jacket over a white T-shirt, dark navy knee-length shorts over leggings, white sneakers, and a small yellow crossbody bag (same bag as the reference boy). Cheerful, curious expression.
