@@ -204,6 +204,15 @@
 - 오가기: go_to_chapter 가 [world] entry 에 떠나온 지역을 적고, 도착한 지역의 arrive_from(from) 이 설 자리를 정해요. 1장은 "home" 에서 오면 (-2, 29) 북쪽을 봄, 집 마을은 "ch1" 에서 오면 (-23.5, -19.3) 남동쪽을 봄.
 - 끝낸 이야기 세기(공용 상태 전 임시): 1장 [ch1] endings, 2장 ch2_state quest 10, 3장 [ch3] endings 또는 ch3_state ending.
 
+## 7-2. 공용 상태에서 실제로 정한 것 (2026-11-25)
+
+- 저장 version 2. `[common]` 칸: bag {"yeot","shoes","sickle","hanbok": bool}, book {"ch1_fish","ch1_herbs","ch1_story","fish_reward","herb_reward","harvests"}, endings {"ch1": [...], "ch2": [...], "ch3": [...]}, tales_done [...], roads_open [...]. `[world]` 에는 version, chapter, region, entry, coins.
+- 옮기기: core.gd migrate_config (게임 켤 때 한 번, version 2 면 건너뜀). 1장 결말은 [ch1] endings + ch1_state ending_id, 2장은 ch2_state quest 10 이상이면 ending, 3장은 [ch3] endings + ch3_state ending. roads_open 은 home, ch1 + 끝냈거나 가 본 장. 예전 칸은 지우지 않음.
+- 결말 표: core.gd ENDINGS_KO (이야기마다 [id, 이름, 한 줄, 힌트]). 1장 4개, 2장 2개(oppa_sun, nui_sun), 3장 3개 = 9개. 결말 기록은 record_ending(tale, id) 하나로(끝낸 이야기도 같이 적음). 도감 "엔딩" 쪽과 할머니 힌트가 같은 힌트 글을 써요. 끝내지 않은 이야기는 힌트 대신 "이야기를 끝내면 힌트가 보여요".
+- 도감(물고기·약초·이야기 조각) 그리기와 세기는 core.gd 로 옮겨서 어느 마을에서 열어도 같은 도감이 보여요.
+- "처음부터 다시 하기": 가방은 비우고 도감·결말·끝낸 이야기·가 본 길은 남겨요(예전과 같은 뜻).
+- 3장 바닷물고기(fish_seen)와 진주 등은 아직 [ch3_state] 에 있어요. 모으기(collect_plan.md)를 만들 때 book 으로 옮겨요.
+
 ## 8. 지키는 규칙 (다시 적어 둠)
 
 - 새 3D 모델 없이: source/models 에 있는 것과 코드 도형만. 이번 설계에서 새 모델이 꼭 필요한 곳은 없어요.

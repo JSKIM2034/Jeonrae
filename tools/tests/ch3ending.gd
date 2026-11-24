@@ -52,6 +52,7 @@ func run() -> void:
 	check(m.coins == c0 + 50, "no second reward")
 	var cf := ConfigFile.new()
 	cf.load("user://save.cfg")
-	check((cf.get_value("ch3", "endings", []) as Array).has("late"), "ending recorded")
+	check(((cf.get_value("common", "endings", {}) as Dictionary).get("ch3", []) as Array).has("late"), "ending recorded")
+	check((cf.get_value("common", "tales_done", []) as Array).has("ch3"), "ch3 in tales_done")
 	print("DONE")
 	get_tree().quit()

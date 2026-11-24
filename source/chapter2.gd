@@ -1806,8 +1806,10 @@ func on_ending(i: int) -> void:
 		l.append([tr("누이"), tr("오빠, 나는 밤이 무서워... 내가 해 하면 안 될까?")])
 		l.append([tr("오빠"), tr("그래, 누이가 해가 되렴. 오빠가 달이 되어 밤을 지킬게.")])
 		l.append([tr("누이"), tr("그런데 다들 나만 쳐다보면 부끄러운데... 그럼 눈부시게 빛나야지!")])
+	var seen := record_ending("ch2", ending)
+	var info := ending_info("ch2", ending)
 	say(l, func():
-		show_card(tr("오누이는 해와 달이 되어\n세상을 환하게 비추었어요.\n\n그날 밤, 달 곁에서\n별 하나가 유난히 반짝였대요.\n엄마가 웃는 것처럼요."), 0.0, 5.0, finish_chapter2))
+		show_card(tr("오누이는 해와 달이 되어\n세상을 환하게 비추었어요.\n\n그날 밤, 달 곁에서\n별 하나가 유난히 반짝였대요.\n엄마가 웃는 것처럼요.") + "\n\n" + tr("엔딩 “%s” (해와 달이 된 오누이 엔딩 %d/%d)") % [info[1], seen, ending_total("ch2")], 0.0, 5.0, finish_chapter2))
 
 func finish_chapter2() -> void:
 	event_lock = false

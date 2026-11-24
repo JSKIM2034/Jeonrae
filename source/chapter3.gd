@@ -2860,19 +2860,10 @@ func give_ginseng_late() -> void:
 # 3장 엔딩 기록 (1장처럼 모은 엔딩 수를 세요)
 const CH3_ENDINGS := ["ginseng", "plain", "late"]
 func record_ch3_ending() -> void:
-	var cf := ConfigFile.new()
-	cf.load(SAVE_PATH)
-	var got: Array = cf.get_value("ch3", "endings", [])
-	if not got.has(ending):
-		got.append(ending)
-		cf.set_value("ch3", "endings", got)
-		cf.save(SAVE_PATH)
+	record_ending("ch3", ending)
 
 func ch3_ending_count_text() -> String:
-	var cf := ConfigFile.new()
-	cf.load(SAVE_PATH)
-	var got: Array = cf.get_value("ch3", "endings", [])
-	return tr("\n(별주부전 엔딩 %d/%d)") % [got.size(), CH3_ENDINGS.size()]
+	return tr("\n(별주부전 엔딩 %d/%d)") % [endings_seen("ch3").size(), CH3_ENDINGS.size()]
 
 func finish_trial() -> void:
 	event_lock = false

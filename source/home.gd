@@ -74,17 +74,8 @@ func arrive_from(from: String) -> void:
 
 func read_tales() -> void:
 	tales = {}
-	var cf := ConfigFile.new()
-	if cf.load(SAVE_PATH) != OK:
-		return
-	if not (cf.get_value("ch1", "endings", []) as Array).is_empty():
-		tales["ch1"] = true
-	var c2: Dictionary = cf.get_value("ch2_state", "data", {})
-	if int(c2.get("quest", 0)) >= 10:
-		tales["ch2"] = true
-	var c3: Dictionary = cf.get_value("ch3_state", "data", {})
-	if not (cf.get_value("ch3", "endings", []) as Array).is_empty() or str(c3.get("ending", "")) != "":
-		tales["ch3"] = true
+	for t in tales_done_list():
+		tales[t] = true
 
 func tales_count() -> int:
 	return tales.size()
@@ -508,21 +499,26 @@ func talk_granny() -> void:
 # 할머니가 들려주는 말: 아직 못 본 이야기와 결말 힌트
 func granny_hints() -> Array:
 	var out := []
-	var cf := ConfigFile.new()
-	cf.load(SAVE_PATH)
-	var e1: Array = cf.get_value("ch1", "endings", [])
-	var e3: Array = cf.get_value("ch3", "endings", [])
 	if not tales.has("ch1"):
 		out.append(tr("흥부네 박은 아직 다 안 탔니? 버드나무 길 끝 장승을 지나면 바로란다."))
 		out.append(tr("흥부네 마을 사람들은 일손이 늘 모자라. 품을 팔면 엽전도 모인단다."))
-	elif e1.size() < ENDING_COUNT:
-		out.append(tr("흥부 이야기는 끝이 하나가 아니란다. 엽전을 넉넉히 모으면 다른 길이 보일지도 모르지. (흥부와 놀부 엔딩 %d/%d)") % [e1.size(), ENDING_COUNT])
+	# 끝낸 이야기의 못 본 결말 힌트 (도감 "엔딩" 쪽의 힌트와 같은 말)
+	for t in TALE_IDS:
+		if not tales.has(t):
+			continue
+		var seen := endings_seen(t)
+		var unseen := []
+		for e in ENDINGS.get(t, []):
+			if not seen.has(e[0]):
+				unseen.append(e)
+		if unseen.is_empty():
+			continue
+		var pick: Array = unseen[granny_hint % unseen.size()]
+		out.append(tr("%s 이야기는 끝이 하나가 아니란다. %s (엔딩 %d/%d)") % [TALE_NAMES[t], pick[3], seen.size(), ending_total(t)])
 	if tales.has("ch1") and not tales.has("ch2"):
 		out.append(tr("흥부네 남쪽 이정표에서 고갯길로 가면 해와 달이 된 오누이 이야기가 있단다. 호랑이를 조심하렴."))
 	if tales.has("ch2") and not tales.has("ch3"):
 		out.append(tr("오누이 고갯길 북쪽 끝에서 바닷가로 내려가면 별주부 이야기가 기다린단다."))
-	if tales.has("ch3") and e3.size() < 3:
-		out.append(tr("용왕님 이야기도 끝이 여럿이란다. 자라에게 무엇을 주느냐에 따라 달라지지. (별주부전 엔딩 %d/3)") % e3.size())
 	out.append(tr("북쪽 돌고개를 넘으면 오누이 고갯길, 동북쪽 갈대 나루에서 배를 타면 바닷가 마을이란다."))
 	out.append(tr("집에 들어가 푹 쉬어 가렴. 책장에는 네가 모은 이야기들이 꽂혀 있지."))
 	out.append(tr("이야기를 다 들려주고 나면, 저 빈 집터들도 북적북적해질 게다."))
@@ -1076,9 +1072,9 @@ func use_room(id: String) -> void:
 						show_card(tr("포근한 이불 속에서\n옛이야기 꿈을 꾸었어요.\n\n개운하게 일어났어요!"), 1.0, 2.2, func(): save_progress()))
 		"shelf":
 			if house_stage <= 1:
-				say([["", tr("벽에 박은 판자 하나. 할머니가 준 이야기 책과 되찾은 이야기 %d권이 놓여 있다.") % tales_count()]], func(): open_book())
+				say([["", tr("벽에 박은 판자 하나. 할머니가 준 이야기 책과 되찾은 이야기 %d권이 놓여 있다.") % tales_count()]], func(): open_book("ending"))
 			else:
-				say([["", tr("이야기 책장. 되찾은 이야기 %d권과 도감이 꽂혀 있다.") % tales_count()]], func(): open_book())
+				say([["", tr("이야기 책장. 되찾은 이야기 %d권과 도감이 꽂혀 있다.") % tales_count()]], func(): open_book("ending"))
 		_:
 			if house_stage <= 1:
 				say([["", tr("판자가 빠진 낡은 궤짝. 텅 비었다. (엽전을 모으고 이야기를 되찾으면 집을 고칠 수 있게 될 거예요. 준비 중)")]], Callable())

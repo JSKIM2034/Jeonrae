@@ -573,13 +573,6 @@ func update_wild(delta: float) -> void:
 			node.visible = true
 			pop3d(node, true)
 
-func herb_kinds_done() -> int:
-	var n := 0
-	for c in herb_counts:
-		if int(c) >= HERB_NEED:
-			n += 1
-	return n
-
 func pick_wild(t: Dictionary) -> void:
 	var node: Node3D = t["node"]
 	var k := int(t["id"])
@@ -608,15 +601,6 @@ func pick_wild(t: Dictionary) -> void:
 		lines.append(["", tr("%s을(를) 캐서 장터에 팔았다. 엽전 1냥.") % nm])
 	save_south()
 	say(lines, Callable())
-
-func read_story(i: int) -> void:
-	if not story_read[i]:
-		return
-	sfx("tap")
-	var st: Dictionary = STORY[i]
-	story_reader_label.text = "%d. %s\n\n%s" % [i + 1, st["title"], st["text"]]
-	story_box.visible = false
-	story_reader.visible = true
 
 func laundry_spot(seg: int) -> Vector3:
 	var ranges := [[-35.0, -15.0], [-13.0, 12.0], [14.0, 35.0]]
@@ -656,13 +640,6 @@ func scatter_items() -> void:
 
 
 # ---------- 이야기 조각 7개: 놀부는 왜 놀부가 되었을까 ----------
-func story_count() -> int:
-	var n := 0
-	for r in story_read:
-		if r:
-			n += 1
-	return n
-
 func get_piece_id(id: int, extra: String) -> void:
 	pieces_found += 1
 	update_quest_text()
@@ -1627,41 +1604,13 @@ func farm_action_text() -> String:
 # --- 저장 (도감은 다음에 와도 남아 있어요) ---
 
 func load_south() -> void:
-	var cf := ConfigFile.new()
-	if cf.load("user://save.cfg") != OK:
-		return
-	var got: Array = cf.get_value("ch1", "fish", [])
-	for i in mini(got.size(), fish_caught.size()):
-		fish_caught[i] = int(got[i])
-	fish_reward = cf.get_value("ch1", "fish_reward", false)
-	harvests = cf.get_value("ch1", "harvests", 0)
-	var hg: Array = cf.get_value("ch1", "herbs", [])
-	for i in mini(hg.size(), herb_counts.size()):
-		herb_counts[i] = int(hg[i])
-	herb_reward = cf.get_value("ch1", "herb_reward", false)
-	var sr: Array = cf.get_value("ch1", "story", [])
-	for i in mini(sr.size(), story_read.size()):
-		story_read[i] = bool(sr[i])
+	# 도감은 모든 지역이 함께 써요 ([common] book, core.gd load_world 가 읽어 둠)
+	pass
 
 func save_south() -> void:
-	var cf := ConfigFile.new()
-	cf.load("user://save.cfg")
-	cf.set_value("ch1", "fish", fish_caught)
-	cf.set_value("ch1", "fish_reward", fish_reward)
-	cf.set_value("ch1", "harvests", harvests)
-	cf.set_value("ch1", "herbs", herb_counts)
-	cf.set_value("ch1", "herb_reward", herb_reward)
-	cf.set_value("ch1", "story", story_read)
-	cf.save("user://save.cfg")
+	save_book()
 
 # --- 낚시 ---
-
-func fish_kinds_found() -> int:
-	var n := 0
-	for k in fish_caught:
-		if int(k) > 0:
-			n += 1
-	return n
 
 func fish_book() -> String:
 	var parts := []
@@ -1809,33 +1758,6 @@ func update_fish(delta: float) -> void:
 			float_text(tr("줄이 풀려 놓쳤어요!"), at, Color(1, 0.6, 0.5), 1.1)
 		else:
 			mg_info.text = tr("꾹 누르면 초록 칸이 올라가요 | 남은 기회 %d") % mg_lives
-
-func draw_fish2d(ci: CanvasItem, c: Vector2, s: float, kind: int, rot: float, shadow: bool) -> void:
-	var f: Dictionary = FISH[kind]
-	var col: Color = f["col"]
-	var ln: float = f["len"]
-	var th: float = f["thin"]
-	var ol := 3.0
-	if shadow:
-		col = Color(0.12, 0.22, 0.32, 0.45)
-		ol = 0.0
-	var wig := sin(anim_t * 12.0) * 0.25
-	var tail := PackedVector2Array([c + Vector2(-s * ln * 0.75, 0).rotated(rot), c + Vector2(-s * ln * 1.25, -s * 0.38).rotated(rot + wig), c + Vector2(-s * ln * 1.2, s * 0.38).rotated(rot + wig)])
-	d_poly(ci, tail, col.darkened(0.1), ol)
-	d_ell(ci, c, s * ln * 0.85, s * th, col, rot, ol)
-	if shadow:
-		return
-	d_ell(ci, c + Vector2(-s * 0.1, -s * th * 0.75).rotated(rot), s * 0.3, s * 0.12, col.darkened(0.15), rot, 2.0)
-	d_ell(ci, c + Vector2(s * ln * 0.05, s * th * 0.35).rotated(rot), s * ln * 0.55, s * th * 0.4, col.lightened(0.3), rot, 0.0)
-	var eye := c + Vector2(s * ln * 0.55, -s * th * 0.25).rotated(rot)
-	ci.draw_circle(eye, s * 0.11, Color(1, 1, 1))
-	ci.draw_circle(eye + Vector2(s * 0.02, 0).rotated(rot), s * 0.065, Color(0.1, 0.08, 0.08))
-	if kind == 4:
-		for k in [-1.0, 1.0]:
-			d_line(ci, c + Vector2(s * ln * 0.8, s * 0.05).rotated(rot), c + Vector2(s * ln * 1.25, k * s * 0.35).rotated(rot), col.darkened(0.3), 3)
-	if kind == 5:
-		for k in 3:
-			ci.draw_circle(c + Vector2((k - 1) * s * 0.35, -s * 0.05).rotated(rot), s * 0.08, Color(1, 1, 0.85, 0.8))
 
 func draw_bobber(ci: CanvasItem, c: Vector2, s: float) -> void:
 	d_line(ci, c + Vector2(0, -s * 1.3), c, Color(0.95, 0.4, 0.3), 4)
@@ -2672,16 +2594,9 @@ func ending_data(id: String) -> Array:
 			return [tr("작은 놀부"), tr("보물로 땅을 사고 또 사던 흥부네 대문은\n해마다 높아지고 굳게 닫혔어요.\n처마 밑 제비는 다른 집으로 떠났고,\n마을 사람들은 흥부를 '작은 놀부'라 불렀어요.\n\n책장의 글씨가 흐릿하게 번졌어요.\n욕심은 누구의 마음에든 찾아오나 봐요.")]
 	return [tr("권선징악"), tr("놀부는 도깨비에게 모든 것을 잃고\n흥부네 담장 밖을 오래 서성였어요.\n\n착한 마음에는 복이, 욕심에는 화가 따른다지만\n담장 밖 뒷모습이 자꾸 마음에 걸렸어요.\n\n책의 첫 장이 채워졌어요.")]
 
-# 모은 엔딩을 파일에 기억해요. 지금까지 모은 개수를 돌려줘요
+# 모은 엔딩을 기억해요 ([common] endings). 지금까지 모은 개수를 돌려줘요
 func save_ending(id: String) -> int:
-	var cf := ConfigFile.new()
-	cf.load("user://save.cfg")
-	var got: Array = cf.get_value("ch1", "endings", [])
-	if not got.has(id):
-		got.append(id)
-		cf.set_value("ch1", "endings", got)
-		cf.save("user://save.cfg")
-	return got.size()
+	return record_ending("ch1", id)
 
 func finish_chapter(id: String) -> void:
 	ending_id = id

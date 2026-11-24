@@ -114,9 +114,7 @@ func run() -> void:
 	check(m.player.position.distance_to(Vector3(-2, 0.3, 29)) < 1.5, "arrived at south signpost")
 	check(m.coins == c0 + 10, "coins carried")
 	# 1장 엔딩을 본 것으로 하고 다시 집 마을로
-	var cf := cfg()
-	cf.set_value("ch1", "endings", ["kind"])
-	cf.save("user://save.cfg")
+	m.record_ending("ch1", "original")
 	m.on_gate()
 	m.on_option(1)
 	await wait_scene("home")
