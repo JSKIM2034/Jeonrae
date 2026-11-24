@@ -123,9 +123,30 @@ func build_chapter() -> void:
 	npcs["storyteller"].rotation.y = -0.5
 
 func after_ui() -> void:
-	player.position = ARRIVE_CH1 + Vector3(0, 0.3, 0)
-	cam_yaw = -PI * 0.75
-	cam_yaw_target = cam_yaw
+	# 새 게임은 내 집 마당에서 정자나무와 할머니를 바라보며 시작해요
+	player.position = HOUSE_POS + Vector3(0, 0.3, -9.0)
+	cam_yaw = 0.0
+	cam_yaw_target = 0.0
+	update_guide()
+
+# 할머니께 인사한 뒤 아직 흥부네 마을에 안 가 봤으면, 버드나무 길 이정표에 빛기둥을 세워 길을 알려 줘요
+var guide_beam: Node3D
+func update_guide() -> void:
+	if guide_beam == null:
+		guide_beam = Node3D.new()
+		guide_beam.position = Vector3(-27.6, 0, -22.4)
+		add_child(guide_beam)
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(1.0, 0.9, 0.5, 0.35)
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		var beam := add_mcyl(guide_beam, mat, 0.5, 0.7, 14.0, Vector3(0, 7.0, 0))
+		beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		sway_items.append([beam, beam.position, 0, 0.5, 0.2])
+	var cf := ConfigFile.new()
+	cf.load(SAVE_PATH)
+	guide_beam.visible = met_granny and not cf.has_section("ch1_state")
 
 func start_chapter() -> void:
 	update_lots()
@@ -135,7 +156,7 @@ func start_chapter() -> void:
 	if resumed and met_granny:
 		show_card(tr("이야기골\n집 마을에 돌아왔어요."), 0.6, 1.6, Callable())
 		return
-	show_card(tr("이야기골\n\n옛이야기가 돌아와 쉬는 작은 마을.\n정자나무 아래에서\n이야기꾼 할머니가 기다리고 있어요."), 1.0, 5.0, func():
+	show_card(tr("흥부와 놀부, 해와 달이 된 오누이, 별주부전...\n\n점점 잊혀 가는 옛이야기들이\n한 권의 책 속에 잠들어 있어요.\n\n여기는 이야기골.\n정자나무 아래에서\n이야기꾼 할머니가 기다리고 있어요."), 1.0, 7.0, func():
 		if not walk_hint_seen:
 			show_walk_hint())
 
@@ -324,6 +345,8 @@ func make_road_sign(pos: Vector3, id: String, text: String, rot_y: float) -> voi
 	lab.position = Vector3(0, 1.6, 0.05)
 	lab.pixel_size = 0.0034
 	sign.add_child(lab)
+	var names := {"ch1": tr("흥부네 마을 가는 길"), "ch2": tr("오누이 고갯길 가는 길"), "ch3": tr("바닷가 마을 가는 길"), "fog": tr("안개 숲길")}
+	add_tag(sign, names.get(id, ""), 2.6)
 
 func make_small_pond() -> void:
 	var c := POND_HOME
@@ -471,6 +494,7 @@ func talk_granny() -> void:
 			[g, tr("서북쪽 버드나무 길을 따라가면 흥부네 마을이야. 이 책을 들고 다녀오렴.")],
 		], func():
 			met_granny = true
+			update_guide()
 			earn(10)
 			float_text(tr("이야기 책을 받았어요!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1.0, 0.85, 0.4))
 			update_quest_text()

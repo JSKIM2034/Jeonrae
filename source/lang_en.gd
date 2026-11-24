@@ -1021,4 +1021,8 @@ const EN := {
 	"목침을 베고 웅크려 잤어요.\n벽 틈으로 바람이 숭숭...\n\n언젠가 이 집을 꼭 고쳐야지!": "You curled up on a wooden pillow.\nThe wind whistled through the cracks...\n\nSomeday I will fix this house!",
 	"벽에 박은 판자 하나. 할머니가 준 이야기 책과 되찾은 이야기 %d권이 놓여 있다.": "A single plank nailed to the wall. It holds the story book from Granny and %d restored tales.",
 	"판자가 빠진 낡은 궤짝. 텅 비었다. (엽전을 모으고 이야기를 되찾으면 집을 고칠 수 있게 될 거예요. 준비 중)": "An old crate with a missing board. Empty. (Collect coins and restore tales to fix up the house. Coming soon)",
+	"흥부와 놀부, 해와 달이 된 오누이, 별주부전...\n\n점점 잊혀 가는 옛이야기들이\n한 권의 책 속에 잠들어 있어요.\n\n여기는 이야기골.\n정자나무 아래에서\n이야기꾼 할머니가 기다리고 있어요.": "Heungbu and Nolbu, the Sun and the Moon, the Rabbit and the Turtle...\n\nOld tales that are slowly being forgotten\nlie asleep inside a single book.\n\nThis is Story Hollow.\nUnder the big village tree,\nthe Storyteller Granny is waiting.",
+	"흥부네 마을 가는 길": "To Heungbu's Village",
+	"오누이 고갯길 가는 길": "To the Mountain Road",
+	"바닷가 마을 가는 길": "To the Seaside Village",
 }

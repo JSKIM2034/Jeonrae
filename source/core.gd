@@ -2346,7 +2346,7 @@ func reset_progress() -> void:
 			cf.erase_section(sec)
 	cf.save(SAVE_PATH)
 	leaving_scene = true
-	get_tree().change_scene_to_file(CHAPTER_SCENES["ch1"])
+	get_tree().change_scene_to_file(CHAPTER_SCENES["home"])
 
 # 화면 돌리기·가까이 보기 안내 (한 번만)
 func update_cam_hint(delta: float) -> void:
