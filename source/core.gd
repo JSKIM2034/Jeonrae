@@ -4515,6 +4515,32 @@ func update_walk_hint(delta: float) -> void:
 		if walk_hint_time > 1.2:
 			hide_walk_hint()
 
+# 검지로 화면을 누르는 손 (손끝이 tip 자리)
+func draw_finger_hand(ci: CanvasItem, tip: Vector2, r: float) -> void:
+	var skin := Color(1.0, 0.86, 0.72)
+	var line := Color(0.45, 0.28, 0.16)
+	var fw := r * 0.13          # 손가락 반폭
+	var fl := r * 0.62          # 검지 길이
+	var palm := tip + Vector2(r * 0.12, fl + r * 0.28)
+	# 손목
+	d_box(ci, palm + Vector2(r * 0.02, r * 0.42), Vector2(r * 0.42, r * 0.36), 0.0, Color(0.55, 0.72, 0.95), 4.0)
+	# 손바닥
+	d_ell(ci, palm, r * 0.34, r * 0.32, skin, 0.0, 4.0)
+	# 접힌 손가락 셋 (오른쪽)
+	for k in 3:
+		d_ell(ci, palm + Vector2(r * (0.06 + k * 0.1), -r * 0.24 + k * r * 0.06), r * 0.1, r * 0.12, skin, 0.0, 3.0)
+	# 엄지 (왼쪽으로 비스듬히)
+	d_ell(ci, palm + Vector2(-r * 0.32, -r * 0.06), r * 0.09, r * 0.2, skin, -0.6, 3.0)
+	# 쭉 편 검지
+	var base := tip + Vector2(0, fl)
+	ci.draw_colored_polygon(PackedVector2Array([tip + Vector2(-fw, 0), tip + Vector2(fw, 0), base + Vector2(fw * 1.1, 0), base + Vector2(-fw * 1.1, 0)]), skin)
+	ci.draw_line(tip + Vector2(-fw, 0), base + Vector2(-fw * 1.1, 0), line, 4.0, true)
+	ci.draw_line(tip + Vector2(fw, 0), base + Vector2(fw * 1.1, 0), line, 4.0, true)
+	ci.draw_circle(tip, fw, skin)
+	ci.draw_arc(tip, fw, PI, TAU, 16, line, 4.0, true)
+	# 손톱
+	d_ell(ci, tip + Vector2(0, fw * 0.5), fw * 0.55, fw * 0.7, Color(1.0, 0.94, 0.9), 0.0, 2.0)
+
 func draw_walk_hint() -> void:
 	var ci: CanvasItem = walk_hint
 	var sz := walk_hint.size
@@ -4533,10 +4559,9 @@ func draw_walk_hint() -> void:
 	var dir := Vector2(0, -1) if t < 1.0 else Vector2(1, 0)
 	var push := sin(fmod(t, 1.0) * PI)
 	var knob := c + dir * r * 0.7 * push
-	ci.draw_circle(knob, r * 0.42, Color(1.0, 0.85, 0.45, 0.95))
-	ci.draw_arc(knob, r * 0.42, 0, TAU, 32, Color(0.6, 0.4, 0.2), 4, true)
-	d_ell(ci, knob + Vector2(10, 30), 22, 34, Color(0.99, 0.84, 0.7), 0.0, 3.0)
-	d_ell(ci, knob + Vector2(10, -2), 12, 16, Color(1, 0.92, 0.85), 0.0, 2.0)
+	# 누른 자리에 퍼지는 물결
+	ci.draw_arc(knob, r * (0.18 + 0.12 * push), 0, TAU, 32, Color(1, 1, 1, 0.5 + 0.4 * push), 4, true)
+	draw_finger_hand(ci, knob, r)
 	var msg := tr("화면 아무 곳이나 누른 채\n밀면 그쪽으로 걸어요") if is_touch_device() else tr("WASD나 방향키로 걷고, 스페이스로 점프해요\nE나 엔터로 말을 걸어요")
 	var fs := int(font_size * 0.95)
 	var y := c.y + r * 1.25
@@ -5651,6 +5676,7 @@ func _process(delta: float) -> void:
 		return
 	update_autosave(delta)
 	update_cam_hint(delta)
+	update_walk_hint(delta)
 	update_weather(delta)
 	anim_t += delta
 	update_audio()

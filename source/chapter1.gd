@@ -1598,7 +1598,6 @@ func farm_visual() -> void:
 		(s[0] as Node3D).visible = farm_state == 2
 
 func update_south(delta: float) -> void:
-	update_walk_hint(delta)
 	update_wild(delta)
 	if farm_state == 1 or farm_state == 3:
 		farm_timer -= delta
