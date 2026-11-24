@@ -312,7 +312,7 @@ func make_feast_village() -> void:
 	var gate3 := make_spot(on_ground(-6.0, -71.0), "gate", "ch3", "", true)
 	add_mcyl(gate3, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate3, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
-	add_tag(gate3, tr("바닷가 마을로 가는 길"), 2.6)
+	add_tag(gate3, tr("바닷가 마을, 이야기골 가는 길"), 2.6)
 
 # ---------- 고개 셋 (숲과 바위) ----------
 
@@ -1881,9 +1881,11 @@ func on_action() -> void:
 		"gate":
 			sfx("tap")
 			if t["id"] == "ch3":
-				ask("", tr("“이 길을 따라가면 별주부전 이야기”\n바닷가 마을로 넘어갈까요?\n(오누이 고갯길 이야기는 저장돼요.)"), [tr("바닷가 마을로 가기"), tr("다음에 갈게요")], func(i: int):
+				ask("", tr("북쪽 갈림길이에요. 어디로 갈까요?\n(오누이 고갯길 이야기는 저장돼요.)"), [tr("지름길로 바닷가 마을 가기"), tr("이야기골(집 마을)로 돌아가기"), tr("더 둘러볼래요")], func(i: int):
 					if i == 0:
-						go_to_chapter("ch3"))
+						go_to_chapter("ch3")
+					elif i == 1:
+						go_to_chapter("home"))
 			else:
 				on_gate()
 		_:

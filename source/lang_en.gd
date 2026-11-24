@@ -1025,4 +1025,8 @@ const EN := {
 	"흥부네 마을 가는 길": "To Heungbu's Village",
 	"오누이 고갯길 가는 길": "To the Mountain Road",
 	"바닷가 마을 가는 길": "To the Seaside Village",
+	"북쪽 갈림길이에요. 어디로 갈까요?\n(오누이 고갯길 이야기는 저장돼요.)": "This is the north fork. Where would you like to go?\n(The Mountain Road is saved.)",
+	"지름길로 바닷가 마을 가기": "Shortcut to the seaside village",
+	"이야기골(집 마을)로 돌아가기": "Go back to Story Hollow (home)",
+	"바닷가 마을, 이야기골 가는 길": "To the Seaside Village and Story Hollow",
 }
