@@ -257,6 +257,9 @@ var rabbit_phase := 0.0
 var rabbit_caught := false
 var rabbit_taunt := 0.0
 var rabbit_dir := Vector3.FORWARD
+const RABBIT_CATCHES := 3      # 세 번 잡아야 항복해요 (두 번은 쏙 빠져나가요)
+var rabbit_catches := 0
+var rabbit_called := false
 
 func pick_rabbit_route() -> void:
 	var idx := range(RABBIT_SPOTS.size())
@@ -264,7 +267,28 @@ func pick_rabbit_route() -> void:
 	rabbit_route = []
 	for k in 4:
 		rabbit_route.append(RABBIT_SPOTS[idx[k]])
+	# 첫 자리는 바닷가 마을에서 가장 가까운 덤불 (처음부터 한참 헤매지 않게)
+	var best := 0
+	for k in rabbit_route.size():
+		if (rabbit_route[k] as Vector3).distance_to(VILLAGE_C) < (rabbit_route[best] as Vector3).distance_to(VILLAGE_C):
+			best = k
+	var first: Vector3 = rabbit_route[best]
+	rabbit_route.remove_at(best)
+	rabbit_route.push_front(first)
 	rabbit_hop = 0
+	rabbit_catches = 0
+	rabbit_called = false
+
+# 토끼를 찾는 동안은 머리 위 이름이 나무 뒤에서도 노랗게 보여요
+func set_rabbit_beacon(on: bool) -> void:
+	var rb := npc("rabbit")
+	if rb == null:
+		return
+	for lb in rb.find_children("*", "Label3D", false, false):
+		var l := lb as Label3D
+		l.no_depth_test = on
+		l.modulate = Color(1.0, 0.9, 0.35) if on else Color.WHITE
+		l.outline_size = 18 if on else 12
 const GATE_Z := -101.0
 const YONGWANG_POS := Vector3(0, 0, -115.5)
 const OCTOPUS_POS := Vector3(-6, 0, -111)
@@ -311,8 +335,9 @@ var swim_shown := false
 var gate_parts: Array = []     # 카메라가 지나갈 때 잠깐 숨겨요
 
 # 물살 고리: 산호 숲을 굽이굽이 지나 해초 숲 어귀까지
-const RING_PTS := [Vector3(2, -2.2, -12), Vector3(-6, -3.4, -19), Vector3(-12, -4.6, -26), Vector3(-7, -5.8, -33),
-	Vector3(3, -6.4, -39), Vector3(11, -7.0, -45), Vector3(7, -8.0, -52), Vector3(-2, -9.0, -59)]
+# 물살 고리: 물가에서 용궁 문 앞 골짜기 끝까지 약 10m 간격으로 길을 안내해요
+const RING_PTS := [Vector3(2, -2.2, -12), Vector3(-5, -3.6, -22), Vector3(-9, -5.0, -32), Vector3(-2, -6.0, -42),
+	Vector3(7, -7.0, -51), Vector3(6, -8.0, -61), Vector3(-2, -9.0, -70), Vector3(-5, -10.0, -79), Vector3(0, -9.5, -88)]
 
 const FISH_KINDS_KO := [
 	{"name": "줄돔", "col": Color(0.98, 0.85, 0.3), "stripe": Color(0.2, 0.2, 0.25), "c": Vector3(-9, -4.0, -20), "r": 4.5},
@@ -828,23 +853,100 @@ func update_fish(t: float) -> void:
 			save_progress()
 
 # 깊은 골짜기의 빛나는 해파리 (닿으면 찌릿!)
+# 해파리: 둥근 종 모양 몸(가장자리가 물결치는 갓), 속에서 빛나는 네 잎 무늬, 너울대는 입 팔 넷, 가는 촉수 열둘
+# 몸은 가장자리로 갈수록 진하게 빛나서(프레넬) 납작하지 않고 둥글게 보여요. 촉수는 셰이더로 물살에 흔들려요.
+const JELLY_SHADER := """
+shader_type spatial;
+render_mode blend_add, cull_disabled, depth_draw_never, unshaded;
+uniform vec4 tint : source_color = vec4(0.85, 0.6, 1.0, 1.0);
+uniform float rim = 2.2;
+uniform float base_a = 0.18;
+void fragment() {
+	float f = pow(1.0 - abs(dot(normalize(NORMAL), normalize(VIEW))), rim);
+	ALBEDO = tint.rgb * (base_a + f * 1.3);
+}
+"""
+const JELLY_TENTACLE := """
+shader_type spatial;
+render_mode blend_add, cull_disabled, depth_draw_never, unshaded;
+uniform vec4 tint : source_color = vec4(0.95, 0.75, 1.0, 1.0);
+uniform float amp = 0.12;
+void vertex() {
+	float k = UV.y;
+	float ph = NODE_POSITION_WORLD.x * 1.7 + NODE_POSITION_WORLD.z * 0.9 + UV.x * 6.28;
+	VERTEX.x += sin(TIME * 1.8 + k * 5.0 + ph) * amp * k;
+	VERTEX.z += cos(TIME * 1.4 + k * 4.0 + ph) * amp * k;
+}
+void fragment() {
+	ALBEDO = tint.rgb * (0.55 - UV.y * 0.35);
+}
+"""
+
+# 종 모양 갓: 옆에서 본 윤곽(반지름, 높이)을 돌려 만들어요. 가장자리는 물결 모양
+func jelly_bell_mesh(scale_in: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var prof := []
+	for k in 13:
+		var t := k / 12.0
+		var a := t * PI * 0.52
+		var rr := sin(a) * 0.62 * (1.0 + 0.08 * t)
+		var hh := cos(a) * 0.5 - 0.05 * t * t
+		prof.append(Vector2(rr, hh) * scale_in)
+	var seg := 32
+	for k in prof.size() - 1:
+		for a in seg:
+			var a0 := TAU * a / seg
+			var a1 := TAU * (a + 1) / seg
+			var p0: Vector2 = prof[k]
+			var p1: Vector2 = prof[k + 1]
+			# 가장자리일수록 꽃잎처럼 물결쳐요
+			var w0 := 1.0 + (0.06 * sin(a0 * 8.0) if k + 1 >= prof.size() - 3 else 0.0)
+			var w1 := 1.0 + (0.06 * sin(a1 * 8.0) if k + 1 >= prof.size() - 3 else 0.0)
+			var v := [Vector3(cos(a0) * p0.x, p0.y, sin(a0) * p0.x), Vector3(cos(a1) * p0.x, p0.y, sin(a1) * p0.x),
+				Vector3(cos(a1) * p1.x * w1, p1.y, sin(a1) * p1.x * w1), Vector3(cos(a0) * p1.x * w0, p1.y, sin(a0) * p1.x * w0)]
+			for q in [0, 2, 1, 0, 3, 2]:
+				st.add_vertex(v[q])
+	st.generate_normals()
+	return st.commit()
+
+# 가는 띠 여러 가닥 (촉수, 입 팔): UV.x 는 가닥 번호, UV.y 는 매달린 곳에서 끝까지 0→1
+func jelly_strands_mesh(count: int, ring_r: float, length: float, width: float, frilly: bool) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var steps := 10
+	for c in count:
+		var a := TAU * c / count
+		var root := Vector3(cos(a) * ring_r, 0, sin(a) * ring_r)
+		var side := Vector3(-sin(a), 0, cos(a)) * width
+		for k in steps:
+			var t0 := float(k) / steps
+			var t1 := float(k + 1) / steps
+			var y0 := -length * t0
+			var y1 := -length * t1
+			var w0 := 1.0 - t0 * 0.6
+			var w1 := 1.0 - t1 * 0.6
+			if frilly:
+				w0 *= 1.0 + 0.6 * absf(sin(t0 * 18.0))
+				w1 *= 1.0 + 0.6 * absf(sin(t1 * 18.0))
+			var q := [root + Vector3(0, y0, 0) - side * w0, root + Vector3(0, y0, 0) + side * w0, root + Vector3(0, y1, 0) + side * w1, root + Vector3(0, y1, 0) - side * w1]
+			var uvs := [Vector2(float(c) / count, t0), Vector2(float(c) / count, t0), Vector2(float(c) / count, t1), Vector2(float(c) / count, t1)]
+			for idx in [0, 1, 2, 0, 2, 3]:
+				st.set_uv(uvs[idx])
+				st.set_normal(Vector3(cos(a), 0, sin(a)))
+				st.add_vertex(q[idx])
+	return st.commit()
+
 func make_jellies(r: RandomNumberGenerator) -> void:
-	var dome := SphereMesh.new()
-	dome.radius = 0.55
-	dome.height = 0.7
-	dome.is_hemisphere = true
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.85, 0.6, 1.0, 0.6)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.emission_enabled = true
-	mat.emission = Color(0.8, 0.5, 1.0)
-	mat.emission_energy_multiplier = 1.2
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var tmat := StandardMaterial3D.new()
-	tmat.albedo_color = Color(0.95, 0.75, 1.0, 0.7)
-	tmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	tmat.emission_enabled = true
-	tmat.emission = Color(0.9, 0.6, 1.0)
+	var bell := jelly_bell_mesh(1.0)
+	var inner := jelly_bell_mesh(0.7)
+	var tentacles := jelly_strands_mesh(12, 0.55, 1.9, 0.012, false)
+	var arms := jelly_strands_mesh(4, 0.12, 1.0, 0.06, true)
+	var bell_sh := Shader.new()
+	bell_sh.code = JELLY_SHADER
+	var ten_sh := Shader.new()
+	ten_sh.code = JELLY_TENTACLE
+	var palettes := [Color(0.85, 0.55, 1.0), Color(1.0, 0.55, 0.75), Color(0.5, 0.75, 1.0)]
 	for i in 11:
 		var x := r.randf_range(-12, 12)
 		var z := r.randf_range(-94, -68)
@@ -852,16 +954,52 @@ func make_jellies(r: RandomNumberGenerator) -> void:
 		var n := Node3D.new()
 		n.position = Vector3(x, y, z)
 		add_child(n)
-		var d := MeshInstance3D.new()
-		d.mesh = dome
-		d.material_override = mat
-		d.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		n.add_child(d)
-		for k in 5:
-			var a := k * TAU / 5.0
-			var tm := add_mcyl(n, tmat, 0.02, 0.01, 1.1, Vector3(cos(a) * 0.3, -0.5, sin(a) * 0.3))
-			tm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		jellies.append([n, n.position, r.randf() * TAU])
+		var col: Color = palettes[i % palettes.size()]
+		var bm := ShaderMaterial.new()
+		bm.shader = bell_sh
+		bm.set_shader_parameter("tint", col)
+		var im := ShaderMaterial.new()
+		im.shader = bell_sh
+		im.set_shader_parameter("tint", col.lightened(0.3))
+		im.set_shader_parameter("base_a", 0.1)
+		var tm := ShaderMaterial.new()
+		tm.shader = ten_sh
+		tm.set_shader_parameter("tint", col.lightened(0.2))
+		var am := ShaderMaterial.new()
+		am.shader = ten_sh
+		am.set_shader_parameter("tint", col)
+		am.set_shader_parameter("amp", 0.08)
+		for pair in [[bell, bm, Vector3.ZERO], [inner, im, Vector3(0, -0.02, 0)], [tentacles, tm, Vector3(0, 0.0, 0)], [arms, am, Vector3(0, 0.05, 0)]]:
+			var mi := MeshInstance3D.new()
+			mi.mesh = pair[0]
+			mi.material_override = pair[1]
+			mi.position = pair[2]
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			n.add_child(mi)
+		# 속에서 빛나는 네 잎 무늬
+		var glow := StandardMaterial3D.new()
+		glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		glow.albedo_color = col.lightened(0.45)
+		glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		glow.albedo_color.a = 0.85
+		for k in 4:
+			var a := k * TAU / 4.0 + PI / 4.0
+			var petal := MeshInstance3D.new()
+			var pm := SphereMesh.new()
+			pm.radius = 0.09
+			pm.height = 0.06
+			pm.radial_segments = 12
+			pm.rings = 6
+			petal.mesh = pm
+			petal.material_override = glow
+			petal.position = Vector3(cos(a) * 0.13, 0.3, sin(a) * 0.13)
+			petal.scale = Vector3(1.3, 1.0, 0.7)
+			petal.rotation.y = -a
+			petal.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			n.add_child(petal)
+		var s0 := r.randf_range(0.8, 1.25)
+		n.scale = Vector3.ONE * s0
+		jellies.append([n, n.position, r.randf() * TAU, s0])
 
 func update_jellies(t: float, delta: float) -> void:
 	jelly_cool = maxf(0.0, jelly_cool - delta)
@@ -871,7 +1009,11 @@ func update_jellies(t: float, delta: float) -> void:
 		var base: Vector3 = j[1]
 		var ph: float = j[2]
 		n.position = base + Vector3(sin(t * 0.3 + ph) * 1.2, sin(t * 0.8 + ph) * 1.0, cos(t * 0.25 + ph) * 1.0)
-		n.scale = Vector3(1.0 + sin(t * 2.4 + ph) * 0.08, 1.0 - sin(t * 2.4 + ph) * 0.1, 1.0 + sin(t * 2.4 + ph) * 0.08)
+		var s0: float = j[3] if j.size() > 3 else 1.0
+		# 갓을 오므렸다 펴며 헤엄쳐요 (오므릴 때 살짝 위로)
+		var pulse := sin(t * 2.4 + ph)
+		n.scale = Vector3(1.0 - pulse * 0.1, 1.0 + pulse * 0.12, 1.0 - pulse * 0.1) * s0
+		n.position.y += maxf(0.0, pulse) * 0.15
 		if jelly_cool <= 0.0 and swimming and n.position.distance_to(body_c) < 1.3:
 			jelly_cool = 1.0
 			var away := (body_c - n.position).normalized()
@@ -1100,6 +1242,7 @@ func apply_story_state() -> void:
 	if quest == S_FIND:
 		var rp0: Vector3 = rabbit_route[rabbit_hop]
 		rabbit.position = on_ground(rp0.x, rp0.z)
+		set_rabbit_beacon(true)
 	if follow_on:
 		if quest >= S_DIVE:
 			jara.position = player.position + Vector3(1.6, 0, 1.4)
@@ -1132,7 +1275,7 @@ func update_quest_text() -> void:
 		S_ARRIVE:
 			t = tr("모래사장 바위에 지쳐 있는 자라에게 말 걸기")
 		S_FIND:
-			t = tr("뒷산 숲에서 토끼를 쫓아가 잡기! (바짝 붙거나 점프해서 덮쳐요)")
+			t = tr("뒷산 숲에서 노란 이름표의 토끼를 쫓아가 잡기! (바짝 붙거나 점프해서 덮쳐요) %d/%d") % [rabbit_catches, RABBIT_CATCHES]
 		S_LURE:
 			t = tr("토끼를 데리고 바닷가 자라에게 가기")
 		S_DIVE:
@@ -1391,7 +1534,32 @@ func update_rabbit_chase(delta: float) -> void:
 	to_r.y = 0.0
 	var d := to_r.length()
 	var airborne := not player.is_on_floor()
-	if d < (2.3 if airborne else 1.5):
+	if not rabbit_called and d < 26.0:
+		rabbit_called = true
+		sfx("pop", 1.4)
+		float_text(tr("여기야 여기! 메롱~"), cam.unproject_position(rabbit.position + Vector3(0, 2.4, 0)), Color(1, 1, 0.8), 1.2)
+	if d < (2.0 if airborne else 1.3):
+		rabbit_catches += 1
+		if rabbit_catches < RABBIT_CATCHES:
+			# 쏙 빠져나가 다음 덤불로 깡충!
+			sfx("bad")
+			shake(8)
+			burst3d(rabbit.position + Vector3(0, 0.8, 0), Color(1, 1, 0.95), 16)
+			float_text(tr("앗! 쏙 빠져나갔다! (%d/%d)") % [rabbit_catches, RABBIT_CATCHES], get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.85, 0.5), 1.4)
+			rabbit_hop = (rabbit_hop + 1) % rabbit_route.size()
+			var nxt: Vector3 = rabbit_route[rabbit_hop]
+			var to_spot := Vector3(nxt.x, 0, nxt.z) - Vector3(rabbit.position.x, 0, rabbit.position.z)
+			# 너무 멀면 그 방향으로 12m만 뛰어요
+			if to_spot.length() > 12.0:
+				to_spot = to_spot.normalized() * 12.0
+			var land := rabbit.position + to_spot
+			rabbit.position = on_ground(land.x, land.z)
+			pop3d(rabbit)
+			rabbit_stam = 1.0
+			rabbit_rest = 0.0
+			rabbit_taunt = 0.0
+			update_quest_text()
+			return
 		rabbit_caught = true
 		sfx("win")
 		hit_stop(0.1)
@@ -1410,10 +1578,10 @@ func update_rabbit_chase(delta: float) -> void:
 		rabbit_stam = minf(1.0, rabbit_stam + delta * 0.25)
 		if d < 2.8:
 			rabbit_rest = 0.0
-	elif d < 10.0:
+	elif d < 12.0:
 		# 도망: 반대쪽으로, 지그재그로, 숲 가장자리와 나무를 피해서
 		var away := to_r.normalized()
-		var zig := sin(anim_t * 2.6 + rabbit_phase * 0.1) * 0.75
+		var zig := sin(anim_t * 2.6 + rabbit_phase * 0.1) * (0.75 + 0.15 * rabbit_catches)
 		var dir := away.rotated(Vector3.UP, zig)
 		var p := Vector2(rabbit.position.x, rabbit.position.z)
 		var box := RABBIT_BOX
@@ -1435,10 +1603,11 @@ func update_rabbit_chase(delta: float) -> void:
 		if steer.length() > 0.5 and d < 4.0:
 			dir = (dir + away.cross(Vector3.UP) * (1.0 if sin(anim_t) > 0.0 else -1.0)).normalized()
 		rabbit_dir = rabbit_dir.lerp(dir, minf(1.0, delta * 6.0)).normalized()
-		speed = lerpf(3.4, 6.4, rabbit_stam)
-		rabbit_stam = maxf(0.0, rabbit_stam - delta * 0.085)
-		if rabbit_stam < 0.3 and rng.randf() < delta * 0.6:
-			rabbit_rest = 0.7
+		# 잡힐 때마다 조금씩 더 빨라져요
+		speed = lerpf(4.2, 7.0 + rabbit_catches * 0.3, rabbit_stam)
+		rabbit_stam = maxf(0.0, rabbit_stam - delta * 0.07)
+		if rabbit_stam < 0.25 and rng.randf() < delta * 0.5:
+			rabbit_rest = 0.5
 			float_text(tr("헉헉..."), cam.unproject_position(rabbit.position + Vector3(0, 2.2, 0)), Color(1, 1, 0.9), 0.9)
 		elif rabbit_taunt <= 0.0 and d < 6.0:
 			rabbit_taunt = rng.randf_range(2.5, 4.5)
@@ -1459,6 +1628,7 @@ func update_rabbit_chase(delta: float) -> void:
 		body.set_meta("gait", [fposmod(rabbit_phase / PI, 1.0), clampf(speed / 3.0, 0.0, 1.0), 1.0 if speed > 4.5 else 0.0])
 
 func on_rabbit_caught() -> void:
+	set_rabbit_beacon(false)
 	say([
 		[tr("토끼"), tr("헉헉, 내가 졌다! 너 발 빠르구나. 그런데 무슨 일이야?")],
 		["", tr("(바닷가에서 자라가 토끼를 찾고 있다고 전했다.)")],
@@ -1485,8 +1655,8 @@ func update_rings() -> void:
 		if ring_next >= rings.size():
 			earn(10)
 			say([
-				[tr("자라"), tr("잘 따라오셨소! 이제 물살이 잔잔하니 마음껏 헤엄쳐도 되오.")],
-				[tr("자라"), tr("용궁은 북쪽 깊은 곳에 있소. 산호 숲, 해초 숲, 깊은 골짜기를 지나야 하오.")],
+				[tr("자라"), tr("잘 따라오셨소! 물살 고리 길은 여기까지라오.")],
+				[tr("자라"), tr("저 앞에 붉은 기둥이 보이오? 바로 용궁 문이오. 조금만 더 북쪽으로 헤엄치면 되오.")],
 				[tr("자라"), tr("골짜기의 빛나는 해파리는 건드리면 찌릿하니 조심하시오!")],
 				[tr("자라"), tr("참, 해초 숲엔 길 잃은 새끼 문어 다섯이 모래빛으로 숨어 있다 하오. 가까이 가면 꼼지락거린다오.")],
 			], func(): set_quest(S_DEEP))
@@ -1523,6 +1693,7 @@ func talk_jara() -> void:
 				pick_rabbit_route()
 				var rp: Vector3 = rabbit_route[0]
 				npc("rabbit").position = on_ground(rp.x, rp.z)
+				set_rabbit_beacon(true)
 				set_quest(S_FIND))
 		S_FIND:
 			say([[tr("자라"), tr("토끼는 뒷산 숲 덤불 사이에 산다 하오. 귀가 쫑긋하니 금방 알아볼 게요.")]], Callable())
@@ -1629,7 +1800,19 @@ func on_riddle(i: int) -> void:
 		l.append([tr("넙치 문지기"), tr("허허, 바로 나요! 맞혔소!")])
 	else:
 		l.append([tr("넙치 문지기"), tr("가자미 녀석도 닮긴 했지... 반쯤 맞힌 걸로 치겠소!")])
-	l.append([tr("넙치 문지기"), tr("들어가시오. 용왕님께서 전각 앞에서 기다리신다오.")])
+	l.append([tr("넙치 문지기"), tr("하지만 수수께끼 하나로는 어림없소! 두 번째 시험이오.")])
+	l.append([tr("넙치 문지기"), tr("내 형제들이 모래 속에 숨어 눈만 빼꼼 내민다오. 눈이 보이면 얼른 톡 건드려 찾아내시오!")])
+	say(l, start_sand)
+
+func start_sand() -> void:
+	start_game("tap", {"world": true, "scene": "sand", "art": "world", "title": tr("모래 속 넙치 형제들이 눈만 빼꼼!\n다시 숨기 전에 톡 건드려요"), "goal": 12, "interval": 0.62, "life": 1.25, "target": tr("넙치"), "center": tr("모래"), "color": Color(0.85, 0.75, 0.55)}, sand_done)
+
+func sand_done(ok: bool, _good: bool) -> void:
+	if not ok:
+		say([[tr("넙치 문지기"), tr("허허, 내 형제들이 모래 속에 쏙 숨어 버렸구려. 다시 해 보시오!")]], start_sand)
+		return
+	var l := [[tr("넙치 문지기"), tr("열둘을 다 찾아내다니! 눈썰미가 넙치만 하구려. 들어가시오.")]]
+	l.append([tr("넙치 문지기"), tr("용왕님께서 전각 앞에서 기다리신다오.")])
 	say(l, func():
 		follow_on = false
 		var jara := npc("jara")
@@ -1844,7 +2027,7 @@ func pearl_done(ok: bool, _good: bool) -> void:
 	say([[tr("문어 장군"), tr("...제법이구나. 진주 하나 흘리지 않다니.")]], func(): update_quest_text())
 
 func is_tap_scene(scene: String) -> bool:
-	return scene == "drum" or super(scene)
+	return scene == "drum" or scene == "sand" or super(scene)
 
 func is_catch_scene(scene: String) -> bool:
 	return scene == "pearl" or super(scene)
@@ -1855,6 +2038,19 @@ func scene_setup(scene: String) -> void:
 	w["count0"] = mg_count
 	w["lives0"] = mg_lives
 	match scene:
+		"sand":
+			var fc := Vector3(FLATFISH_POS.x, PALACE_Y + 0.25, FLATFISH_POS.z + 2.0)
+			var stand_s := fc + Vector3(0, 0, 3.2)
+			world_game_begin(stand_s, fc, fc + Vector3(0.5, 4.2, 6.4), fc + Vector3(0, 0, 0.2))
+			w["sand_c"] = fc
+			# 모래 둔덕 여섯 개 (넙치가 숨는 자리)
+			var mounds := []
+			for k in 7:
+				var mp := fc + Vector3(-2.6 + k * 0.87, 0.0, (0.9 if k % 2 == 0 else -0.6))
+				mounds.append(mp)
+				var hump := blob_node([[Vector3.ZERO, Vector3(0.9, 0.12, 0.7), Color(0.86, 0.78, 0.6)], [Vector3(0.1, 0.05, 0.05), Vector3(0.5, 0.1, 0.4), Color(0.9, 0.83, 0.66)]])
+				hump.global_position = mp
+			w["mounds"] = mounds
 		"clam":
 			var c := on_ground(CLAM_POS.x, CLAM_POS.z)
 			var stand := c + Vector3(-0.9, 0, 1.6)
@@ -1902,6 +2098,9 @@ func scene_setup(scene: String) -> void:
 
 func scene_spawn_target() -> Vector3:
 	match w["scene"]:
+		"sand":
+			var mounds: Array = w["mounds"]
+			return (mounds[rng.randi() % mounds.size()] as Vector3) + Vector3(rng.randf_range(-0.15, 0.15), 0.02, rng.randf_range(-0.1, 0.1))
 		"clam":
 			var c := on_ground(CLAM_POS.x, CLAM_POS.z)
 			return c + Vector3(rng.randf_range(-2.2, 2.2), 0.08, rng.randf_range(-1.4, 1.4))
@@ -1913,6 +2112,29 @@ func scene_spawn_target() -> Vector3:
 
 func scene_make_target(at: Vector3) -> Node3D:
 	match w["scene"]:
+		"sand":
+			var n := Node3D.new()
+			n.position = at
+			world_node(n)
+			# 모래빛 넙치 몸 (납작하게, 점무늬) + 툭 튀어나온 두 눈
+			var fish := Node3D.new()
+			n.add_child(fish)
+			add_blobs(fish, [[Vector3(0, 0.02, 0), Vector3(0.7, 0.08, 0.45), Color(0.72, 0.6, 0.42)],
+				[Vector3(0.12, 0.05, 0.06), Vector3(0.08, 0.02, 0.08), Color(0.5, 0.4, 0.3)], [Vector3(-0.15, 0.05, -0.08), Vector3(0.07, 0.02, 0.07), Color(0.5, 0.4, 0.3)],
+				[Vector3(-0.38, 0.03, 0), Vector3(0.2, 0.05, 0.28), Color(0.66, 0.55, 0.4)]])
+			for ex in [0.12, 0.22]:
+				var eye := Node3D.new()
+				eye.position = Vector3(ex, 0.08, 0.05)
+				fish.add_child(eye)
+				add_ball(eye, Color(0.98, 0.97, 0.92), 0.055, Vector3.ZERO)
+				add_ball(eye, Color(0.08, 0.06, 0.05), 0.03, Vector3(0.0, 0.025, 0.035))
+			fish.rotation.y = rng.randf() * TAU
+			n.set_meta("fish", fish)
+			n.set_meta("from", at)
+			add_target_marker(n)
+			pop3d(n, true)
+			burst3d(at + Vector3(0, 0.1, 0), Color(0.9, 0.82, 0.62), 8)
+			return n
 		"clam", "drum":
 			var n := Node3D.new()
 			n.position = at
@@ -1929,6 +2151,15 @@ func scene_make_target(at: Vector3) -> Node3D:
 
 func scene_target_tip(n: Node3D, age: float, life: float) -> Vector3:
 	match w["scene"]:
+		"sand":
+			# 모래에서 쏙 올라왔다가, 시간이 다 되면 다시 가라앉아요
+			var t := clampf(age / life, 0.0, 1.0)
+			var up := minf(1.0, t * 5.0) * (1.0 - smoothstep(0.8, 1.0, t))
+			var from: Vector3 = n.get_meta("from")
+			n.position = from + Vector3(0, -0.12 + up * 0.12, 0)
+			var fish: Node3D = n.get_meta("fish")
+			fish.rotation.z = sin(anim_t * 14.0 + from.x) * 0.04
+			return n.position + Vector3(0, 0.15, 0)
 		"clam":
 			n.scale = Vector3.ONE * (1.0 + absf(sin(anim_t * 10.0)) * 0.3)
 			return n.position + Vector3(0, 0.1, 0)
@@ -2334,13 +2565,18 @@ func make_chest() -> void:
 	body.add_child(chest_lid)
 	var lid := MeshInstance3D.new()
 	lid.mesh = half_cyl_mesh(L, D / 2.0)
-	lid.material_override = wood
+	# 둥근 뚜껑은 어느 쪽에서 봐도 꽉 차 보이게 양면으로 그려요 (예전엔 뒤에서 보면 비어 보였어요)
+	var lid_wood := wood.duplicate() as StandardMaterial3D
+	lid_wood.cull_mode = BaseMaterial3D.CULL_DISABLED
+	lid.material_override = lid_wood
 	lid.position = Vector3(0, 0, D / 2.0)
 	chest_lid.add_child(lid)
 	for bx in [-0.36, 0.36]:
 		var band := MeshInstance3D.new()
 		band.mesh = half_cyl_mesh(0.07, D / 2.0 + 0.015)
-		band.material_override = iron
+		var band_iron := iron.duplicate() as StandardMaterial3D
+		band_iron.cull_mode = BaseMaterial3D.CULL_DISABLED
+		band.material_override = band_iron
 		band.position = Vector3(bx, 0, D / 2.0)
 		chest_lid.add_child(band)
 	add_mbox(chest_lid, gold, Vector3(0.16, 0.16, 0.04), Vector3(0, 0.02, D + 0.01))

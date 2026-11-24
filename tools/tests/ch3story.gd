@@ -122,9 +122,14 @@ func run() -> void:
 	await snap("rabbit")
 	var rb2: Vector3 = m.npc("rabbit").position
 	print("rabbit fled ", rb.distance_to(rb2))
-	m.player.position = rb2 + Vector3(0.5, 0.3, 0.5)
-	await wait(1.5)
-	await settle()
+	# 토끼는 세 번 잡아야 항복해요 (두 번은 쏙 빠져나가요)
+	for k in 6:
+		if m.quest != m.S_FIND:
+			break
+		m.player.position = m.npc("rabbit").position + Vector3(0.4, 0.3, 0.4)
+		await wait(1.2)
+		await settle()
+	print("rabbit catches ", m.rabbit_catches)
 	print("Q lure ", m.quest, " follow ", m.follow_on)
 	m.talk_to("haenyeo"); await settle()
 	m.start_clam(); await dig_game()
@@ -167,6 +172,7 @@ func run() -> void:
 	await go(Vector3(0, m.PALACE_Y + 1.0, -97)); await wait(0.5); await settle()
 	print("Q gate ", m.quest)
 	m.talk_to("flatfish"); await settle()
+	await game("sand")
 	print("Q court ", m.quest)
 	await go(Vector3(0, m.PALACE_Y + 1.0, -106)); await wait(1.5); await snap("palace")
 	m.talk_to("yongwang"); await settle()
