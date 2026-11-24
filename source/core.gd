@@ -4515,31 +4515,60 @@ func update_walk_hint(delta: float) -> void:
 		if walk_hint_time > 1.2:
 			hide_walk_hint()
 
-# 검지로 화면을 누르는 손 (손끝이 tip 자리)
+# 검지로 화면을 누르는 손 (손끝이 tip 자리). 손등이 보이는 오른손을 부드러운 곡선 한 줄로 그려요
+const HAND_OUTLINE := [
+	Vector2(0, -2), Vector2(6, -0.5), Vector2(10, 4), Vector2(11, 12), Vector2(11, 30), Vector2(11.5, 46),
+	Vector2(14, 50), Vector2(20, 49), Vector2(25, 52), Vector2(28, 56), Vector2(32, 57), Vector2(36, 61), Vector2(37, 67),
+	Vector2(39, 71), Vector2(39, 78), Vector2(36, 84), Vector2(33, 92), Vector2(28, 100), Vector2(24, 106),
+	Vector2(-14, 106), Vector2(-18, 98), Vector2(-21, 88), Vector2(-26, 80), Vector2(-34, 72), Vector2(-40, 64),
+	Vector2(-41, 58), Vector2(-37, 55), Vector2(-30, 57), Vector2(-22, 62), Vector2(-15, 64), Vector2(-12, 56),
+	Vector2(-11, 30), Vector2(-11, 12), Vector2(-10, 4), Vector2(-6, -0.5), Vector2(0, -2),
+]
+
+func hand_pts(tip: Vector2, k: float, pts: Array) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for p in smooth_line(pts, 2.0):
+		out.append(tip + (p as Vector2) * k)
+	return out
+
 func draw_finger_hand(ci: CanvasItem, tip: Vector2, r: float) -> void:
-	var skin := Color(1.0, 0.86, 0.72)
-	var line := Color(0.45, 0.28, 0.16)
-	var fw := r * 0.13          # 손가락 반폭
-	var fl := r * 0.62          # 검지 길이
-	var palm := tip + Vector2(r * 0.12, fl + r * 0.28)
-	# 손목
-	d_box(ci, palm + Vector2(r * 0.02, r * 0.42), Vector2(r * 0.42, r * 0.36), 0.0, Color(0.55, 0.72, 0.95), 4.0)
-	# 손바닥
-	d_ell(ci, palm, r * 0.34, r * 0.32, skin, 0.0, 4.0)
-	# 접힌 손가락 셋 (오른쪽)
-	for k in 3:
-		d_ell(ci, palm + Vector2(r * (0.06 + k * 0.1), -r * 0.24 + k * r * 0.06), r * 0.1, r * 0.12, skin, 0.0, 3.0)
-	# 엄지 (왼쪽으로 비스듬히)
-	d_ell(ci, palm + Vector2(-r * 0.32, -r * 0.06), r * 0.09, r * 0.2, skin, -0.6, 3.0)
-	# 쭉 편 검지
-	var base := tip + Vector2(0, fl)
-	ci.draw_colored_polygon(PackedVector2Array([tip + Vector2(-fw, 0), tip + Vector2(fw, 0), base + Vector2(fw * 1.1, 0), base + Vector2(-fw * 1.1, 0)]), skin)
-	ci.draw_line(tip + Vector2(-fw, 0), base + Vector2(-fw * 1.1, 0), line, 4.0, true)
-	ci.draw_line(tip + Vector2(fw, 0), base + Vector2(fw * 1.1, 0), line, 4.0, true)
-	ci.draw_circle(tip, fw, skin)
-	ci.draw_arc(tip, fw, PI, TAU, 16, line, 4.0, true)
-	# 손톱
-	d_ell(ci, tip + Vector2(0, fw * 0.5), fw * 0.55, fw * 0.7, Color(1.0, 0.94, 0.9), 0.0, 2.0)
+	var k := r / 105.0
+	var skin := Color(1.0, 0.85, 0.72)
+	var shade := Color(0.93, 0.72, 0.6)
+	var line := Color(0.5, 0.3, 0.2)
+	# 소매 (주인공 파란 옷)
+	var cuff := PackedVector2Array([tip + Vector2(-20, 100) * k, tip + Vector2(30, 100) * k, tip + Vector2(33, 132) * k, tip + Vector2(-23, 132) * k])
+	ci.draw_colored_polygon(cuff, Color(0.33, 0.5, 0.82))
+	ci.draw_polyline(cuff + PackedVector2Array([cuff[0]]), line, 3.0, true)
+	ci.draw_line(tip + Vector2(-21, 106) * k, tip + Vector2(31, 106) * k, Color(0.9, 0.93, 1.0), 4.0, true)
+	# 그림자 (살짝 아래 오른쪽)
+	var outline := hand_pts(tip, k, HAND_OUTLINE)
+	var sh := PackedVector2Array()
+	for p in outline:
+		sh.append(p + Vector2(4, 5) * k)
+	ci.draw_colored_polygon(sh, Color(0, 0, 0, 0.22))
+	# 손 바탕
+	ci.draw_colored_polygon(outline, skin)
+	# 손등 오른쪽은 살짝 그늘
+	var dark := hand_pts(tip, k, [Vector2(14, 58), Vector2(26, 60), Vector2(35, 68), Vector2(36, 80), Vector2(30, 96), Vector2(22, 104), Vector2(16, 100), Vector2(20, 84), Vector2(18, 68), Vector2(14, 58)])
+	ci.draw_colored_polygon(dark, shade)
+	# 손등 밝은 부분
+	d_ell(ci, tip + Vector2(-2, 80) * k, 10 * k, 13 * k, Color(1.0, 0.92, 0.84), -0.2, 0.0)
+	ci.draw_polyline(outline, line, 3.5, true)
+	# 검지 손톱과 마디 주름
+	var nail := hand_pts(tip, k, [Vector2(-6, 3), Vector2(0, 1), Vector2(6, 3), Vector2(6.5, 11), Vector2(0, 13), Vector2(-6.5, 11), Vector2(-6, 3)])
+	ci.draw_colored_polygon(nail, Color(1.0, 0.93, 0.9))
+	ci.draw_polyline(nail, Color(0.82, 0.6, 0.52), 2.0, true)
+	for cy in [24.0, 40.0]:
+		ci.draw_polyline(hand_pts(tip, k, [Vector2(-6, cy), Vector2(0, cy + 1.5), Vector2(6, cy)]), Color(0.78, 0.55, 0.45), 2.0, true)
+	# 접힌 손가락 사이 선과 마디
+	ci.draw_polyline(hand_pts(tip, k, [Vector2(13, 52), Vector2(15, 58), Vector2(16, 64)]), line, 2.5, true)
+	ci.draw_polyline(hand_pts(tip, k, [Vector2(27, 57), Vector2(27, 63), Vector2(26, 68)]), line, 2.5, true)
+	ci.draw_polyline(hand_pts(tip, k, [Vector2(36, 66), Vector2(33, 72), Vector2(30, 75)]), line, 2.5, true)
+	# 엄지 경계
+	ci.draw_polyline(hand_pts(tip, k, [Vector2(-15, 64), Vector2(-14, 74), Vector2(-16, 84)]), Color(0.78, 0.55, 0.45), 2.5, true)
+	# 엄지 손톱
+	d_ell(ci, tip + Vector2(-35, 60) * k, 4.5 * k, 3.5 * k, Color(1.0, 0.93, 0.9), -0.5, 1.5)
 
 func draw_walk_hint() -> void:
 	var ci: CanvasItem = walk_hint
