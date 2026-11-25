@@ -1115,4 +1115,7 @@ const EN := {
 	"개울 징검다리 서쪽 여울에 가 보거라. 찌를 물살에 흘려 낚는 물고기가 따로 산단다. 바위 옆 소용돌이를 잘 보거라.": "Go to the rapids west of the creek stepping stones. Different fish live there; you let your float drift with the current. Watch the swirl by the rock.",
 	"%s를 낚았다! 처음 보는 물고기다. (%s %d/%d)": "Caught a %s! A fish you've never seen before. (%s %d/%d)",
 	"개울 여울 물고기 네 가지를 다 낚았다! 소문을 들은 강태공 할아버지가 엽전 30냥을 보내왔다.": "You caught all four creek fish! Hearing the news, Grandpa Fisher sent you 30 nyang.",
+	"이야기골 가는 길": "To Story Hollow",
+	"서북쪽 버드나무 길 끝 빛나는 동그라미로 흥부네 마을 가기": "Step into the glowing circle at the end of the northwest willow road to reach Heungbu's Village",
+	"흥부 이야기를 끝냈으니 북쪽 돌고개 안개가 걷혔단다. 그 길로 가면 해와 달이 된 오누이 이야기가 있지. 호랑이를 조심하렴.": "You finished Heungbu's tale, so the fog over the north stone hill has lifted. That road leads to the tale of the Sun and the Moon. Watch out for the tiger.",
 }

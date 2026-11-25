@@ -411,13 +411,8 @@ func make_shore_village() -> void:
 		[Vector3(-0.12, 0.45, 0.05), Vector3(0.3, 0.04, 0.14), Color(0.35, 0.62, 0.28), Vector3(0, 30, 20)],
 		[Vector3(0, 0.56, 0), Vector3(0.12, 0.1, 0.12), Color(0.9, 0.2, 0.2)],
 	])
-	# 남쪽 끝 이정표 (2장으로 돌아가기)
-	var gate := make_spot(on_ground(3.2, 49.0), "gate", "", "", true)
-	add_mcyl(gate, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
-	add_mbox(gate, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
-	add_tag(gate, tr("이야기골과 오누이 고갯길로 가는 길"), 2.6)
 	# 남쪽 길 끝: 걸어 들어가면 갈대 나루 건너 이야기골로
-	add_exit(on_ground(1.0, 51.8), 1.8, "home")
+	add_exit(on_ground(0.0, 51.8), 1.8, "home", tr("이야기골 가는 길"))
 
 func make_leaf_bush(pos: Vector3, size: Vector3, c: Color, seed_v: int) -> void:
 	if not tree_tried:

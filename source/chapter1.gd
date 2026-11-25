@@ -318,9 +318,8 @@ func make_border(r: RandomNumberGenerator) -> void:
 	# 다음 이야기로 가는 남쪽 길목
 	make_jangseung(Vector3(-4.7, 0, 37.5), false)
 	make_jangseung(Vector3(0.7, 0, 37.5), true)
-	make_signpost(Vector3(1.6, 0, 34.0))
-	# 남쪽 길 끝: 걸어 들어가면 버드나무 길 따라 이야기골로
-	add_exit(Vector3(-0.5, 0, 38.0), 2.0, "home")
+	# 남쪽 길 끝(두 장승 사이 빛나는 동그라미): 걸어 들어가면 버드나무 길 따라 이야기골로
+	add_exit(Vector3(-2.0, 0, 37.7), 1.9, "home", tr("이야기골 가는 길"))
 
 func make_paths() -> void:
 	make_dirt_path([Vector2(-2.0, -13.6), Vector2(-2.3, -8.0), Vector2(-1.6, -2.5), Vector2(-2.3, 3.5), Vector2(-1.8, 8.0), Vector2(-2.4, 12.5), Vector2(-2.0, 18.0), Vector2(-2.7, 25.0), Vector2(-1.7, 32.0), Vector2(-2.2, 39.0), Vector2(-2.0, 48.0)], 2.5, 1.0)

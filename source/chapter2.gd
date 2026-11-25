@@ -311,19 +311,9 @@ func make_feast_village() -> void:
 	# 마을 북쪽 어귀의 장승
 	make_jangseung(on_ground(-8.5, 12), false)
 	make_jangseung(on_ground(-1.2, 12), true)
-	# 남쪽 끝 이정표 (1장으로 돌아가기)
-	var gate := make_spot(on_ground(3.2, 49.0), "gate", "", "", true)
-	add_mcyl(gate, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
-	add_mbox(gate, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
-	add_tag(gate, tr("이야기골과 흥부네 마을로 가는 길"), 2.6)
-	# 북쪽 끝 이정표 (3장 바닷가로)
-	var gate3 := make_spot(on_ground(-6.0, -71.0), "gate", "ch3", "", true)
-	add_mcyl(gate3, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
-	add_mbox(gate3, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
-	add_tag(gate3, tr("바닷가 마을, 이야기골 가는 길"), 2.6)
 	# 길 끝: 남쪽은 돌고개 넘어 이야기골, 북쪽은 지름길로 바닷가 마을
-	add_exit(on_ground(1.0, 50.4), 1.7, "home")
-	add_exit(on_ground(-6.0, -73.2), 1.6, "ch3")
+	add_exit(on_ground(0.0, 50.4), 1.7, "home", tr("이야기골 가는 길"))
+	add_exit(on_ground(-6.0, -73.2), 1.6, "ch3", tr("바닷가 마을 가는 길"))
 
 # ---------- 고개 셋 (숲과 바위) ----------
 

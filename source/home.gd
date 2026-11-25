@@ -14,6 +14,7 @@ const TREE_POS := Vector3(-1.5, 0, -3)     # 큰 정자나무
 const GRANNY_POS := Vector3(2.2, 0, -0.6)  # 할머니는 정자나무 그늘 평상 옆에
 const POND_HOME := Vector3(22, 0, -9)
 const ARRIVE_CH1 := Vector3(-23.5, 0, -19.3)   # 버드나무 길로 들어온 자리
+const EXIT_CH1 := Vector3(-29.2, 0, -27.0)     # 버드나무 길 끝 (두 장승 사이)
 const ARRIVE_CH2 := Vector3(0.8, 0, -25.5)     # 돌고개로 들어온 자리
 const ARRIVE_CH3 := Vector3(23.0, 0, -15.0)    # 갈대 나루로 들어온 자리
 const ROOM_C := Vector3(80, 0, 0)              # 내 집 방 안 (마을 밖 멀리)
@@ -125,7 +126,7 @@ var guide_beam: Node3D
 func update_guide() -> void:
 	if guide_beam == null:
 		guide_beam = Node3D.new()
-		guide_beam.position = Vector3(-27.6, 0, -22.4)
+		guide_beam.position = EXIT_CH1
 		add_child(guide_beam)
 		var mat := StandardMaterial3D.new()
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -285,10 +286,6 @@ func update_lots() -> void:
 
 # 길 끝 이정표 세 개와 닫힌 안개 숲길
 func make_roads() -> void:
-	make_road_sign(Vector3(-27.6, 0, -22.4), "ch1", tr("버드나무 길\n(흥부네 마을)"), 0.75)
-	make_road_sign(Vector3(2.8, 0, -29.5), "ch2", tr("돌고개\n(오누이 고갯길)"), 0.0)
-	make_road_sign(Vector3(26.8, 0, -18.2), "ch3", tr("갈대 나루\n(바닷가 마을)"), -0.75)
-	make_road_sign(Vector3(3.0, 0, 28.5), "fog", tr("안개 숲길"), PI)
 	make_jangseung(Vector3(-31.0, 0, -24.0), false)
 	make_jangseung(Vector3(-27.0, 0, -29.5), true)
 	# 버드나무 길: 늘어진 나무를 길가에 (버드나무 모델 대신 잎이 둥근 나무)
@@ -321,10 +318,10 @@ func make_roads() -> void:
 	sway_items.append([fmi, fmi.position, 0, 1.3, 0.5])
 	add_solid(Vector3(0, 2, 31.0), Vector3(16, 8, 1), Color(0, 0, 0, 0))
 	# 길 끝: 걸어 들어가면 그 길 너머 지역으로 (안개 숲길은 닫힘)
-	add_exit(Vector3(-31.2, 0, -29.2), 2.2, "ch1")
-	add_exit(Vector3(0.6, 0, -32.6), 2.0, "ch2")
-	add_exit(Vector3(30.0, 0, -26.8), 1.8, "ch3")
-	add_exit(Vector3(0.0, 0, 30.0), 1.6, "fog")
+	add_exit(EXIT_CH1, 2.0, "ch1", tr("흥부네 마을 가는 길"))
+	add_exit(Vector3(0.6, 0, -32.6), 2.0, "ch2", tr("오누이 고갯길 가는 길"))
+	add_exit(Vector3(30.0, 0, -26.8), 1.8, "ch3", tr("바닷가 마을 가는 길"))
+	add_exit(Vector3(0.0, 0, 30.0), 1.6, "fog", tr("안개 숲길"))
 	# 아직 안 열린 길에는 짙은 안개가 끼어 있어요 (이야기를 끝내면 걷혀요)
 	var lock_fog := []
 	for road in [["ch2", Vector3(0.6, 0, -32.0)], ["ch3", Vector3(29.5, 0, -27.0)]]:
@@ -453,7 +450,7 @@ func update_quest_text() -> void:
 	if not met_granny:
 		t = tr("정자나무 아래 이야기꾼 할머니께 인사하기")
 	elif not tales.has("ch1"):
-		t = tr("서북쪽 버드나무 길 이정표로 흥부네 마을 가기")
+		t = tr("서북쪽 버드나무 길 끝 빛나는 동그라미로 흥부네 마을 가기")
 	else:
 		t = tr("이야기골을 둘러보기. 이야기를 끝낼 때마다 정자나무 등불이 켜져요")
 	quest_label.text = tr("할 일: %s\n엽전 %d냥 | 되찾은 이야기 %d/3") % [t, shown_coins, tales_count()]
@@ -533,7 +530,7 @@ func granny_hints() -> Array:
 		var pick: Array = unseen[granny_hint % unseen.size()]
 		out.append(tr("%s 이야기는 끝이 하나가 아니란다. %s (엔딩 %d/%d)") % [TALE_NAMES[t], pick[3], seen.size(), ending_total(t)])
 	if tales.has("ch1") and not tales.has("ch2"):
-		out.append(tr("흥부네 남쪽 이정표에서 고갯길로 가면 해와 달이 된 오누이 이야기가 있단다. 호랑이를 조심하렴."))
+		out.append(tr("흥부 이야기를 끝냈으니 북쪽 돌고개 안개가 걷혔단다. 그 길로 가면 해와 달이 된 오누이 이야기가 있지. 호랑이를 조심하렴."))
 	if tales.has("ch2") and not tales.has("ch3"):
 		out.append(tr("오누이 고갯길 북쪽 끝에서 바닷가로 내려가면 별주부 이야기가 기다린단다."))
 	out.append(tr("북쪽 돌고개를 넘으면 오누이 고갯길, 동북쪽 갈대 나루에서 배를 타면 바닷가 마을이란다."))

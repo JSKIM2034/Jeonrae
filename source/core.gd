@@ -2544,7 +2544,7 @@ var exit_msg_cool := 0.0
 var exit_last_out := Vector3.ZERO
 var roads_cache := {}          # 지역 id -> 열렸나
 
-func add_exit(at: Vector3, r: float, to: String) -> void:
+func add_exit(at: Vector3, r: float, to: String, label: String = "") -> void:
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -2587,6 +2587,8 @@ func add_exit(at: Vector3, r: float, to: String) -> void:
 	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	beam.position.y = 1.2
 	disc.add_child(beam)
+	if label != "":
+		add_tag(disc, label, 2.6)
 	exits.append({"c": Vector2(at.x, at.z), "r": r, "to": to, "mat": mat, "ring": ring_mat, "beam": beam_mat, "node": disc})
 
 # 이 길이 열렸나 (흥부네는 처음부터, 오누이는 흥부와 놀부를 끝내면, 바닷가는 오누이를 끝내면. 가 본 곳은 계속 열림)
