@@ -64,7 +64,7 @@ func catch_one() -> int:
 	return k
 func run() -> void:
 	check(m.fish_caught[0] == 1 and m.fish_caught[1] == 2 and m.herb_counts[0] == 3 and m.story_read[0], "old book arrays read")
-	check(m.FISH.size() == 23 and m.fish_in("ch1_creek").size() == 4 and m.fish_in("ch1").size() == 10, "10 fish, 4 in creek")
+	check(m.FISH.size() == 27 and m.fish_in("ch1_creek").size() == 4 and m.fish_in("ch1").size() == 10, "10 fish, 4 in creek")
 	var spot_found := false
 	for t in m.things:
 		if t["kind"] == "fish" and t["id"] == "creek":
@@ -111,9 +111,9 @@ func run() -> void:
 	await get_tree().process_frame
 	check(m.village_row.visible and m.book_village == "ch1", "village row on fish tab")
 	check((m.village_buttons["ch1"] as Button).text.contains("/10"), "village button counts 10: " + (m.village_buttons["ch1"] as Button).text)
-	m.book_village = "home"
+	m.book_village = "ch2"
 	m.show_book("fish")
-	check(m.book_footer.text == m.tr("이 마을 물고기는 준비 중이에요."), "other village coming soon")
+	check((m.village_buttons["ch2"] as Button).text.contains("/4"), "other village tab counts its own fish")
 	m.show_book("ending")
 	check(not m.village_row.visible, "no village row on ending tab")
 	m.close_book()

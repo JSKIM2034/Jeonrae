@@ -13,6 +13,8 @@ const GRANNY_HOUSE := Vector3(17, 0, 2)
 const TREE_POS := Vector3(-1.5, 0, -3)     # 큰 정자나무
 const GRANNY_POS := Vector3(2.2, 0, -0.6)  # 할머니는 정자나무 그늘 평상 옆에
 const POND_HOME := Vector3(22, 0, -9)
+const POND_RX := 5.6
+const POND_RZ := 2.3
 const ARRIVE_CH1 := Vector3(-23.5, 0, -19.3)   # 버드나무 길로 들어온 자리
 const EXIT_CH1 := Vector3(-29.2, 0, -27.0)     # 버드나무 길 끝 (두 장승 사이)
 const ARRIVE_CH2 := Vector3(0.8, 0, -25.5)     # 돌고개로 들어온 자리
@@ -40,12 +42,13 @@ func state_section() -> String:
 	return "home"
 
 func chapter_state() -> Dictionary:
-	return {"met": met_granny, "hint": granny_hint, "stage": house_stage}
+	return {"met": met_granny, "hint": granny_hint, "stage": house_stage, "night": home_night}
 
 func restore_chapter_state(d: Dictionary) -> void:
 	met_granny = d.get("met", false)
 	granny_hint = d.get("hint", 0)
 	house_stage = d.get("stage", 1)
+	home_night = d.get("night", false)
 
 # 집 마을엔 개울이 없어요 (개울 소리와 풀 자리 계산이 멀리 가도록)
 func creek_z(_x: float) -> float:
@@ -103,6 +106,7 @@ func build_chapter() -> void:
 	make_lots()
 	make_roads()
 	make_small_pond()
+	make_wild_spots("home")
 	var r := RandomNumberGenerator.new()
 	r.seed = 21
 	make_home_border(r)
@@ -142,6 +146,8 @@ func update_guide() -> void:
 
 func start_chapter() -> void:
 	update_lots()
+	set_time_of_day(0.9 if home_night else 0.0)
+	refill_pond_fish()
 	if in_room():
 		cam_zoom = 0.6
 		cam_zoom_target = 0.6
@@ -355,17 +361,27 @@ func make_road_sign(pos: Vector3, id: String, text: String, rot_y: float) -> voi
 
 func make_small_pond() -> void:
 	var c := POND_HOME
-	flat_ellipse(c, 3.8, 2.4, 0.06, water_material(1, Vector4(c.x, c.z, 3.8, 2.4), Color(0.12, 0.36, 0.52), Color(0.42, 0.68, 0.72)))
+	flat_ellipse(c, POND_RX, POND_RZ, 0.06, water_material(1, Vector4(c.x, c.z, POND_RX, POND_RZ), Color(0.12, 0.36, 0.52), Color(0.42, 0.68, 0.72)))
 	var r := RandomNumberGenerator.new()
 	r.seed = 12
 	var stones := []
 	var a := 0.0
 	while a < TAU:
 		a += r.randf_range(0.22, 0.34)
-		stones.append([c + Vector3(cos(a) * 4.1, 0.08, sin(a) * 2.7), Vector3(r.randf_range(0.5, 0.9), r.randf_range(0.28, 0.45), r.randf_range(0.4, 0.7)), stone_color(r)])
+		if sin(a) > 0.75 and absf(cos(a)) < 0.3:
+			continue   # 남쪽 가운데는 뜰채 놀이 자리로 비워요
+		stones.append([c + Vector3(cos(a) * (POND_RX + 0.3), 0.08, sin(a) * (POND_RZ + 0.3)), Vector3(r.randf_range(0.5, 0.9), r.randf_range(0.28, 0.45), r.randf_range(0.4, 0.7)), stone_color(r)])
 	add_blobs(self, stones, stone_blob_mat)
-	add_solid(c + Vector3(0, 0.5, 0), Vector3(6.4, 1.0, 3.8), Color(0, 0, 0, 0))
-	house_rects.append(Rect2(c.x - 4.8, c.z - 3.4, 9.6, 6.8))
+	add_solid(c + Vector3(0, 0.5, 0), Vector3(POND_RX * 1.65, 1.0, POND_RZ * 1.55), Color(0, 0, 0, 0))
+	house_rects.append(Rect2(c.x - POND_RX - 1.0, c.z - POND_RZ - 1.0, POND_RX * 2.0 + 2.0, POND_RZ * 2.0 + 2.0))
+	# 연못 물고기들 (물이 맑아 보여요) 과 뜰채 놀이 자리
+	var spot := make_spot(c + Vector3(0, 0, POND_RZ + 1.0), "net", "", tr("연못 뜰채 놀이"), true)
+	spot.visible = true
+	for i in 6:
+		var n := Node3D.new()
+		add_child(n)
+		pond_fish.append({"node": n, "kind": -1, "pos": c + Vector3(r.randf_range(-3.0, 3.0), 0.04, r.randf_range(-1.0, 1.0)), "to": c, "wait": 0.0, "hold": 0.0, "gone": 0.0})
+	refill_pond_fish()
 
 func make_home_border(r: RandomNumberGenerator) -> void:
 	var side := HOME_HALF + 2.5
@@ -462,6 +478,8 @@ func action_text(t: Dictionary) -> String:
 		return tr("살펴보기")
 	if t["kind"] == "door":
 		return tr("들어가기") if t["id"] == "in" else tr("나가기")
+	if t["kind"] == "net":
+		return tr("뜰채로 뜨기")
 	if t["kind"] == "room":
 		return {"bed": tr("잠자기"), "shelf": tr("이야기 책장 보기"), "chest": tr("살펴보기")}.get(t["id"], tr("살펴보기"))
 	return super.action_text(t)
@@ -483,6 +501,10 @@ func on_action() -> void:
 	if current_thing["kind"] == "room":
 		sfx("tap")
 		use_room(current_thing["id"])
+		return
+	if current_thing["kind"] == "net":
+		sfx("tap")
+		start_net()
 		return
 	super.on_action()
 
@@ -1080,13 +1102,17 @@ func use_room(id: String) -> void:
 	match id:
 		"bed":
 			if house_stage <= 1:
-				ask("", tr("해진 거적에 누워 한숨 잘까요?"), [tr("잠자기"), tr("그만두기")], func(i: int):
+				ask("", tr("해진 거적에 누워 한숨 잘까요?"), [tr("아침까지 자기"), tr("밤이 될 때까지 쉬기"), tr("그만두기")], func(i: int):
 					if i == 0:
-						show_card(tr("목침을 베고 웅크려 잤어요.\n벽 틈으로 바람이 숭숭...\n\n언젠가 이 집을 꼭 고쳐야지!"), 1.0, 2.2, func(): save_progress()))
+						show_card(tr("목침을 베고 웅크려 잤어요.\n벽 틈으로 바람이 숭숭...\n\n언젠가 이 집을 꼭 고쳐야지!"), 1.0, 2.2, func(): set_home_night(false))
+					elif i == 1:
+						show_card(tr("까무룩 잠들었다 깨어 보니\n창호지 구멍으로 달빛이 들어와요."), 1.0, 2.2, func(): set_home_night(true)))
 			else:
-				ask("", tr("이부자리에 누워 한숨 잘까요?"), [tr("잠자기"), tr("그만두기")], func(i: int):
+				ask("", tr("이부자리에 누워 한숨 잘까요?"), [tr("아침까지 자기"), tr("밤이 될 때까지 쉬기"), tr("그만두기")], func(i: int):
 					if i == 0:
-						show_card(tr("포근한 이불 속에서\n옛이야기 꿈을 꾸었어요.\n\n개운하게 일어났어요!"), 1.0, 2.2, func(): save_progress()))
+						show_card(tr("포근한 이불 속에서\n옛이야기 꿈을 꾸었어요.\n\n개운하게 일어났어요!"), 1.0, 2.2, func(): set_home_night(false))
+					elif i == 1:
+						show_card(tr("까무룩 잠들었다 깨어 보니\n창호지 너머로 달빛이 환해요."), 1.0, 2.2, func(): set_home_night(true)))
 		"shelf":
 			if house_stage <= 1:
 				say([["", tr("벽에 박은 판자 하나. 할머니가 준 이야기 책과 되찾은 이야기 %d권이 놓여 있다.") % tales_count()]], func(): open_book("ending"))
@@ -1101,6 +1127,7 @@ func use_room(id: String) -> void:
 # 카메라와 방 사이를 가리는 벽은 숨겨요 (부딪힘은 그대로)
 func _process(delta: float) -> void:
 	super._process(delta)
+	_ready_pond_tick(delta)
 	if cam == null or room_walls.is_empty():
 		return
 	var inside := in_room()
@@ -1120,3 +1147,217 @@ func _process(delta: float) -> void:
 		for c in holder.get_children():
 			if c is GeometryInstance3D:
 				(c as GeometryInstance3D).visible = show
+
+# ---------- 밤과 낮 (잠자리에서 밤까지 쉬면 밤: 달빛 잉어가 나와요) ----------
+var home_night := false
+
+func is_night() -> bool:
+	return home_night
+
+func set_home_night(on: bool) -> void:
+	home_night = on
+	set_time_of_day(0.9 if on else 0.0)
+	refill_pond_fish()
+	save_progress()
+
+# ---------- 이야기골 연못 뜰채 놀이 (collect_plan.md: 송사리·각시붕어·납자루·달빛 잉어) ----------
+# 손가락으로 뜰채를 끌어 물고기를 따라가요. 뜰채 안에 잠깐 머물면 쏙! 너무 빨리 휘두르면 놀라 달아나요
+var pond_fish: Array = []
+const NET_R := 0.55
+const NET_GOAL := 3
+
+func refill_pond_fish() -> void:
+	fish_place = "home_pond"
+	for pf in pond_fish:
+		var n: Node3D = pf["node"]
+		for ch in n.get_children():
+			ch.queue_free()
+		var k := pick_fish()
+		pf["kind"] = k
+		make_pond_fish_body(n, k)
+		n.scale = Vector3.ONE * 2.0
+		n.visible = true
+		pf["gone"] = 0.0
+
+func make_pond_fish_body(n: Node3D, k: int) -> void:
+	var f: Dictionary = FISH[k]
+	var col: Color = (f["col"] as Color).darkened(0.25)
+	var ln: float = f["len"] * 0.6
+	var items := [
+		[Vector3.ZERO, Vector3(0.5 * ln, 0.12, 0.1), col],
+		[Vector3(-0.3 * ln, 0, 0), Vector3(0.12, 0.1, 0.03), col.darkened(0.15)],
+		[Vector3(0.18 * ln, 0.03, 0.04), Vector3(0.03, 0.03, 0.02), Color(0.05, 0.05, 0.05)],
+		[Vector3(0.18 * ln, 0.03, -0.04), Vector3(0.03, 0.03, 0.02), Color(0.05, 0.05, 0.05)],
+	]
+	if f["id"] == "moon_ingeo":
+		var glow := StandardMaterial3D.new()
+		glow.albedo_color = col
+		glow.emission_enabled = true
+		glow.emission = Color(0.7, 0.8, 1.0)
+		glow.emission_energy_multiplier = 1.4
+		add_blobs(n, items, glow)
+	else:
+		add_blobs(n, items, blob_gloss())
+
+func pond_random_point() -> Vector3:
+	var a := rng.randf() * TAU
+	var d := sqrt(rng.randf()) * 0.85
+	return POND_HOME + Vector3(cos(a) * POND_RX * d, 0.04, sin(a) * POND_RZ * d)
+
+func update_pond_fish(delta: float, net_at: Vector3, net_speed: float) -> void:
+	for pf in pond_fish:
+		var n: Node3D = pf["node"]
+		if float(pf["gone"]) > 0.0:
+			pf["gone"] = float(pf["gone"]) - delta
+			if float(pf["gone"]) <= 0.0:
+				fish_place = "home_pond"
+				var k := pick_fish()
+				for ch in n.get_children():
+					ch.queue_free()
+				pf["kind"] = k
+				make_pond_fish_body(n, k)
+				pf["pos"] = pond_random_point()
+				n.visible = true
+			continue
+		var p: Vector3 = pf["pos"]
+		var to: Vector3 = pf["to"]
+		var speed := 0.6 + float(FISH[int(pf["kind"])]["hard"]) * 0.8
+		# 뜰채가 빠르게 다가오면 놀라 달아나요
+		var flee := net_at != Vector3.INF and net_speed > 2.2 and Vector2(p.x - net_at.x, p.z - net_at.z).length() < 1.4
+		if flee:
+			var away := (p - net_at)
+			away.y = 0
+			to = p + away.normalized() * 2.0
+			to.x = clampf(to.x, POND_HOME.x - POND_RX * 0.85, POND_HOME.x + POND_RX * 0.85)
+			to.z = clampf(to.z, POND_HOME.z - POND_RZ * 0.85, POND_HOME.z + POND_RZ * 0.85)
+			pf["to"] = to
+			speed *= 3.0
+		pf["wait"] = float(pf["wait"]) - delta
+		if p.distance_to(to) < 0.15 or float(pf["wait"]) <= 0.0:
+			pf["to"] = pond_random_point()
+			pf["wait"] = rng.randf_range(1.5, 3.5)
+		var dv: Vector3 = (pf["to"] as Vector3) - p
+		dv.y = 0
+		if dv.length() > 0.01:
+			p += dv.normalized() * minf(dv.length(), speed * delta)
+			n.rotation.y = atan2(-dv.z, dv.x)
+		p.y = 0.04 + sin(anim_t * 3.0 + p.x) * 0.012
+		pf["pos"] = p
+		n.position = p
+		n.rotation.x = sin(anim_t * 10.0 + p.z) * 0.12
+		pf["flee"] = flee
+
+func _ready_pond_tick(delta: float) -> void:
+	if not (mg_active and mg_type == "net"):
+		update_pond_fish(delta, Vector3.INF, 0.0)
+
+func start_net() -> void:
+	fish_place = "home_pond"
+	start_game("net", {"world": true, "art": "world", "title": tr("뜰채를 끌어 물고기를 따라가요!\n잠깐 머물면 쏙. 휙 휘두르면 달아나요")}, net_done)
+	var c := POND_HOME
+	var stand := c + Vector3(0, 0, POND_RZ + 1.0)
+	var nspot: Node3D = null
+	for t in things:
+		if t["kind"] == "net":
+			nspot = t["node"]
+	world_game_begin(stand, c, c + Vector3(0.0, 7.0, 5.6), c + Vector3(0, 0, 0.2), nspot)
+	var net := Node3D.new()
+	world_node(net)
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = NET_R - 0.05
+	tm.outer_radius = NET_R
+	ring.mesh = tm
+	ring.material_override = make_color(Color(0.55, 0.38, 0.22))
+	net.add_child(ring)
+	var mesh_mat := StandardMaterial3D.new()
+	mesh_mat.albedo_color = Color(1, 1, 1, 0.25)
+	mesh_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mesh_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var disc := MeshInstance3D.new()
+	var dm := CylinderMesh.new()
+	dm.top_radius = NET_R - 0.04
+	dm.bottom_radius = NET_R - 0.04
+	dm.height = 0.01
+	disc.mesh = dm
+	disc.material_override = mesh_mat
+	net.add_child(disc)
+	add_beam(net, make_color(Color(0.5, 0.36, 0.22)), Vector3(0, 0, NET_R), Vector3(0, 1.2, NET_R + 1.4), 0.03, 0.03)
+	net.position = c + Vector3(0, 0.12, 0.8)
+	w["net"] = net
+	w["net_prev"] = net.position
+	w["got"] = []
+	w["warn_t"] = 0.0
+	mg_info.text = tr("뜰채로 떠낸 물고기 %d/%d | 남은 기회 %d") % [0, NET_GOAL, mg_lives]
+
+func update_net(delta: float) -> void:
+	var net: Node3D = w["net"]
+	if mg_touch and cam != null:
+		var from := cam.project_ray_origin(mg_pos)
+		var dir := cam.project_ray_normal(mg_pos)
+		if absf(dir.y) > 0.01:
+			var t := (0.12 - from.y) / dir.y
+			var hit := from + dir * t
+			hit.x = clampf(hit.x, POND_HOME.x - POND_RX, POND_HOME.x + POND_RX)
+			hit.z = clampf(hit.z, POND_HOME.z - POND_RZ, POND_HOME.z + POND_RZ)
+			# 손가락을 따라가되 한 번에 휙 날아가지는 않아요 (빠르면 물고기가 놀라요)
+			var step := net.position.lerp(hit, minf(1.0, delta * 10.0)) - net.position
+			net.position += step.limit_length(4.0 * delta)
+	var prev: Vector3 = w["net_prev"]
+	var spd := net.position.distance_to(prev) / maxf(delta, 0.001)
+	w["net_prev"] = net.position
+	update_pond_fish(delta, net.position, spd)
+	w["warn_t"] = float(w["warn_t"]) - delta
+	for pf in pond_fish:
+		if float(pf["gone"]) > 0.0:
+			continue
+		var p: Vector3 = pf["pos"]
+		if bool(pf.get("flee", false)) and float(w["warn_t"]) <= 0.0:
+			w["warn_t"] = 1.2
+			mg_lives -= 1
+			sfx("bad")
+			shake(6)
+			splash3d(p)
+			float_text(tr("휘익! 너무 빨라서 놀라 달아났어요"), cam.unproject_position(p), Color(1, 0.7, 0.6), 1.1)
+		if Vector2(p.x - net.position.x, p.z - net.position.z).length() < NET_R - 0.08 and spd < 2.2:
+			pf["hold"] = float(pf["hold"]) + delta
+			if float(pf["hold"]) > 0.6:
+				pf["hold"] = 0.0
+				pf["gone"] = rng.randf_range(2.0, 4.0)
+				(pf["node"] as Node3D).visible = false
+				var k: int = pf["kind"]
+				(w["got"] as Array).append(k)
+				mg_count += 1
+				mg_progress = float(mg_count) / NET_GOAL
+				sfx("good")
+				splash3d(p, true)
+				float_text(tr("쏙! %s") % FISH[k]["name"], cam.unproject_position(p), Color(1, 0.95, 0.6), 1.3)
+		else:
+			pf["hold"] = 0.0
+	mg_info.text = tr("뜰채로 떠낸 물고기 %d/%d | 남은 기회 %d") % [mg_count, NET_GOAL, mg_lives]
+
+func net_done(ok: bool, _good: bool) -> void:
+	var got: Array = w.get("got", [])
+	if got.is_empty():
+		say([["", tr("물고기들이 모두 물풀 사이로 숨어 버렸다. 살살 다가가 보자.")]], Callable())
+		return
+	fish_place = "home_pond"
+	var lines := []
+	var here := fish_in("home_pond").size()
+	for k in got:
+		var first := int(fish_caught[k]) == 0
+		fish_caught[k] = int(fish_caught[k]) + 1
+		earn(int(FISH[k]["pay"]))
+		if first:
+			lines.append(["", tr("%s를 떠냈다! 처음 보는 물고기다. (%s %d/%d)") % [FISH[k]["name"], FISH_PLACES["home_pond"], fish_kinds_found(), here]])
+		else:
+			lines.append(["", tr("%s를 떠냈다! (%d마리째)") % [FISH[k]["name"], fish_caught[k]]])
+	if fish_kinds_found() >= here and not book_rewards.has("fish_home_pond"):
+		book_rewards["fish_home_pond"] = true
+		earn(30)
+		lines.append([tr("이야기꾼 할머니"), tr("어머나, 연못 식구를 다 떠 보았구나! 옛날 우리 오라버니도 못 한 일이란다. 30냥 받으렴.")])
+	elif not ok:
+		lines.append(["", tr("물고기들이 놀라 숨어 버렸다. 그래도 몇 마리는 떠냈다!")])
+	lines.append(["", tr("떠낸 물고기는 장터에 넘기고 다시 연못에 풀어 주었다.")])
+	save_book()
+	say(lines, Callable())

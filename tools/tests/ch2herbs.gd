@@ -44,7 +44,7 @@ func spots_of(id: String) -> Array:
 			out.append(ws)
 	return out
 func run() -> void:
-	check(m.herb_counts.size() == m.HERBS.size() and m.HERBS.size() == 16, "16 herbs, counts sized")
+	check(m.herb_counts.size() == m.HERBS.size() and m.HERBS.size() == 20, "20 herbs, counts sized")
 	check(m.herb_counts[0] == 3 and m.herb_counts[1] == 1, "ch1 herbs loaded in ch2")
 	check(m.herbs_in("ch2").size() == 5 and m.wild_spots.size() == 11, "5 pass herbs, 11 spots, no ch1 spots here")
 	var on_ground := true
