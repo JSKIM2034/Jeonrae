@@ -2295,16 +2295,7 @@ func catch_item_node(bad: bool) -> Node3D:
 	if w.get("scene", "") != "tteok":
 		return super(bad)
 	if bad:
-		var spark := StandardMaterial3D.new()
-		spark.albedo_color = Color(1.0, 0.55, 0.15)
-		spark.emission_enabled = true
-		spark.emission = Color(1.0, 0.45, 0.1)
-		spark.emission_energy_multiplier = 2.5
-		var n := Node3D.new()
-		world_node(n)
-		add_ball(n, Color(1.0, 0.6, 0.2), 0.14, Vector3.ZERO).material_override = spark
-		add_ball(n, Color(1.0, 0.85, 0.3), 0.07, Vector3(0.08, 0.1, 0)).material_override = spark
-		return n
+		return make_ember()
 	var cc: Color = [Color(0.72, 0.42, 0.32), Color(0.98, 0.97, 0.92), Color(0.45, 0.6, 0.32), Color(0.95, 0.78, 0.4)][rng.randi() % 4]
 	return blob_node([[Vector3.ZERO, Vector3(0.36, 0.14, 0.3), cc], [Vector3(0, 0.08, 0), Vector3(0.3, 0.06, 0.24), cc.lightened(0.15)]])
 
@@ -2717,3 +2708,86 @@ func update_kid_poses(delta: float) -> void:
 	if quest == S_ROPE:
 		for k in ["oppa", "nui"]:
 			pose_kid_sit(k)
+
+# ---------- 아궁이 불똥: 일렁이는 불꽃, 빨갛게 달아오른 숯 알갱이, 꼬리처럼 튀는 불티 ----------
+const EMBER_SHADER := """
+shader_type spatial;
+render_mode blend_mix, unshaded, cull_disabled, depth_draw_never;
+uniform float seed = 0.0;
+void vertex() {
+	// 늘 카메라를 보는 판
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+}
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	p.y = -p.y;
+	float t = TIME * 9.0 + seed * 6.0;
+	// 아래는 둥글고 위로 갈수록 뾰족하게 일렁이는 불꽃
+	p.x += sin(p.y * 4.0 + t) * 0.12 * (p.y + 1.0) * 0.5;
+	float w = mix(0.75, 0.12, clamp((p.y + 0.4) / 1.4, 0.0, 1.0));
+	float body = 1.0 - smoothstep(0.0, 1.0, length(vec2(p.x / w, (p.y + 0.35) * 0.9)));
+	float core = 1.0 - smoothstep(0.0, 0.55, length(vec2(p.x * 1.8, (p.y + 0.45) * 1.6)));
+	float flick = 0.85 + 0.15 * sin(t * 1.7);
+	vec3 col = mix(vec3(0.85, 0.12, 0.02), vec3(1.0, 0.55, 0.08), smoothstep(0.0, 0.6, body));
+	col = mix(col, vec3(1.0, 0.92, 0.55), core);
+	float a = clamp(body * 2.2, 0.0, 1.0) * flick;
+	ALBEDO = col;
+	ALPHA = a;
+}
+"""
+var ember_shader: Shader
+
+func make_ember() -> Node3D:
+	if ember_shader == null:
+		ember_shader = Shader.new()
+		ember_shader.code = EMBER_SHADER
+	var n := Node3D.new()
+	world_node(n)
+	var flame := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(0.5, 0.7)
+	flame.mesh = q
+	var fm := ShaderMaterial.new()
+	fm.shader = ember_shader
+	fm.set_shader_parameter("seed", rng.randf())
+	flame.material_override = fm
+	flame.position.y = 0.08
+	flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.add_child(flame)
+	# 빨갛게 달아오른 숯 알갱이
+	var hot := StandardMaterial3D.new()
+	hot.albedo_color = Color(0.3, 0.06, 0.02)
+	hot.emission_enabled = true
+	hot.emission = Color(1.0, 0.3, 0.04)
+	hot.emission_energy_multiplier = 1.4
+	add_ball(n, Color(1.0, 0.4, 0.1), 0.07, Vector3(0, -0.04, 0)).material_override = hot
+	# 꼬리처럼 흩날리는 작은 불티
+	var sp := CPUParticles3D.new()
+	sp.amount = 14
+	sp.lifetime = 0.45
+	sp.local_coords = false
+	sp.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	sp.emission_sphere_radius = 0.06
+	sp.direction = Vector3(0, 1, 0)
+	sp.spread = 60.0
+	sp.initial_velocity_min = 0.3
+	sp.initial_velocity_max = 0.9
+	sp.gravity = Vector3(0, 0.6, 0)
+	sp.scale_amount_min = 0.5
+	sp.scale_amount_max = 1.0
+	var dot := QuadMesh.new()
+	dot.size = Vector2(0.05, 0.05)
+	var dm := StandardMaterial3D.new()
+	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	dm.vertex_color_use_as_albedo = true
+	dot.material = dm
+	sp.mesh = dot
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1.0, 0.85, 0.4, 1.0))
+	ramp.set_color(1, Color(1.0, 0.25, 0.05, 0.0))
+	sp.color_ramp = ramp
+	n.add_child(sp)
+	return n
