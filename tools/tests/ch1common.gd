@@ -17,7 +17,7 @@ func _ready() -> void:
 	m.story_read[4] = true
 	m.save_south()
 	var book: Dictionary = cfg().get_value("common", "book", {})
-	check(int(book.get("ch1_fish", [])[3]) == 2 and int(book.get("ch1_herbs", [])[1]) == 3 and book.get("ch1_story", [])[4], "ch1 book saved to common")
+	check(int(book.get("fish", {}).get("ingeo", 0)) == 2 and int(book.get("herbs", {}).get("naengi", 0)) == 3 and book.get("story", {}).get("ch1", [])[4], "ch1 book saved to common")
 	check(not cfg().has_section("ch1"), "no old [ch1] section written")
 	check(m.fish_kinds_found() == 1 and m.herb_kinds_done() == 1 and m.story_count() == 1, "counts from core")
 	m.finish_chapter("greed")

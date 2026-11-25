@@ -379,6 +379,7 @@ func make_world() -> void:
 
 	# 숲 바닥, 개울, 다리, 길
 	make_creek()
+	make_creek_spot()
 	add_box(self, Color(0.55, 0.4, 0.25), Vector3(3, 0.2, 4), Vector3(-2, 0.1, -15.5)).material_override = plank_mat
 	# 개울은 다리로만 건널 수 있어요 (점프로도 못 넘는 보이지 않는 벽, 다리 자리만 비워 둠)
 	var creek_left_len := (-3.5) - (-MAP_HALF)
@@ -980,11 +981,12 @@ func well_drag(dy: float, dt_ms: float) -> void:
 
 # ---------- 낚시 (3D): 연못 위 찌, 물고기 그림자, 튀어 오르는 물고기 ----------
 func start_fishing3d() -> void:
+	fish_place = "ch1_pond"
 	start_game("fish", {"world": true, "art": "world", "title": tr("찌가 쏙 들어가면 눌러서 채요!\n걸리면 눌렀다 뗐다 하며 초록 칸에")}, fish_done)
 	var stand := POND_C + Vector3(4.1, 0.0, 0.0)
 	var fspot: Node3D = null
 	for t in things:
-		if t["kind"] == "fish":
+		if t["kind"] == "fish" and t["id"] == "":
 			fspot = t["node"]
 	world_game_begin(stand, POND_C, POND_C + Vector3(7.4, 3.3, 3.8), POND_C + Vector3(1.6, 0.3, 0.0), fspot)
 	for d in pond_deco:
@@ -996,6 +998,11 @@ func start_fishing3d() -> void:
 	add_ball(bob, Color(1, 1, 1), 0.065, Vector3(0, -0.01, 0))
 	w["bobber"] = bob
 	w["bob_at"] = POND_C + Vector3(1.0, 0.09, 0.4)
+	w["fight_c"] = POND_C + Vector3(1.0, 0.07, 0.0)
+	make_fish_world_parts()
+
+# 찌 그림자, 느낌표, 낚싯줄 (연못과 개울이 같이 써요)
+func make_fish_world_parts() -> void:
 	var shadow := MeshInstance3D.new()
 	var sm := SphereMesh.new()
 	sm.radius = 0.5
@@ -1042,8 +1049,13 @@ func update_fish_world(delta: float) -> void:
 	var bang: Label3D = w["bang"]
 	w["jerk"] = maxf(0.0, float(w["jerk"]) - delta * 3.0)
 	var target := base
+	if fish_place == "ch1_creek" and mg_step <= 1:
+		update_creek_drift(delta)
+		base = w["bob_at"]
 	if mg_step == 0:
 		var nib := 0.03 if fmod(mg_phase, 1.7) < 0.15 else 0.0
+		if fish_place == "ch1_creek":
+			nib = 0.0
 		bob.visible = true
 		bob.position = base + Vector3(0, sin(mg_phase * 2.2) * 0.015 - nib, 0)
 		shadow.visible = false
@@ -1062,7 +1074,12 @@ func update_fish_world(delta: float) -> void:
 		shadow.visible = true
 		var fx := (mg_trail - 0.5) * 3.4
 		var fz := sin(mg_phase * 2.3) * 0.9
-		target = POND_C + Vector3(1.0 + fz * 0.4, 0.07, fx)
+		var fc: Vector3 = w["fight_c"]
+		if fish_place == "ch1_creek":
+			# 개울에서는 물살을 따라 좌우로 끌려다녀요
+			target = fc + Vector3(fx * 0.8, 0.0, fz * 0.25)
+		else:
+			target = fc + Vector3(fz * 0.4, 0.0, fx)
 		shadow.position = target
 		shadow.rotation.y = atan2(mg_dir - mg_trail, 0.2) * 0.8
 		w["splash_t"] = float(w["splash_t"]) - delta
@@ -1091,6 +1108,93 @@ func fish_world_hooked() -> void:
 	hit_stop(0.05)
 	splash3d(w["bob_at"], true)
 
+# ---------- 개울 여울 흘림 낚시 (collect_plan.md: 버들치, 갈겨니, 꺽지, 쉬리) ----------
+# 찌가 물살을 따라 흘러가요. 바위 옆 소용돌이를 지날 때만 물고기가 물어요. 끝까지 흘러가면 다시 던져요
+const CREEK_X := -16.0
+
+func creek_eddy() -> Vector3:
+	return Vector3(CREEK_X + 0.9, 0.06, creek_z(CREEK_X + 0.9) - 0.3)
+
+func make_creek_spot() -> void:
+	var zc := creek_z(CREEK_X)
+	var bank := zc + creek_half(CREEK_X) + 0.9
+	var spot := make_spot(Vector3(CREEK_X, 0, bank), "fish", "creek", tr("여울 낚시터"), true)
+	spot.visible = true
+	# 물가 넓적 바위 (서는 자리)와 소용돌이 옆 큰 바위
+	add_blobs(self, [
+		[Vector3(CREEK_X, 0.06, bank - 0.3), Vector3(1.4, 0.16, 0.9), Color(0.55, 0.53, 0.5)],
+		[Vector3(CREEK_X + 0.5, 0.1, bank - 0.5), Vector3(0.6, 0.18, 0.5), Color(0.6, 0.58, 0.54)],
+	], stone_blob_mat, true)
+	var e := creek_eddy()
+	add_blobs(self, [
+		[e + Vector3(0.45, 0.12, -0.25), Vector3(0.9, 0.55, 0.7), Color(0.5, 0.49, 0.46)],
+		[e + Vector3(0.9, 0.05, 0.1), Vector3(0.5, 0.3, 0.45), Color(0.56, 0.54, 0.5)],
+	], stone_blob_mat, true)
+	make_basket(Vector3(CREEK_X - 1.1, 0, bank + 0.3), 0.7, Color(0.62, 0.68, 0.74))
+
+func start_creek_fishing() -> void:
+	fish_place = "ch1_creek"
+	start_game("fish", {"world": true, "art": "world", "title": tr("찌가 물살을 따라 흘러가요!\n바위 옆 소용돌이에서 쏙 들어가면 눌러요")}, fish_done)
+	var zc := creek_z(CREEK_X)
+	var stand := Vector3(CREEK_X, 0, zc + creek_half(CREEK_X) + 0.9)
+	var fspot: Node3D = null
+	for t in things:
+		if t["kind"] == "fish" and t["id"] == "creek":
+			fspot = t["node"]
+	world_game_begin(stand, Vector3(CREEK_X, 0, zc), stand + Vector3(2.2, 2.9, 3.4), Vector3(CREEK_X + 1.0, 0.0, zc - 0.2))
+	if fspot != null:
+		world_hide(fspot)
+	hold_tool("rod")
+	var bob := Node3D.new()
+	world_node(bob)
+	add_ball(bob, Color(0.9, 0.2, 0.2), 0.07, Vector3(0, 0.05, 0))
+	add_ball(bob, Color(1, 1, 1), 0.065, Vector3(0, -0.01, 0))
+	w["bobber"] = bob
+	w["drift"] = 0.0
+	w["eddy_done"] = false
+	w["eddy_fx"] = 0.0
+	w["bob_at"] = creek_drift_pos(0.0)
+	w["fight_c"] = creek_eddy()
+	make_fish_world_parts()
+	mg_timer = 999.0
+
+# 찌가 흐르는 길: 낚시터 왼쪽 위에서 오른쪽 아래로
+func creek_drift_pos(t: float) -> Vector3:
+	var x := lerpf(CREEK_X - 2.4, CREEK_X + 3.0, t)
+	var z := creek_z(x) + lerpf(0.35, -0.1, t) + sin(t * 9.0) * 0.06
+	return Vector3(x, 0.09, z)
+
+func update_creek_drift(delta: float) -> void:
+	var d: float = w["drift"]
+	var speed := 1.0 / 4.2
+	if mg_step == 1:
+		speed *= 0.25
+	d += delta * speed
+	var e := creek_eddy()
+	w["eddy_fx"] = float(w["eddy_fx"]) - delta
+	if float(w["eddy_fx"]) <= 0.0:
+		w["eddy_fx"] = 0.55
+		ripple3d(e, 0.6)
+	if mg_step == 0:
+		mg_timer = 999.0
+		# 소용돌이를 지날 때 물고기가 물 수도 있어요
+		if d > 0.5 and d < 0.7 and not bool(w["eddy_done"]):
+			w["eddy_done"] = true
+			if rng.randf() < 0.72:
+				fish_kind = pick_fish()
+				mg_step = 1
+				mg_timer = lerpf(0.95, 0.6, FISH[fish_kind]["hard"])
+				sfx("pop", 0.7)
+				shake(4)
+		if d >= 1.0:
+			# 끝까지 흘러갔으면 다시 던져요
+			d = 0.0
+			w["eddy_done"] = false
+			sfx("splash", 1.3)
+			splash3d(creek_drift_pos(0.0))
+	w["drift"] = minf(d, 1.0)
+	w["bob_at"] = creek_drift_pos(w["drift"])
+
 # 낚아 올린 물고기가 물에서 튀어 올라 품으로 와요
 func fish_leap(kind: int) -> void:
 	var f: Dictionary = FISH[kind]
@@ -1104,7 +1208,7 @@ func fish_leap(kind: int) -> void:
 		[Vector3(0.18 * ln, 0.04, 0.06), Vector3(0.05, 0.05, 0.03), Color(0.05, 0.05, 0.05)],
 		[Vector3(0.18 * ln, 0.04, -0.06), Vector3(0.05, 0.05, 0.03), Color(0.05, 0.05, 0.05)],
 	], blob_gloss())
-	var from: Vector3 = POND_C + Vector3(1.0, 0.1, 0.3)
+	var from: Vector3 = (w["bob_at"] as Vector3) + Vector3(0, 0.01, 0) if w.has("bob_at") else POND_C + Vector3(1.0, 0.1, 0.3)
 	var to := player.position + Vector3(0, 1.3, 0)
 	fish.position = from
 	splash3d(from, true)
@@ -1617,12 +1721,13 @@ func save_south() -> void:
 
 func fish_book() -> String:
 	var parts := []
-	for i in FISH.size():
+	var pond := fish_in("ch1_pond")
+	for i in pond:
 		if int(fish_caught[i]) > 0:
 			parts.append(tr("%s %d마리") % [FISH[i]["name"], fish_caught[i]])
 		else:
 			parts.append("???")
-	return tr("물고기 도감 %d/%d\n%s") % [fish_kinds_found(), FISH.size(), ", ".join(parts)]
+	return tr("물고기 도감 %d/%d\n%s") % [fish_found_in("ch1_pond"), pond.size(), ", ".join(parts)]
 
 func fish_how() -> Array:
 	return [
@@ -1636,29 +1741,41 @@ func talk_fisher() -> void:
 		say([[tr("강태공"), tr("허허, 세월을 낚는 중이란다. 너도 한번 해 보겠느냐? 나루터 끝의 낚싯대를 쓰거라.")]] + fish_how() + [[tr("강태공"), tr("물고기는 모두 여섯 가지. 금빛 잉어는 나도 평생 두 번밖에 못 봤단다.")]], Callable())
 		return
 	var lines := [[tr("강태공"), fish_book()]]
-	if fish_kinds_found() >= FISH.size():
+	if fish_found_in("ch1_creek") < fish_in("ch1_creek").size():
+		lines.append([tr("강태공"), tr("개울 징검다리 서쪽 여울에 가 보거라. 찌를 물살에 흘려 낚는 물고기가 따로 산단다. 바위 옆 소용돌이를 잘 보거라.")])
+	if fish_found_in("ch1_pond") >= fish_in("ch1_pond").size():
 		lines.append([tr("강태공"), tr("허허, 이 연못 물고기를 다 낚아 보다니! 네가 진짜 강태공이로구나.")])
 	else:
 		lines.append([tr("강태공"), tr("물고기마다 힘이 달라. 큰 놈일수록 초록 칸에 붙잡아 두기 어렵단다.")])
 	say(lines, Callable())
 
 func start_fishing() -> void:
+	if current_thing.get("id", "") == "creek":
+		start_creek_fishing()
+		return
 	if not fisher_met:
 		fisher_met = true
 		say([[tr("강태공"), tr("낚시는 처음이냐? 내 알려 주마.")]] + fish_how(), start_fishing)
 		return
 	start_fishing3d()
 
+# 지금 낚시하는 곳(fish_place)의 물고기 중에서 골라요. 날씨에 따라 잘 나오는 종류가 달라요
+func fish_weight(i: int) -> float:
+	var f: Dictionary = FISH[i]
+	var wx: Dictionary = f.get("wx", {})
+	return float(f["w"]) * float(wx.get(weather, 1.0))
+
 func pick_fish() -> int:
-	var total := 0
-	for f in FISH:
-		total += int(f["w"])
-	var roll := rng.randi_range(1, total)
-	for i in FISH.size():
-		roll -= int(FISH[i]["w"])
-		if roll <= 0:
+	var list := fish_in(fish_place)
+	var total := 0.0
+	for i in list:
+		total += fish_weight(i)
+	var roll := rng.randf() * total
+	for i in list:
+		roll -= fish_weight(i)
+		if roll <= 0.0:
 			return i
-	return 0
+	return list[0]
 
 func fish_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -1670,15 +1787,20 @@ func fish_done(ok: bool, _good: bool) -> void:
 	var pay: int = f["pay"]
 	earn(pay)
 	var lines := []
+	var here := fish_in(fish_place).size()
 	if first:
-		lines.append(["", tr("%s를 낚았다! 처음 보는 물고기다. (물고기 도감 %d/%d)") % [f["name"], fish_kinds_found(), FISH.size()]])
+		lines.append(["", tr("%s를 낚았다! 처음 보는 물고기다. (%s %d/%d)") % [f["name"], FISH_PLACES[fish_place], fish_kinds_found(), here]])
 	else:
 		lines.append(["", tr("%s를 낚았다! (%d마리째)") % [f["name"], fish_caught[fish_kind]]])
 	lines.append(["", tr("장터에 팔아 엽전 %d냥을 받았다.") % pay])
-	if fish_kinds_found() >= FISH.size() and not fish_reward:
+	if fish_place == "ch1_pond" and fish_kinds_found() >= here and not fish_reward:
 		fish_reward = true
 		earn(50)
 		lines.append([tr("강태공"), tr("허허! 여섯 가지 물고기를 다 낚았구나. 상으로 엽전 50냥을 주마!")])
+	if fish_place == "ch1_creek" and fish_kinds_found() >= here and not book_rewards.has("fish_ch1_creek"):
+		book_rewards["fish_ch1_creek"] = true
+		earn(30)
+		lines.append(["", tr("개울 여울 물고기 네 가지를 다 낚았다! 소문을 들은 강태공 할아버지가 엽전 30냥을 보내왔다.")])
 	save_south()
 	say(lines, Callable())
 
