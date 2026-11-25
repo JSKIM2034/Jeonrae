@@ -4656,165 +4656,12 @@ func herb_done_in(place: String) -> int:
 	return n
 
 func make_wild_visual(n: Node3D, kind: int) -> void:
-	var r := RandomNumberGenerator.new()
-	r.seed = int(n.position.x * 13.0 + n.position.z * 3.0)
-	var items := []
-	match kind:
-		0:  # 쑥: 은빛 도는 잎 무더기
-			for i in 9:
-				var a := i * TAU / 9.0
-				var hh := r.randf_range(0.25, 0.5)
-				items.append([Vector3(cos(a) * 0.14, hh * 0.5, sin(a) * 0.14), Vector3(0.16, hh, 0.07), Color(0.52, 0.66, 0.48).lerp(Color(0.7, 0.78, 0.66), r.randf()), Vector3(0, -rad_to_deg(a), 22)])
-		1:  # 냉이: 바닥에 붙은 잎과 하얀 꽃대
-			for i in 8:
-				var a := i * TAU / 8.0
-				items.append([Vector3(cos(a) * 0.2, 0.04, sin(a) * 0.2), Vector3(0.3, 0.04, 0.1), Color(0.36, 0.58, 0.3), Vector3(0, -rad_to_deg(a), 0)])
-			for i in 3:
-				var top := Vector3(r.randf_range(-0.1, 0.1), r.randf_range(0.4, 0.55), r.randf_range(-0.1, 0.1))
-				add_beam(n, make_color(Color(0.4, 0.6, 0.3)), Vector3(0, 0.03, 0), top, 0.025, 0.025)
-				for k in 4:
-					items.append([top + Vector3(r.randf_range(-0.05, 0.05), r.randf_range(-0.06, 0.02), r.randf_range(-0.05, 0.05)), Vector3(0.06, 0.06, 0.06), Color(1, 1, 0.97)])
-		2:  # 달래: 가는 잎과 하얀 알뿌리
-			for i in 9:
-				var tilt := Vector3(r.randf_range(-25, 25), 0, r.randf_range(-25, 25))
-				items.append([Vector3(r.randf_range(-0.08, 0.08), 0.28, r.randf_range(-0.08, 0.08)), Vector3(0.035, 0.55, 0.035), Color(0.4, 0.66, 0.32), tilt])
-			items.append([Vector3(0.12, 0.06, 0.05), Vector3(0.12, 0.1, 0.12), Color(0.98, 0.96, 0.9)])
-			items.append([Vector3(-0.08, 0.05, 0.1), Vector3(0.1, 0.09, 0.1), Color(0.98, 0.94, 0.88)])
-		3:  # 도라지: 보랏빛 별꽃
-			for i in 3:
-				var a := i * TAU / 3.0
-				var top := Vector3(cos(a) * 0.15, r.randf_range(0.55, 0.75), sin(a) * 0.15)
-				add_beam(n, make_color(Color(0.32, 0.52, 0.24)), Vector3(0, 0.02, 0), top, 0.03, 0.03)
-				items.append([top * 0.5, Vector3(0.16, 0.04, 0.08), Color(0.36, 0.6, 0.28), Vector3(0, -rad_to_deg(a), 25)])
-				var fc := Color(0.6, 0.45, 0.92) if i != 1 else Color(0.96, 0.96, 1.0)
-				for k in 5:
-					var b := k * TAU / 5.0
-					items.append([top + Vector3(cos(b) * 0.08, 0.0, sin(b) * 0.08), Vector3(0.1, 0.04, 0.07), fc, Vector3(0, -rad_to_deg(b), 0)])
-				items.append([top + Vector3(0, 0.03, 0), Vector3(0.04, 0.04, 0.04), Color(1.0, 0.95, 0.6)])
-		4:  # 더덕: 막대를 감아 오르는 덩굴과 종 모양 꽃
-			add_mcyl(n, dark_wood_mat, 0.03, 0.035, 0.9, Vector3(0, 0.45, 0))
-			for i in 7:
-				var a := i * 1.4
-				var y := 0.12 + i * 0.11
-				items.append([Vector3(cos(a) * 0.08, y, sin(a) * 0.08), Vector3(0.14, 0.05, 0.1), Color(0.34, 0.56, 0.28), Vector3(0, -rad_to_deg(a), 15)])
-			for y in [0.5, 0.78]:
-				items.append([Vector3(0.1, y, 0.0), Vector3(0.1, 0.13, 0.1), Color(0.66, 0.72, 0.5)])
-				items.append([Vector3(0.1, y - 0.06, 0.0), Vector3(0.11, 0.04, 0.11), Color(0.55, 0.3, 0.4)])
-		5:  # 산삼: 손바닥 잎 다섯 장과 빨간 열매
-			add_beam(n, make_color(Color(0.36, 0.5, 0.26)), Vector3(0, 0.02, 0), Vector3(0, 0.55, 0), 0.03, 0.03)
-			for i in 3:
-				var a := i * TAU / 3.0
-				var base := Vector3(cos(a) * 0.12, 0.42, sin(a) * 0.12)
-				add_beam(n, make_color(Color(0.36, 0.5, 0.26)), Vector3(0, 0.4, 0), base, 0.02, 0.02)
-				for k in 5:
-					var b := a + (k - 2) * 0.45
-					items.append([base + Vector3(cos(b) * 0.1, 0.0, sin(b) * 0.1), Vector3(0.14, 0.03, 0.06), Color(0.3, 0.55, 0.26), Vector3(0, -rad_to_deg(b), 0)])
-			for i in 7:
-				items.append([Vector3(r.randf_range(-0.05, 0.05), 0.6 + r.randf_range(0, 0.06), r.randf_range(-0.05, 0.05)), Vector3(0.06, 0.06, 0.06), Color(0.9, 0.12, 0.12)])
-		6:  # 고사리: 돌돌 말린 순과 깃털 잎
-			for i in 5:
-				var a := i * TAU / 5.0 + r.randf() * 0.4
-				var top := Vector3(cos(a) * 0.12, r.randf_range(0.38, 0.55), sin(a) * 0.12)
-				add_beam(n, make_color(Color(0.42, 0.5, 0.26)), Vector3(0, 0.02, 0), top, 0.018, 0.018)
-				items.append([top + Vector3(0, 0.03, 0), Vector3(0.09, 0.09, 0.05), Color(0.5, 0.58, 0.3), Vector3(0, -rad_to_deg(a), 0)])
-				for k in 4:
-					items.append([top * (0.45 + k * 0.12), Vector3(0.18 - k * 0.03, 0.025, 0.05), Color(0.36, 0.56, 0.26), Vector3(0, -rad_to_deg(a) + 90, 10)])
-		7:  # 취나물: 넓은 하트 잎 무더기
-			for i in 7:
-				var a := i * TAU / 7.0
-				var hh := r.randf_range(0.12, 0.3)
-				items.append([Vector3(cos(a) * 0.17, hh, sin(a) * 0.17), Vector3(0.24, 0.03, 0.2), Color(0.32, 0.55, 0.26).lerp(Color(0.45, 0.66, 0.34), r.randf()), Vector3(r.randf_range(-20, 20), -rad_to_deg(a), 18)])
-		8:  # 오미자: 덩굴 잎과 빨간 열매 송이
-			for i in 6:
-				var a := i * TAU / 6.0
-				items.append([Vector3(cos(a) * 0.2, 0.35 + r.randf_range(-0.08, 0.08), sin(a) * 0.2), Vector3(0.2, 0.03, 0.14), Color(0.3, 0.52, 0.24), Vector3(0, -rad_to_deg(a), 25)])
-			for c in 3:
-				var bc := Vector3(r.randf_range(-0.12, 0.12), 0.3, r.randf_range(-0.12, 0.12))
-				for k in 7:
-					items.append([bc + Vector3(r.randf_range(-0.04, 0.04), -k * 0.03, r.randf_range(-0.04, 0.04)), Vector3(0.06, 0.06, 0.06), Color(0.85, 0.1, 0.15)])
-		9:  # 칡: 땅 위 굵은 뿌리와 세 갈래 큰 잎
-			add_beam(n, make_color(Color(0.5, 0.38, 0.26)), Vector3(-0.3, 0.05, 0.1), Vector3(0.3, 0.08, -0.05), 0.07, 0.06)
-			for i in 3:
-				var a := i * TAU / 3.0
-				var base := Vector3(cos(a) * 0.15, 0.32, sin(a) * 0.15)
-				add_beam(n, make_color(Color(0.4, 0.5, 0.26)), Vector3(0, 0.05, 0), base, 0.02, 0.02)
-				for k in 3:
-					var b := a + (k - 1) * 0.9
-					items.append([base + Vector3(cos(b) * 0.12, 0.02, sin(b) * 0.12), Vector3(0.2, 0.03, 0.15), Color(0.34, 0.56, 0.28), Vector3(0, -rad_to_deg(b), 10)])
-		10:  # 영지버섯: 그루터기에 붙은 반질반질 붉은 갓
-			add_mcyl(n, dark_wood_mat, 0.28, 0.32, 0.4, Vector3(0, 0.2, 0))
-			for i in 3:
-				var a := i * TAU / 3.0 + 0.3
-				var p := Vector3(cos(a) * 0.3, 0.18 + i * 0.07, sin(a) * 0.3)
-				items.append([p, Vector3(0.22, 0.05, 0.18), Color(0.55, 0.18, 0.1), Vector3(0, -rad_to_deg(a), -8)])
-				items.append([p + Vector3(cos(a) * 0.05, 0.02, sin(a) * 0.05), Vector3(0.14, 0.03, 0.1), Color(0.75, 0.42, 0.2), Vector3(0, -rad_to_deg(a), -8)])
-		11:  # 톳: 바위에 붙은 통통한 갈색 가지
-			items.append([Vector3(0, 0.1, 0), Vector3(0.5, 0.2, 0.4), Color(0.3, 0.3, 0.32)])
-			for i in 8:
-				var a := i * TAU / 8.0
-				for k in 4:
-					items.append([Vector3(cos(a) * 0.12, 0.22 + k * 0.07, sin(a) * 0.12), Vector3(0.05, 0.08, 0.05), Color(0.42, 0.3, 0.12)])
-		12:  # 미역: 넘실대는 넓은 띠
-			for i in 5:
-				var a := i * TAU / 5.0
-				for k in 5:
-					items.append([Vector3(cos(a) * 0.12 + sin(k * 0.9 + i) * 0.06, 0.15 + k * 0.22, sin(a) * 0.12), Vector3(0.2, 0.24, 0.03), Color(0.22, 0.38, 0.16).lerp(Color(0.35, 0.45, 0.2), k / 5.0), Vector3(0, -rad_to_deg(a), sin(k + i) * 15)])
-		13:  # 함초: 마디진 통통한 줄기 (붉은 기)
-			for i in 6:
-				var a := i * TAU / 6.0
-				var base := Vector3(cos(a) * 0.12, 0, sin(a) * 0.12)
-				for k in 4:
-					items.append([base + Vector3(0, 0.07 + k * 0.1, 0), Vector3(0.06, 0.1, 0.06), Color(0.45, 0.6, 0.3).lerp(Color(0.7, 0.3, 0.3), k / 4.0)])
-		14:  # 갯방풍: 모래 위 반질한 잎과 하얀 꽃우산
-			for i in 6:
-				var a := i * TAU / 6.0
-				items.append([Vector3(cos(a) * 0.18, 0.05, sin(a) * 0.18), Vector3(0.24, 0.04, 0.14), Color(0.28, 0.48, 0.3), Vector3(0, -rad_to_deg(a), 8)])
-			add_beam(n, make_color(Color(0.55, 0.45, 0.4)), Vector3(0, 0.03, 0), Vector3(0, 0.35, 0), 0.03, 0.03)
-			for k in 9:
-				var b := k * TAU / 9.0
-				items.append([Vector3(cos(b) * 0.1, 0.37, sin(b) * 0.1), Vector3(0.06, 0.04, 0.06), Color(1, 1, 0.95)])
-		15:  # 해당화: 덤불과 분홍 꽃, 주황빛 둥근 열매
-			for i in 10:
-				var a := r.randf() * TAU
-				items.append([Vector3(cos(a) * 0.25, r.randf_range(0.15, 0.5), sin(a) * 0.25), Vector3(0.16, 0.08, 0.12), Color(0.26, 0.48, 0.24), Vector3(0, -rad_to_deg(a), 20)])
-			for i in 3:
-				items.append([Vector3(r.randf_range(-0.2, 0.2), 0.55, r.randf_range(-0.2, 0.2)), Vector3(0.14, 0.05, 0.14), Color(0.95, 0.45, 0.65)])
-			for i in 6:
-				items.append([Vector3(r.randf_range(-0.22, 0.22), r.randf_range(0.3, 0.5), r.randf_range(-0.22, 0.22)), Vector3(0.09, 0.09, 0.09), Color(0.95, 0.45, 0.15)])
-		16:  # 민들레: 톱니 잎 방석과 노란 꽃, 솜털 공
-			for i in 7:
-				var a := i * TAU / 7.0
-				items.append([Vector3(cos(a) * 0.16, 0.03, sin(a) * 0.16), Vector3(0.26, 0.03, 0.07), Color(0.32, 0.55, 0.26), Vector3(0, -rad_to_deg(a), 0)])
-			add_beam(n, make_color(Color(0.4, 0.6, 0.3)), Vector3(0, 0.02, 0), Vector3(0.05, 0.3, 0), 0.015, 0.015)
-			items.append([Vector3(0.05, 0.31, 0), Vector3(0.12, 0.05, 0.12), Color(1.0, 0.85, 0.15)])
-			add_beam(n, make_color(Color(0.4, 0.6, 0.3)), Vector3(0, 0.02, 0), Vector3(-0.06, 0.38, 0.04), 0.012, 0.012)
-			items.append([Vector3(-0.06, 0.4, 0.04), Vector3(0.11, 0.11, 0.11), Color(0.97, 0.97, 0.95)])
-		17:  # 질경이: 넓은 타원 잎과 가는 꽃대
-			for i in 6:
-				var a := i * TAU / 6.0
-				items.append([Vector3(cos(a) * 0.15, 0.04, sin(a) * 0.15), Vector3(0.24, 0.03, 0.12), Color(0.3, 0.52, 0.26), Vector3(0, -rad_to_deg(a), 10)])
-			for i in 3:
-				var top := Vector3(r.randf_range(-0.06, 0.06), 0.4, r.randf_range(-0.06, 0.06))
-				add_beam(n, make_color(Color(0.42, 0.55, 0.3)), Vector3(0, 0.03, 0), top, 0.012, 0.012)
-				items.append([top, Vector3(0.03, 0.12, 0.03), Color(0.6, 0.55, 0.35)])
-		18:  # 제비꽃: 하트 잎과 보라 꽃
-			for i in 5:
-				var a := i * TAU / 5.0
-				items.append([Vector3(cos(a) * 0.1, 0.08, sin(a) * 0.1), Vector3(0.12, 0.03, 0.11), Color(0.3, 0.55, 0.28), Vector3(0, -rad_to_deg(a), 25)])
-			for i in 4:
-				var fc := Vector3(r.randf_range(-0.12, 0.12), 0.2, r.randf_range(-0.12, 0.12))
-				add_beam(n, make_color(Color(0.4, 0.58, 0.3)), Vector3(0, 0.02, 0), fc, 0.01, 0.01)
-				for k in 5:
-					var b := k * TAU / 5.0
-					items.append([fc + Vector3(cos(b) * 0.04, 0, sin(b) * 0.04), Vector3(0.05, 0.02, 0.04), Color(0.52, 0.3, 0.8), Vector3(0, -rad_to_deg(b), 30)])
-		19:  # 네잎클로버: 세잎 사이에 숨은 네 잎
-			for i in 9:
-				var c := Vector3(r.randf_range(-0.25, 0.25), 0.06, r.randf_range(-0.25, 0.25))
-				var nl := 4 if i == 0 else 3
-				for k in nl:
-					var b := k * TAU / nl
-					items.append([c + Vector3(cos(b) * 0.05, 0.0, sin(b) * 0.05), Vector3(0.06, 0.015, 0.05), Color(0.28, 0.6, 0.3) if i != 0 else Color(0.35, 0.75, 0.35), Vector3(0, -rad_to_deg(b), 0)])
-	add_blobs(n, items)
+	var mi := MeshInstance3D.new()
+	mi.mesh = herb_mesh(kind)
+	mi.material_override = kit_material()
+	mi.rotation.y = fposmod(n.position.x * 1.7 + n.position.z * 0.9, TAU)
+	mi.scale = Vector3.ONE * 1.3
+	n.add_child(mi)
 	add_blobs(n, [[Vector3(0, 0.02, 0), Vector3(0.55, 0.1, 0.55), Color(0.45, 0.33, 0.22)]], null, true)
 
 func update_wild(delta: float) -> void:
@@ -5014,6 +4861,346 @@ func draw_bobber(ci: CanvasItem, c: Vector2, s: float) -> void:
 	d_line(ci, c + Vector2(0, -s * 1.3), c, Color(0.95, 0.4, 0.3), 4)
 	d_ell(ci, c, s * 0.42, s * 0.55, Color(0.92, 0.25, 0.22), 0.0, 3.0)
 	d_ell(ci, c + Vector2(0, s * 0.3), s * 0.42, s * 0.28, Color(1, 1, 0.97), 0.0, 2.0)
+
+# ---------- 입체 물고기 (종류마다 몸 모양·무늬·지느러미가 달라요, meshkit.gd) ----------
+const MeshKit = preload("res://meshkit.gd")
+var fish_mesh_cache := {}
+var kit_mat: StandardMaterial3D
+
+func kit_material() -> StandardMaterial3D:
+	if kit_mat == null:
+		kit_mat = StandardMaterial3D.new()
+		kit_mat.vertex_color_use_as_albedo = true
+		kit_mat.roughness = 0.45
+		kit_mat.metallic_specular = 0.55
+		kit_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return kit_mat
+
+func fish_node(k: int) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = fish_mesh(k)
+	mi.material_override = kit_material()
+	if FISH[k]["id"] == "moon_ingeo":
+		var glow := kit_material().duplicate() as StandardMaterial3D
+		glow.emission_enabled = true
+		glow.emission = Color(0.55, 0.65, 0.95)
+		glow.emission_energy_multiplier = 0.8
+		mi.material_override = glow
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+func fish_hash(a: int, b: int) -> float:
+	var v := sin(a * 12.9898 + b * 78.233) * 43758.5453
+	return v - floorf(v)
+
+func fish_mesh(k: int) -> ArrayMesh:
+	if fish_mesh_cache.has(k):
+		return fish_mesh_cache[k]
+	var f: Dictionary = FISH[k]
+	var st := MeshKit.begin()
+	if f["id"] == "gajae":
+		build_crayfish(st, f)
+		var cm := MeshKit.finish(st)
+		fish_mesh_cache[k] = cm
+		return cm
+	var id: String = f["id"]
+	var col: Color = f["col"]
+	var L: float = 0.5 * float(f["len"])
+	var H: float = L * float(f["thin"]) * 0.95
+	var roundish := id in ["megi", "mikkuraji", "dongjagae", "mangdungeo", "ureok"]
+	var W: float = H * (0.75 if roundish else 0.45)
+	var xs := -0.4 * L
+	var B := 0.8 * L
+	var back := col.darkened(0.35)
+	var belly := col.lightened(0.5)
+	var fin_col: Color = f.get("fin", col.darkened(0.12))
+	var n := 12
+	var m := 10
+	var rings := []
+	for i in n + 1:
+		var t := float(i) / n
+		var hp := pow(sin(PI * clampf(0.12 + 0.88 * t, 0.0, 0.97)), 0.65)
+		var x := xs + t * B
+		var yc := H * 0.06 * sin(PI * t)
+		var ring := []
+		for j in m:
+			var a := TAU * j / m
+			var sa := sin(a)
+			var y := yc + 0.5 * H * hp * sa * (1.0 if sa > 0.0 else 0.85)
+			var z := 0.5 * W * hp * cos(a)
+			var c := belly.lerp(back, (sa + 1.0) * 0.5)
+			if f.has("stripe") and absf(sa) < 0.3 and t > 0.12 and t < 0.88:
+				c = f["stripe"]
+			if f.has("bars") and t > 0.12 and t < 0.86 and fposmod(t * 4.5, 1.0) < 0.32 and sa > -0.7:
+				c = f["bars"]
+			if f.has("spots") and sa > -0.35 and fish_hash(i, j) < 0.22 and t > 0.1 and t < 0.85:
+				c = f["spots"]
+			ring.append([Vector3(x, y, z), c])
+		rings.append(ring)
+	for i in n:
+		for j in m:
+			var a0: Array = rings[i][j]
+			var a1: Array = rings[i][(j + 1) % m]
+			var b0: Array = rings[i + 1][j]
+			var b1: Array = rings[i + 1][(j + 1) % m]
+			MeshKit.quad(st, a0[0], b0[0], b1[0], a1[0], a0[1], b0[1], b1[1], a1[1])
+	# 주둥이 끝
+	var tip := Vector3(xs + B + 0.015 * L, H * 0.02, 0)
+	for j in m:
+		var r0: Array = rings[n][j]
+		var r1: Array = rings[n][(j + 1) % m]
+		MeshKit.tri(st, r0[0], tip, r1[0], r0[1], col, r1[1])
+	# 꼬리지느러미 (갈라진 꼬리 / 둥근 꼬리)
+	var tc := Vector3(xs + 0.02 * L, 0, 0)
+	var tail_pts := []
+	var round_tail := id in ["megi", "mikkuraji", "dongjagae", "mangdungeo", "sancheoneo", "yeolmogeo", "ureok"]
+	for q in 9:
+		var u := float(q) / 8.0
+		var ang := lerpf(-1.0, 1.0, u)
+		var reach := 0.24 * L
+		if not round_tail:
+			reach *= 0.62 + 0.55 * absf(ang)
+		tail_pts.append(Vector3(xs - reach * (0.75 + 0.25 * cos(ang * 1.4)), ang * 0.42 * H + 0.0, 0))
+	MeshKit.fan(st, tc, tail_pts, fin_col, fin_col.lightened(0.25))
+	# 등지느러미
+	var dorsal := []
+	for q in 7:
+		var u2 := float(q) / 6.0
+		var t2 := lerpf(0.32, 0.72, u2)
+		var hp2 := pow(sin(PI * (0.12 + 0.88 * t2)), 0.65)
+		var top := 0.5 * H * hp2 + H * 0.06 * sin(PI * t2)
+		dorsal.append(Vector3(xs + t2 * B, top + H * 0.32 * sin(PI * u2) * (1.0 - u2 * 0.4), 0))
+	MeshKit.fan(st, Vector3(xs + 0.52 * B, 0.35 * H, 0), dorsal, fin_col, fin_col.lightened(0.2))
+	# 가슴지느러미 (양옆)
+	for sz in [-1.0, 1.0]:
+		var pc := Vector3(xs + 0.72 * B, -0.12 * H, sz * W * 0.42)
+		MeshKit.fan(st, pc, [pc + Vector3(-0.02 * L, 0.04 * H, 0), pc + Vector3(-0.13 * L, -0.08 * H, sz * W * 0.35), pc + Vector3(-0.08 * L, -0.2 * H, sz * W * 0.2)], fin_col, fin_col.lightened(0.2))
+	# 눈 (흰자 + 검은 눈동자)
+	var ex := xs + 0.86 * B
+	var hpe := pow(sin(PI * (0.12 + 0.88 * 0.86)), 0.65)
+	for sz in [-1.0, 1.0]:
+		var ec := Vector3(ex, 0.12 * H, sz * W * 0.5 * hpe * 0.82)
+		MeshKit.ball(st, ec, Vector3.ONE * H * 0.1, Color(0.97, 0.96, 0.92), 8, 5)
+		MeshKit.ball(st, ec + Vector3(0.01 * L, 0.005 * H, sz * H * 0.05), Vector3.ONE * H * 0.065, Color(0.05, 0.05, 0.06), 6, 4)
+	# 메기·동자개 수염
+	if id in ["megi", "dongjagae"]:
+		for sz in [-1.0, 1.0]:
+			for q in 2:
+				var a3 := tip + Vector3(-0.02 * L, -0.05 * H - q * 0.06 * H, sz * W * 0.2)
+				MeshKit.tube(st, a3, a3 + Vector3(-0.05 * L, -0.12 * H, sz * (0.22 + q * 0.08) * L), 0.006, 0.003, back, 4)
+	var mesh := MeshKit.finish(st)
+	fish_mesh_cache[k] = mesh
+	return mesh
+
+func build_crayfish(st: SurfaceTool, f: Dictionary) -> void:
+	var col: Color = f["col"]
+	var dark := col.darkened(0.3)
+	# 머리가슴 + 꼬리 마디 + 부채 꼬리
+	MeshKit.ball(st, Vector3(0.05, 0.04, 0), Vector3(0.09, 0.05, 0.06), col, 10, 6)
+	for q in 5:
+		MeshKit.ball(st, Vector3(-0.06 - q * 0.04, 0.035 - q * 0.004, 0), Vector3(0.028, 0.035 - q * 0.003, 0.045 - q * 0.004), col.lightened(0.05 * (q % 2)), 8, 5)
+	MeshKit.fan(st, Vector3(-0.25, 0.02, 0), [Vector3(-0.31, 0.02, -0.05), Vector3(-0.33, 0.02, 0.0), Vector3(-0.31, 0.02, 0.05)], dark, col)
+	# 집게 다리 두 개
+	for sz in [-1.0, 1.0]:
+		var sh := Vector3(0.12, 0.03, sz * 0.04)
+		var el := Vector3(0.19, 0.03, sz * 0.09)
+		MeshKit.tube(st, sh, el, 0.012, 0.012, col, 5)
+		MeshKit.ball(st, el + Vector3(0.05, 0.0, sz * 0.015), Vector3(0.05, 0.022, 0.028), col.darkened(0.1), 8, 5)
+		MeshKit.ball(st, el + Vector3(0.1, 0.0, sz * 0.03), Vector3(0.025, 0.012, 0.012), dark, 6, 4)
+		MeshKit.ball(st, el + Vector3(0.095, 0.0, sz * 0.005), Vector3(0.022, 0.01, 0.01), dark, 6, 4)
+		# 걷는 다리 넷
+		for q in 4:
+			var lb := Vector3(0.06 - q * 0.035, 0.02, sz * 0.045)
+			MeshKit.tube(st, lb, lb + Vector3(-0.01, -0.03, sz * 0.05), 0.005, 0.004, dark, 4)
+		# 더듬이
+		MeshKit.tube(st, Vector3(0.13, 0.05, sz * 0.02), Vector3(0.3, 0.07, sz * 0.12), 0.004, 0.002, dark, 4)
+		# 눈
+		MeshKit.ball(st, Vector3(0.13, 0.065, sz * 0.025), Vector3.ONE * 0.01, Color(0.05, 0.05, 0.05), 5, 4)
+
+# ---------- 입체 약초 (잎·줄기·꽃·열매를 진짜 모양으로, meshkit.gd) ----------
+var herb_mesh_cache := {}
+
+func herb_mesh(k: int) -> ArrayMesh:
+	if herb_mesh_cache.has(k):
+		return herb_mesh_cache[k]
+	var r := RandomNumberGenerator.new()
+	r.seed = 900 + k * 17
+	var st := MeshKit.begin()
+	var G := Color(0.32, 0.56, 0.26)
+	var id: String = HERBS[k]["id"]
+	match id:
+		"ssuk":  # 쑥: 갈라진 은빛 잎이 위로 수북
+			for i in 11:
+				var a := i * TAU / 11.0 + r.randf() * 0.3
+				var d := Vector3(cos(a) * 0.45, 1.0, sin(a) * 0.45).normalized()
+				MeshKit.leaf(st, Vector3(cos(a) * 0.04, 0.02, sin(a) * 0.04), d, Vector3(-sin(a), 0, cos(a)), r.randf_range(0.3, 0.45), 0.11, Color(0.55, 0.68, 0.5).lerp(Color(0.72, 0.8, 0.7), r.randf()), 0.3, "tooth")
+		"naengi":  # 냉이: 땅에 붙은 깃꼴 잎 방석과 하얀 꽃대
+			for i in 9:
+				var a := i * TAU / 9.0
+				MeshKit.leaf(st, Vector3(0, 0.02, 0), Vector3(cos(a), 0.12, sin(a)), Vector3(-sin(a), 0, cos(a)), 0.28, 0.08, G, 0.05, "tooth")
+			for i in 3:
+				var top := Vector3(r.randf_range(-0.08, 0.08), r.randf_range(0.42, 0.55), r.randf_range(-0.08, 0.08))
+				MeshKit.tube(st, Vector3(0, 0.02, 0), top, 0.012, 0.008, Color(0.42, 0.6, 0.3), 5)
+				for q in 6:
+					MeshKit.ball(st, top + Vector3(r.randf_range(-0.04, 0.04), r.randf_range(-0.08, 0.02), r.randf_range(-0.04, 0.04)), Vector3.ONE * 0.022, Color(1, 1, 0.97), 6, 4)
+		"dallae":  # 달래: 가늘고 긴 잎과 하얀 알뿌리
+			for i in 10:
+				var a := r.randf() * TAU
+				MeshKit.leaf(st, Vector3(cos(a) * 0.03, 0.03, sin(a) * 0.03), Vector3(cos(a) * 0.25, 1.0, sin(a) * 0.25), Vector3(-sin(a), 0, cos(a)), r.randf_range(0.4, 0.58), 0.035, Color(0.38, 0.64, 0.3), 0.55, "long")
+			MeshKit.ball(st, Vector3(0.06, 0.05, 0.03), Vector3(0.05, 0.045, 0.05), Color(0.98, 0.96, 0.9), 8, 6)
+			MeshKit.ball(st, Vector3(-0.05, 0.045, 0.05), Vector3(0.04, 0.04, 0.04), Color(0.98, 0.94, 0.88), 8, 6)
+		"doraji":  # 도라지: 줄기마다 마주난 잎, 끝에 보라·하얀 별꽃
+			for i in 3:
+				var a := i * TAU / 3.0
+				var top := Vector3(cos(a) * 0.15, r.randf_range(0.55, 0.72), sin(a) * 0.15)
+				MeshKit.tube(st, Vector3(0, 0.02, 0), top, 0.014, 0.01, Color(0.34, 0.52, 0.26), 5)
+				for q in 3:
+					var at := top * (0.3 + q * 0.2)
+					MeshKit.leaf(st, at, Vector3(cos(a + 1.5), 0.3, sin(a + 1.5)), Vector3(0, 1, 0), 0.13, 0.06, G, 0.1)
+					MeshKit.leaf(st, at, Vector3(cos(a - 1.5), 0.3, sin(a - 1.5)), Vector3(0, 1, 0), 0.13, 0.06, G, 0.1)
+				MeshKit.flower(st, top, 5, 0.09, 0.07, Color(0.6, 0.45, 0.92) if i != 1 else Color(0.97, 0.97, 1.0), Color(0.95, 0.9, 0.6), 0.6)
+		"deodeok":  # 더덕: 막대를 감아 오르는 덩굴, 종 모양 꽃
+			MeshKit.tube(st, Vector3(0, 0, 0), Vector3(0, 0.95, 0), 0.025, 0.02, Color(0.45, 0.32, 0.2), 6)
+			var prev := Vector3(0.04, 0.05, 0)
+			for i in 14:
+				var a := i * 0.9
+				var p := Vector3(cos(a) * 0.045, 0.05 + i * 0.062, sin(a) * 0.045)
+				MeshKit.tube(st, prev, p, 0.008, 0.008, Color(0.35, 0.5, 0.25), 4)
+				if i % 2 == 0:
+					MeshKit.leaf(st, p, Vector3(cos(a), 0.1, sin(a)), Vector3(0, 1, 0), 0.12, 0.06, G, 0.15)
+				prev = p
+			for y in [0.5, 0.78]:
+				MeshKit.tube(st, Vector3(0.1, y, 0), Vector3(0.1, y - 0.1, 0), 0.012, 0.045, Color(0.66, 0.72, 0.52), 8, Color(0.55, 0.3, 0.42))
+		"sansam":  # 산삼: 손바닥 잎 다섯 장씩 세 갈래, 빨간 열매
+			MeshKit.tube(st, Vector3(0, 0, 0), Vector3(0, 0.5, 0), 0.016, 0.012, Color(0.36, 0.5, 0.26), 5)
+			for i in 3:
+				var a := i * TAU / 3.0
+				var base := Vector3(cos(a) * 0.13, 0.44, sin(a) * 0.13)
+				MeshKit.tube(st, Vector3(0, 0.45, 0), base, 0.008, 0.008, Color(0.36, 0.5, 0.26), 4)
+				for q in 5:
+					var b := a + (q - 2) * 0.42
+					MeshKit.leaf(st, base, Vector3(cos(b), 0.05, sin(b)), Vector3(0, 1, 0), 0.15, 0.07, Color(0.28, 0.55, 0.26), 0.12)
+			for i in 9:
+				MeshKit.ball(st, Vector3(r.randf_range(-0.035, 0.035), 0.58 + r.randf_range(0, 0.05), r.randf_range(-0.035, 0.035)), Vector3.ONE * 0.028, Color(0.88, 0.1, 0.1), 6, 4)
+		"gosari":  # 고사리: 돌돌 말린 순과 깃털 잎
+			for i in 5:
+				var a := i * TAU / 5.0 + r.randf() * 0.4
+				var top := Vector3(cos(a) * 0.16, r.randf_range(0.4, 0.55), sin(a) * 0.16)
+				MeshKit.tube(st, Vector3(0, 0, 0), top, 0.012, 0.008, Color(0.45, 0.48, 0.24), 4)
+				MeshKit.ball(st, top + Vector3(0, 0.03, 0), Vector3(0.04, 0.04, 0.025), Color(0.5, 0.56, 0.28), 8, 5)
+				for q in 6:
+					var at := top * (0.35 + q * 0.1)
+					var side := Vector3(-sin(a), 0, cos(a))
+					MeshKit.leaf(st, at, side + Vector3(0, 0.15, 0), Vector3(0, 1, 0), 0.1 - q * 0.01, 0.035, Color(0.36, 0.58, 0.26), 0.1, "long")
+					MeshKit.leaf(st, at, -side + Vector3(0, 0.15, 0), Vector3(0, 1, 0), 0.1 - q * 0.01, 0.035, Color(0.36, 0.58, 0.26), 0.1, "long")
+		"chwi":  # 취나물: 큰 하트 잎 무더기
+			for i in 8:
+				var a := i * TAU / 8.0
+				var hgt := r.randf_range(0.12, 0.28)
+				var at := Vector3(cos(a) * 0.05, hgt, sin(a) * 0.05)
+				MeshKit.tube(st, Vector3(0, 0, 0), at, 0.008, 0.008, Color(0.36, 0.5, 0.26), 4)
+				MeshKit.leaf(st, at, Vector3(cos(a), 0.2, sin(a)), Vector3(0, 1, 0), 0.22, 0.2, Color(0.3, 0.55, 0.26).lerp(Color(0.42, 0.64, 0.32), r.randf()), 0.2, "heart")
+		"omija":  # 오미자: 덩굴 잎과 늘어진 빨간 열매 송이
+			for i in 7:
+				var a := i * TAU / 7.0
+				MeshKit.leaf(st, Vector3(cos(a) * 0.1, 0.32 + r.randf_range(-0.08, 0.1), sin(a) * 0.1), Vector3(cos(a), 0.1, sin(a)), Vector3(0, 1, 0), 0.18, 0.11, Color(0.3, 0.52, 0.24), 0.2)
+			MeshKit.tube(st, Vector3(0, 0, 0), Vector3(0, 0.42, 0), 0.014, 0.01, Color(0.4, 0.3, 0.2), 5)
+			for c in 3:
+				var bc := Vector3(r.randf_range(-0.14, 0.14), 0.34, r.randf_range(-0.14, 0.14))
+				for q in 8:
+					MeshKit.ball(st, bc + Vector3(r.randf_range(-0.025, 0.025), -q * 0.025, r.randf_range(-0.025, 0.025)), Vector3.ONE * 0.025, Color(0.86, 0.1, 0.15), 6, 4)
+		"chik":  # 칡: 땅 위 굵은 뿌리와 세 갈래 큰 잎
+			MeshKit.tube(st, Vector3(-0.32, 0.04, 0.1), Vector3(0.0, 0.07, 0.0), 0.06, 0.07, Color(0.5, 0.37, 0.25), 7)
+			MeshKit.tube(st, Vector3(0.0, 0.07, 0.0), Vector3(0.3, 0.05, -0.08), 0.07, 0.05, Color(0.52, 0.38, 0.25), 7)
+			for i in 4:
+				var a := i * TAU / 4.0 + 0.3
+				var base := Vector3(cos(a) * 0.12, 0.3, sin(a) * 0.12)
+				MeshKit.tube(st, Vector3(0, 0.06, 0), base, 0.01, 0.008, Color(0.4, 0.5, 0.26), 4)
+				for q in 3:
+					var b := a + (q - 1) * 0.9
+					MeshKit.leaf(st, base, Vector3(cos(b), 0.15, sin(b)), Vector3(0, 1, 0), 0.17, 0.13, Color(0.34, 0.56, 0.28), 0.15)
+		"yeongji":  # 영지버섯: 그루터기에 붙은 반질한 콩팥 모양 갓
+			MeshKit.tube(st, Vector3(0, 0, 0), Vector3(0, 0.42, 0), 0.3, 0.27, Color(0.42, 0.3, 0.2), 10)
+			MeshKit.ball(st, Vector3(0, 0.42, 0), Vector3(0.27, 0.02, 0.27), Color(0.62, 0.5, 0.34), 10, 3)
+			for i in 3:
+				var a := i * TAU / 3.0 + 0.3
+				var p := Vector3(cos(a) * 0.3, 0.16 + i * 0.08, sin(a) * 0.3)
+				MeshKit.ball(st, p, Vector3(0.2, 0.035, 0.15), Color(0.55, 0.16, 0.1), 10, 4, Basis(Vector3.UP, -a))
+				MeshKit.ball(st, p + Vector3(cos(a) * 0.09, 0.016, sin(a) * 0.09), Vector3(0.11, 0.02, 0.09), Color(0.78, 0.45, 0.2), 8, 3, Basis(Vector3.UP, -a))
+		"tot":  # 톳: 바위에 붙은 통통한 갈색 가지
+			MeshKit.ball(st, Vector3(0, 0.08, 0), Vector3(0.26, 0.1, 0.2), Color(0.32, 0.32, 0.34), 10, 6)
+			for i in 9:
+				var a := i * TAU / 9.0
+				var b := Vector3(cos(a) * 0.12, 0.14, sin(a) * 0.12)
+				var t := b + Vector3(cos(a) * 0.05, 0.25, sin(a) * 0.05)
+				MeshKit.tube(st, b, t, 0.01, 0.008, Color(0.38, 0.28, 0.12), 4)
+				for q in 4:
+					MeshKit.ball(st, b.lerp(t, 0.25 + q * 0.22) + Vector3(0.02, 0, 0), Vector3(0.018, 0.03, 0.018), Color(0.45, 0.32, 0.12), 6, 4)
+		"miyeok":  # 미역: 넘실대는 넓은 띠
+			for i in 6:
+				var a := i * TAU / 6.0
+				MeshKit.leaf(st, Vector3(cos(a) * 0.05, 0.02, sin(a) * 0.05), Vector3(cos(a) * 0.25, 1.0, sin(a) * 0.25), Vector3(-sin(a), 0, cos(a)), r.randf_range(0.8, 1.1), 0.16, Color(0.24, 0.36, 0.16), 0.1, "ribbon")
+		"hamcho":  # 함초: 마디진 통통한 줄기 (끝이 붉어요)
+			for i in 7:
+				var a := i * TAU / 7.0
+				var p := Vector3(cos(a) * 0.1, 0, sin(a) * 0.1)
+				for q in 5:
+					var c := Color(0.42, 0.6, 0.3).lerp(Color(0.72, 0.28, 0.28), q / 5.0)
+					MeshKit.ball(st, p + Vector3(0, 0.05 + q * 0.075, 0), Vector3(0.028, 0.045, 0.028), c, 6, 4)
+		"bangpung":  # 갯방풍: 모래 위 반질한 잎, 하얀 꽃우산
+			for i in 6:
+				var a := i * TAU / 6.0
+				MeshKit.leaf(st, Vector3(0, 0.02, 0), Vector3(cos(a), 0.15, sin(a)), Vector3(0, 1, 0), 0.22, 0.12, Color(0.26, 0.46, 0.3), 0.05, "round")
+			MeshKit.tube(st, Vector3(0, 0, 0), Vector3(0, 0.34, 0), 0.016, 0.012, Color(0.58, 0.46, 0.42), 5)
+			for q in 10:
+				var b := q * TAU / 10.0
+				var e := Vector3(cos(b) * 0.09, 0.4, sin(b) * 0.09)
+				MeshKit.tube(st, Vector3(0, 0.34, 0), e, 0.004, 0.004, Color(0.6, 0.5, 0.45), 3)
+				MeshKit.ball(st, e, Vector3.ONE * 0.022, Color(1, 1, 0.95), 5, 4)
+		"haedang":  # 해당화: 덤불 잎, 분홍 꽃, 주황빛 둥근 열매
+			for i in 12:
+				var a := r.randf() * TAU
+				MeshKit.leaf(st, Vector3(cos(a) * 0.08, r.randf_range(0.12, 0.42), sin(a) * 0.08), Vector3(cos(a), 0.2, sin(a)), Vector3(0, 1, 0), 0.14, 0.08, Color(0.26, 0.48, 0.24), 0.2)
+			for i in 3:
+				MeshKit.flower(st, Vector3(r.randf_range(-0.18, 0.18), 0.5, r.randf_range(-0.18, 0.18)), 5, 0.08, 0.08, Color(0.95, 0.45, 0.65), Color(1.0, 0.85, 0.3), 0.3)
+			for i in 5:
+				MeshKit.ball(st, Vector3(r.randf_range(-0.2, 0.2), r.randf_range(0.28, 0.45), r.randf_range(-0.2, 0.2)), Vector3.ONE * 0.04, Color(0.95, 0.4, 0.12), 8, 5)
+		"mindeulle":  # 민들레: 톱니 잎 방석, 노란 꽃, 하얀 솜털 공
+			for i in 8:
+				var a := i * TAU / 8.0
+				MeshKit.leaf(st, Vector3(0, 0.02, 0), Vector3(cos(a), 0.08, sin(a)), Vector3(0, 1, 0), 0.24, 0.07, G, 0.02, "tooth")
+			MeshKit.tube(st, Vector3(0, 0, 0), Vector3(0.05, 0.3, 0), 0.01, 0.008, Color(0.45, 0.6, 0.3), 4)
+			MeshKit.flower(st, Vector3(0.05, 0.3, 0), 12, 0.06, 0.02, Color(1.0, 0.82, 0.12), Color(1.0, 0.7, 0.1), 0.35)
+			MeshKit.tube(st, Vector3(0, 0, 0), Vector3(-0.06, 0.38, 0.04), 0.008, 0.007, Color(0.45, 0.6, 0.3), 4)
+			MeshKit.ball(st, Vector3(-0.06, 0.41, 0.04), Vector3.ONE * 0.05, Color(0.97, 0.97, 0.95), 8, 6)
+		"jilgyeong":  # 질경이: 넓은 타원 잎 방석, 가는 꽃대
+			for i in 7:
+				var a := i * TAU / 7.0
+				MeshKit.leaf(st, Vector3(0, 0.02, 0), Vector3(cos(a), 0.25, sin(a)), Vector3(0, 1, 0), 0.22, 0.12, Color(0.3, 0.52, 0.26), 0.12)
+			for i in 3:
+				var top := Vector3(r.randf_range(-0.06, 0.06), 0.42, r.randf_range(-0.06, 0.06))
+				MeshKit.tube(st, Vector3(0, 0, 0), top, 0.008, 0.006, Color(0.42, 0.55, 0.3), 4)
+				MeshKit.tube(st, top, top + Vector3(0, 0.12, 0), 0.016, 0.01, Color(0.6, 0.55, 0.36), 5)
+		"jebikkot":  # 제비꽃: 하트 잎과 보라 꽃
+			for i in 6:
+				var a := i * TAU / 6.0
+				MeshKit.leaf(st, Vector3(0, 0.02, 0), Vector3(cos(a), 0.45, sin(a)), Vector3(0, 1, 0), 0.12, 0.1, Color(0.3, 0.55, 0.28), 0.1, "heart")
+			for i in 4:
+				var fc := Vector3(r.randf_range(-0.1, 0.1), 0.2, r.randf_range(-0.1, 0.1))
+				MeshKit.tube(st, Vector3(0, 0, 0), fc, 0.006, 0.006, Color(0.4, 0.58, 0.3), 3)
+				MeshKit.flower(st, fc, 5, 0.045, 0.035, Color(0.52, 0.3, 0.82), Color(1.0, 0.95, 0.85), 0.1, Vector3(0.3, 0.6, 0.6))
+		"nepip":  # 네잎클로버: 세잎 사이에 숨은 네 잎
+			for i in 10:
+				var c := Vector3(r.randf_range(-0.24, 0.24), 0.0, r.randf_range(-0.24, 0.24))
+				var nl := 4 if i == 0 else 3
+				var top := c + Vector3(0, 0.07 if i != 0 else 0.11, 0)
+				MeshKit.tube(st, c, top, 0.005, 0.005, Color(0.36, 0.55, 0.3), 3)
+				for q in nl:
+					var b := q * TAU / nl + r.randf() * 0.5
+					MeshKit.leaf(st, top, Vector3(cos(b), 0.05, sin(b)), Vector3(0, 1, 0), 0.05, 0.05, Color(0.3, 0.62, 0.3) if i != 0 else Color(0.4, 0.8, 0.38), 0.0, "heart")
+	var mesh := MeshKit.finish(st)
+	herb_mesh_cache[k] = mesh
+	return mesh
 
 # ---------- 도감 "엔딩" 쪽: 이야기마다 본 결말과 못 본 결말(??? + 힌트) ----------
 var ending_page: Control
@@ -10561,12 +10748,7 @@ func fish_leap(kind: int) -> void:
 	var fish := Node3D.new()
 	add_child(fish)
 	var ln: float = f["len"]
-	add_blobs(fish, [
-		[Vector3.ZERO, Vector3(0.5 * ln, 0.22, 0.14), col],
-		[Vector3(-0.3 * ln, 0, 0), Vector3(0.16, 0.18, 0.05), col.darkened(0.15)],
-		[Vector3(0.18 * ln, 0.04, 0.06), Vector3(0.05, 0.05, 0.03), Color(0.05, 0.05, 0.05)],
-		[Vector3(0.18 * ln, 0.04, -0.06), Vector3(0.05, 0.05, 0.03), Color(0.05, 0.05, 0.05)],
-	], blob_gloss())
+	fish.add_child(fish_node(kind))
 	var from: Vector3 = (w["bob_at"] as Vector3) + Vector3(0, 0.01, 0) if w.has("bob_at") else POND_C + Vector3(1.0, 0.1, 0.3)
 	var to := player.position + Vector3(0, 1.3, 0)
 	fish.position = from

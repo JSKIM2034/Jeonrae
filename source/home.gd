@@ -1175,29 +1175,12 @@ func refill_pond_fish() -> void:
 		var k := pick_fish()
 		pf["kind"] = k
 		make_pond_fish_body(n, k)
-		n.scale = Vector3.ONE * 2.0
+		n.scale = Vector3.ONE * 1.25
 		n.visible = true
 		pf["gone"] = 0.0
 
 func make_pond_fish_body(n: Node3D, k: int) -> void:
-	var f: Dictionary = FISH[k]
-	var col: Color = (f["col"] as Color).darkened(0.25)
-	var ln: float = f["len"] * 0.6
-	var items := [
-		[Vector3.ZERO, Vector3(0.5 * ln, 0.12, 0.1), col],
-		[Vector3(-0.3 * ln, 0, 0), Vector3(0.12, 0.1, 0.03), col.darkened(0.15)],
-		[Vector3(0.18 * ln, 0.03, 0.04), Vector3(0.03, 0.03, 0.02), Color(0.05, 0.05, 0.05)],
-		[Vector3(0.18 * ln, 0.03, -0.04), Vector3(0.03, 0.03, 0.02), Color(0.05, 0.05, 0.05)],
-	]
-	if f["id"] == "moon_ingeo":
-		var glow := StandardMaterial3D.new()
-		glow.albedo_color = col
-		glow.emission_enabled = true
-		glow.emission = Color(0.7, 0.8, 1.0)
-		glow.emission_energy_multiplier = 1.4
-		add_blobs(n, items, glow)
-	else:
-		add_blobs(n, items, blob_gloss())
+	n.add_child(fish_node(k))
 
 func pond_random_point() -> Vector3:
 	var a := rng.randf() * TAU

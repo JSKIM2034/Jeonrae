@@ -2422,15 +2422,7 @@ func make_rock_pool() -> void:
 
 # 물고기 몸 (낚아 올릴 때와 같은 모양, 물속에서 보여요)
 func make_fish_body(n: Node3D, k: int) -> void:
-	var f: Dictionary = FISH[k]
-	var col: Color = f["col"]
-	var ln: float = f["len"]
-	add_blobs(n, [
-		[Vector3.ZERO, Vector3(0.5 * ln, 0.16, 0.13), col],
-		[Vector3(-0.3 * ln, 0, 0), Vector3(0.15, 0.14, 0.04), col.darkened(0.15)],
-		[Vector3(0.18 * ln, 0.03, 0.05), Vector3(0.04, 0.04, 0.03), Color(0.05, 0.05, 0.05)],
-		[Vector3(0.18 * ln, 0.03, -0.05), Vector3(0.04, 0.04, 0.03), Color(0.05, 0.05, 0.05)],
-	], blob_gloss())
+	n.add_child(fish_node(k))
 	n.set_meta("kind", k)
 
 func update_pool(delta: float) -> void:
