@@ -101,7 +101,7 @@ func run() -> void:
 	check(m.fish_caught[0] == 2 and m.herb_counts[0] == 3 and m.story_read[2], "book in home village")
 	check(m.tales_count() == 2, "home counts 2 tales")
 	var pr: Array = m.endings_progress()
-	check(pr[0] == 3 and pr[1] == 9, "ending progress 3/9")
+	check(pr[0] == 3 and pr[1] == 11, "ending progress 3/11")
 	# 두 번째로 켜도 다시 옮기지 않음 (version 2)
 	var cf2 := cfg()
 	check(not m.migrate_config(cf2), "no second migration")
@@ -116,7 +116,7 @@ func run() -> void:
 	m.open_book("ending")
 	await get_tree().process_frame
 	check(m.ending_page.visible and not m.book_canvas.visible, "ending page shown")
-	check(m.book_title.text.contains("3/9"), "ending title shows 3/9: " + m.book_title.text)
+	check(m.book_title.text.contains("3/11"), "ending title shows 3/11: " + m.book_title.text)
 	check(m.ending_rows[0][1].text.contains(m.ENDINGS["ch1"][0][1]), "seen ending named")
 	check(m.ending_rows[1][1].text.begins_with("???"), "unseen ending hidden")
 	m.show_ending_tale("ch3")
@@ -139,7 +139,7 @@ func run() -> void:
 	check(m.fish_caught[0] == 2 and m.herb_counts[0] == 3 and m.coins == 77 and m.has_shoes, "same book/coins/bag in ch2")
 	m.open_book("ending")
 	await get_tree().process_frame
-	check(m.book_title.text.contains("4/9"), "ch2 sees 4/9 endings")
+	check(m.book_title.text.contains("4/11"), "ch2 sees 4/11 endings")
 	m.close_book()
 	# 처음부터 다시: 가방은 비우고 도감·결말은 남김
 	m.reset_progress()

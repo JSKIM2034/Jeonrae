@@ -35,7 +35,7 @@ func chapter_id() -> String:
 	return "ch2"
 
 func chapter_state() -> Dictionary:
-	return {"time": time_of_day, "quest": quest, "feast": feast, "delivered": delivered, "stones": stones, "ending": ending, "basket": basket, "herbalist": herbalist_met}
+	return {"time": time_of_day, "quest": quest, "feast": feast, "delivered": delivered, "stones": stones, "ending": ending, "basket": basket, "herbalist": herbalist_met, "mom_together": mom_together}
 
 func restore_chapter_state(d: Dictionary) -> void:
 	time_of_day = d.get("time", 0.0)
@@ -44,6 +44,7 @@ func restore_chapter_state(d: Dictionary) -> void:
 	delivered = d.get("delivered", [])
 	stones = d.get("stones", stones)
 	herbalist_met = d.get("herbalist", false)
+	mom_together = d.get("mom_together", false)
 	ending = d.get("ending", "")
 	basket = d.get("basket", BASKET_FULL)
 
@@ -521,6 +522,7 @@ const TRIGGER_Z := [7.0, -15.5, -38.5]
 var feast := {"pound": false, "tteok": false}
 var delivered: Array = []
 var stones := [false, false, false]
+var mom_together := false     # 셋째 고개에서 "엄마도 같이 가요"를 골랐나 (엄마를 살리는 엔딩 조건)
 var ending := ""
 var basket := BASKET_FULL
 var sorghum_mm: MultiMesh
@@ -706,7 +708,9 @@ func apply_story_state() -> void:
 			kid.position = tree_pos + (Vector3(-0.9, 0, 0.9) if k == "oppa" else Vector3(-1.5, 0, 0.3))
 			kid.position.y = height_at(kid.position.x, kid.position.z)
 		if quest >= S_END:
-			kid.visible = false
+			kid.visible = ending == "fight"
+			if ending == "fight":
+				kid.position = on_ground(COTTAGE_C.x + (1.5 if k == "oppa" else 2.4), COTTAGE_C.z + 3.0)
 	if quest == S_DOOR:
 		tiger_show_disguised()
 	if quest == S_ROPE:
@@ -715,8 +719,11 @@ func apply_story_state() -> void:
 		tiger.position = on_ground(well_pos.x - 1.4, well_pos.z + 0.6)
 		tiger.rotation.y = atan2(tree_pos.x - tiger.position.x, tree_pos.z - tiger.position.z)
 		make_sky_rope()
-	if quest >= S_END:
+	if quest >= S_END and ending != "fight":
 		paint_sorghum_red()
+	if quest >= S_END and ending == "mom_saved":
+		mom.visible = true
+		mom.position = on_ground(COTTAGE_C.x + 1.0, COTTAGE_C.z + 3.2)
 	update_quest_text()
 
 func story_time(z: float) -> float:
@@ -1383,12 +1390,64 @@ func pine_done(ok: bool, _good: bool) -> void:
 	if not ok:
 		say([[tr("누이"), tr("으앙, 다시 던져 줘! 호랑이를 막아 줘!")]], start_pine)
 		return
+	if _good:
+		# 솔방울 놀이에서 기회를 하나도 잃지 않았으면 맞서 싸울 길이 열려요
+		say([[tr("호랑이"), tr("아이고 머리야! 솔방울이 우박처럼 쏟아지네!")]], func():
+			ask("", tr("호랑이가 비틀거린다. 장독 옆 아궁이에서 불씨가 타닥타닥 튄다..."), [tr("횃불을 들고 뛰쳐나와 맞선다"), tr("오누이와 함께 하늘에 빈다")], func(i: int):
+				if i == 0:
+					fight_tiger()
+				else:
+					pray_for_rope()))
+		return
+	say([[tr("호랑이"), tr("아이고 머리야! 솔방울이 우박처럼 쏟아지네!")]], pray_for_rope)
+
+func pray_for_rope() -> void:
 	say([
-		[tr("호랑이"), tr("아이고 머리야! 솔방울이 우박처럼 쏟아지네!")],
 		[tr("오빠"), tr("지금이야! 하느님, 저희를 살리시려거든 튼튼한 동아줄을 내려 주세요!")],
 	], func():
 		make_sky_rope()
 		start_rope())
+
+# ---------- 호랑이를 쫓아낸 밤 (맞서는 엔딩) ----------
+func fight_tiger() -> void:
+	event_lock = true
+	say([
+		["", tr("(아궁이에서 불붙은 장작을 하나 꺼내 들고 장독 뒤에서 뛰쳐나왔다!)")],
+		[tr("호랑이"), tr("어흥? 뜨, 뜨거워! 불은 싫단 말이다!")],
+		[tr("오빠"), tr("누이야, 솔방울 더! 우리도 같이 던지자!")],
+		[tr("누이"), tr("이 나쁜 호랑이! 우리 엄마 옷 돌려줘!")],
+	], func():
+		# 횃불 불꽃이 휘두를 때마다 튀고, 호랑이는 뒷걸음질 치다 산으로 달아나요
+		var torch_at := player.position + Vector3(0, 1.4, 0)
+		for k in 6:
+			get_tree().create_timer(0.25 * k).timeout.connect(func():
+				burst3d(torch_at + Vector3(rng.randf_range(-0.4, 0.4), rng.randf_range(0, 0.4), 0), Color(1.0, 0.55, 0.15), 10)
+				sfx("crack" if k % 2 == 0 else "tick", 1.3))
+		var away := on_ground(tree_pos.x - 18.0, tree_pos.z - 14.0)
+		var tw := tiger.create_tween()
+		tw.tween_interval(1.0)
+		tw.tween_property(tiger, "position", tiger.position + Vector3(-1.5, 0, -1.0), 0.5)
+		tw.tween_callback(func():
+			tiger.rotation.y = atan2(away.x - tiger.position.x, away.z - tiger.position.z)
+			shake(10))
+		tw.tween_property(tiger, "position", away, 2.0).set_ease(Tween.EASE_IN)
+		tw.tween_callback(func():
+			tiger.visible = false
+			# 오누이가 나무에서 내려와요
+			for k2 in ["oppa", "nui"]:
+				var kid := npc(k2)
+				release_pose(body_of(kid))
+				kid.rotation = Vector3.ZERO
+				kid.position = on_ground(COTTAGE_C.x + (1.5 if k2 == "oppa" else 2.4), COTTAGE_C.z + 3.0)
+			ending = "fight"
+			var seen := record_ending("ch2", ending)
+			var info := ending_info("ch2", ending)
+			say([
+				[tr("호랑이"), tr("(멀리서) 어흥... 이 고개엔 다시는 안 온다!")],
+				[tr("오빠"), tr("우리가... 우리가 호랑이를 쫓아냈어!")],
+				[tr("누이"), tr("오빠, 저기 하늘 봐. 해님 달님이 우리를 보고 웃는 것 같아.")],
+			], func():
+				show_card(tr("횃불과 솔방울에 혼쭐이 난 호랑이는\n깊은 산으로 달아나 다시는\n고갯길에 나타나지 않았어요.\n\n오누이는 밤마다 달을, 낮마다 해를 보며\n엄마를 그리워했대요.\n썩은 동아줄이 내려오지 않았으니\n수숫대도 붉게 물들지 않았지요.") + "\n\n" + tr("엔딩 “%s” (해와 달이 된 오누이 엔딩 %d/%d)") % [info[1], seen, ending_total("ch2")], 0.0, 5.0, finish_chapter2))))
 
 func aim_target() -> Vector2:
 	if w.get("scene", "") == "pine" and tiger != null:
@@ -1631,6 +1690,7 @@ func paws_done(ok: bool, _good: bool) -> void:
 		set_quest(S_PASS3))
 
 func pass3_choice(i: int) -> void:
+	mom_together = i == 0
 	var l := []
 	if i == 0:
 		l.append([tr("엄마"), tr("착하기도 하지. 하지만 아이들이 기다린단다. 어서!")])
@@ -1892,17 +1952,45 @@ func on_ending(i: int) -> void:
 		l.append([tr("누이"), tr("오빠, 나는 밤이 무서워... 내가 해 하면 안 될까?")])
 		l.append([tr("오빠"), tr("그래, 누이가 해가 되렴. 오빠가 달이 되어 밤을 지킬게.")])
 		l.append([tr("누이"), tr("그런데 다들 나만 쳐다보면 부끄러운데... 그럼 눈부시게 빛나야지!")])
+	# 고개마다 서낭당에 빌고 엄마와 함께 가겠다고 했으면, 엄마가 살아 돌아와요
+	var mom_ok: bool = stones[0] and stones[1] and stones[2] and mom_together
+	if mom_ok:
+		ending = "mom_saved"
 	var seen := record_ending("ch2", ending)
 	var info := ending_info("ch2", ending)
 	say(l, func():
+		if mom_ok:
+			mom_returns(seen, info)
+			return
 		show_card(tr("오누이는 해와 달이 되어\n세상을 환하게 비추었어요.\n\n그날 밤, 달 곁에서\n별 하나가 유난히 반짝였대요.\n엄마가 웃는 것처럼요.") + "\n\n" + tr("엔딩 “%s” (해와 달이 된 오누이 엔딩 %d/%d)") % [info[1], seen, ending_total("ch2")], 0.0, 5.0, finish_chapter2))
+
+# ---------- 서낭당이 지킨 엄마 (엄마를 살리는 엔딩) ----------
+func mom_returns(seen: int, info: Array) -> void:
+	var mom := npc("mom")
+	var from := on_ground(COTTAGE_C.x - 2.0, COTTAGE_C.z + 14.0)
+	var to := on_ground(COTTAGE_C.x + 1.0, COTTAGE_C.z + 3.2)
+	mom.position = from
+	mom.visible = true
+	mom.rotation.y = atan2(to.x - from.x, to.z - from.z)
+	say([["", tr("그때, 고갯길 쪽에서 낯익은 목소리가 들려왔다.")], [tr("엄마"), tr("얘들아...! 얘들아!")]], func():
+		var tw := mom.create_tween()
+		tw.tween_property(mom, "position", to, 2.6)
+		tw.tween_callback(func():
+			mom.rotation.y = atan2(tree_pos.x - mom.position.x, tree_pos.z - mom.position.z)
+			say([
+				[tr("엄마"), tr("셋째 고개 서낭당 돌무더기 뒤에 숨어 있었단다. 호랑이는 내 저고리만 빼앗아 갔지.")],
+				[tr("엄마"), tr("네가 고개마다 돌을 얹고 빌어 준 덕분이구나. 그 돌무더기가 나를 숨겨 주었어.")],
+				[tr("엄마"), tr("(하늘을 올려다보며) 우리 아이들이... 해와 달이 되었구나. 이제 낮에도 밤에도 늘 보겠네.")],
+			], func():
+				show_card(tr("엄마는 고개 너머 오두막에 살며\n낮에는 해를, 밤에는 달을\n올려다보며 웃었대요.\n\n고갯길 서낭당에는 그 뒤로도\n돌을 얹고 비는 사람이 끊이지 않았대요.") + "\n\n" + tr("엔딩 “%s” (해와 달이 된 오누이 엔딩 %d/%d)") % [info[1], seen, ending_total("ch2")], 0.0, 5.0, finish_chapter2))))
 
 func finish_chapter2() -> void:
 	event_lock = false
 	earn(30)
 	set_quest(S_END)
-	for k in ["oppa", "nui"]:
-		npc(k).visible = false
+	if ending != "fight":
+		for k in ["oppa", "nui"]:
+			npc(k).visible = false
 	if sky_rope != null:
 		sky_rope.queue_free()
 	say([["", tr("빈 책장에 해님 달님 그림이 새로 생겼다. 오누이 이야기가 채워졌다!")]], Callable())
