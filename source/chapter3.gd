@@ -781,25 +781,31 @@ func make_wreck() -> void:
 			[Vector3(0, 0.26, 0.05), Vector3(0.2, 0.2, 0.2), Color(1.0, 0.98, 0.95)],
 		], blob_gloss())
 
-# 물고기 떼: 네 종류(그림 판)가 저마다 동그랗게 맴돌아요. 꼬리 쪽이 살랑살랑
+# 물고기 떼: 네 종류가 저마다 동그랗게 맴돌아요. 꼬리 쪽이 살랑살랑
+# 몸은 그림 모양을 따라 가운데가 도톰한 입체예요(tools/fish_mesh.py 가 만든 models/sea_fishN.obj).
+# 양쪽 옆구리에 같은 그림이 입혀지고, 지느러미와 꼬리는 얇아요
 func make_fish_schools() -> void:
-	var quad := QuadMesh.new()
-	quad.size = Vector2(1.0, 0.75)
 	var sh := Shader.new()
 	sh.code = """shader_type spatial;
 render_mode cull_disabled;
 uniform sampler2D tex : source_color, filter_linear_mipmap;
 uniform float glow = 0.0;
 void vertex() {
-	float tail = clamp(0.55 - UV.x, 0.0, 1.0);
-	VERTEX.z += sin(TIME * 9.0 + float(INSTANCE_ID) * 1.7 - UV.x * 4.0) * 0.12 * tail;
+	float tail = clamp(0.6 - UV.x, 0.0, 1.0);
+	float ph = TIME * 9.0 + float(INSTANCE_ID) * 1.7;
+	// 꼬리는 크게, 몸통은 살짝 휘며 헤엄쳐요
+	VERTEX.z += sin(ph - UV.x * 4.0) * 0.14 * tail * tail * 1.6;
+	VERTEX.z += sin(ph) * 0.015;
 }
 void fragment() {
 	vec4 c = texture(tex, UV);
 	if (c.a < 0.5) { discard; }
 	ALBEDO = c.rgb;
 	EMISSION = c.rgb * glow;
-	ROUGHNESS = 0.45;
+	ROUGHNESS = 0.35;
+	SPECULAR = 0.6;
+	RIM = 0.3;
+	RIM_TINT = 0.5;
 }
 """
 	for fk in FISH_KINDS.size():
@@ -812,7 +818,7 @@ void fragment() {
 		m.set_shader_parameter("glow", 0.6 if fk == 3 else 0.0)
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = quad
+		mm.mesh = load("res://models/sea_fish%d.obj" % fk)
 		mm.instance_count = 10
 		var mi := MultiMeshInstance3D.new()
 		mi.multimesh = mm
@@ -2041,12 +2047,14 @@ func scene_setup(scene: String) -> void:
 		"sand":
 			var fc := Vector3(FLATFISH_POS.x, PALACE_Y + 0.25, FLATFISH_POS.z + 2.0)
 			var stand_s := fc + Vector3(0, 0, 3.2)
-			world_game_begin(stand_s, fc, fc + Vector3(0.5, 4.2, 6.4), fc + Vector3(0, 0, 0.2))
+			world_game_begin(stand_s, fc, fc + Vector3(0.0, 3.9, 5.5), fc + Vector3(0, 0, 0.2))
 			w["sand_c"] = fc
-			# 모래 둔덕 여섯 개 (넙치가 숨는 자리)
+			# 모래 둔덕 일곱 개 (넙치가 숨는 자리): 휴대폰 세로 화면에도 다 들어오게 두 줄로 좁게 (앞 넷, 뒤 셋)
 			var mounds := []
 			for k in 7:
-				var mp := fc + Vector3(-2.6 + k * 0.87, 0.0, (0.9 if k % 2 == 0 else -0.6))
+				var front := k < 4
+				var mx := (-1.5 + k * 1.0) if front else (-1.0 + (k - 4) * 1.0)
+				var mp := fc + Vector3(mx, 0.0, 0.9 if front else -0.5)
 				mounds.append(mp)
 				var hump := blob_node([[Vector3.ZERO, Vector3(0.9, 0.12, 0.7), Color(0.86, 0.78, 0.6)], [Vector3(0.1, 0.05, 0.05), Vector3(0.5, 0.1, 0.4), Color(0.9, 0.83, 0.66)]])
 				hump.global_position = mp
