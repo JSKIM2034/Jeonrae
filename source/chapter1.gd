@@ -487,123 +487,16 @@ func make_village() -> void:
 		var p := make_spot(piece_pos[i], "piece", str(i), "", true)
 		make_piece_visual(p)
 	make_south()
-	make_wild_herbs()
+	make_wild_spots("ch1")
 
 
 # ---------- 약초 도감 (6종, 종류마다 3번, 캐면 3분 뒤 다시 자라요) ----------
-func make_wild_herbs() -> void:
-	for k in HERBS.size():
-		for pos in HERBS[k]["spots"]:
-			var n := make_spot(pos, "wild", str(k), "", true)
-			add_tag(n, HERBS[k]["name"], 1.25)
-			make_wild_visual(n, k)
-			wild_spots.append([n, k, 0.0])
-
 func wild_keep_clear() -> Array:
 	var out := []
 	for h in HERBS:
-		out += h["spots"]
+		if h["place"] == "ch1":
+			out += h["spots"]
 	return out
-
-func make_wild_visual(n: Node3D, kind: int) -> void:
-	var r := RandomNumberGenerator.new()
-	r.seed = int(n.position.x * 13.0 + n.position.z * 3.0)
-	var items := []
-	match kind:
-		0:  # 쑥: 은빛 도는 잎 무더기
-			for i in 9:
-				var a := i * TAU / 9.0
-				var hh := r.randf_range(0.25, 0.5)
-				items.append([Vector3(cos(a) * 0.14, hh * 0.5, sin(a) * 0.14), Vector3(0.16, hh, 0.07), Color(0.52, 0.66, 0.48).lerp(Color(0.7, 0.78, 0.66), r.randf()), Vector3(0, -rad_to_deg(a), 22)])
-		1:  # 냉이: 바닥에 붙은 잎과 하얀 꽃대
-			for i in 8:
-				var a := i * TAU / 8.0
-				items.append([Vector3(cos(a) * 0.2, 0.04, sin(a) * 0.2), Vector3(0.3, 0.04, 0.1), Color(0.36, 0.58, 0.3), Vector3(0, -rad_to_deg(a), 0)])
-			for i in 3:
-				var top := Vector3(r.randf_range(-0.1, 0.1), r.randf_range(0.4, 0.55), r.randf_range(-0.1, 0.1))
-				add_beam(n, make_color(Color(0.4, 0.6, 0.3)), Vector3(0, 0.03, 0), top, 0.025, 0.025)
-				for k in 4:
-					items.append([top + Vector3(r.randf_range(-0.05, 0.05), r.randf_range(-0.06, 0.02), r.randf_range(-0.05, 0.05)), Vector3(0.06, 0.06, 0.06), Color(1, 1, 0.97)])
-		2:  # 달래: 가는 잎과 하얀 알뿌리
-			for i in 9:
-				var tilt := Vector3(r.randf_range(-25, 25), 0, r.randf_range(-25, 25))
-				items.append([Vector3(r.randf_range(-0.08, 0.08), 0.28, r.randf_range(-0.08, 0.08)), Vector3(0.035, 0.55, 0.035), Color(0.4, 0.66, 0.32), tilt])
-			items.append([Vector3(0.12, 0.06, 0.05), Vector3(0.12, 0.1, 0.12), Color(0.98, 0.96, 0.9)])
-			items.append([Vector3(-0.08, 0.05, 0.1), Vector3(0.1, 0.09, 0.1), Color(0.98, 0.94, 0.88)])
-		3:  # 도라지: 보랏빛 별꽃
-			for i in 3:
-				var a := i * TAU / 3.0
-				var top := Vector3(cos(a) * 0.15, r.randf_range(0.55, 0.75), sin(a) * 0.15)
-				add_beam(n, make_color(Color(0.32, 0.52, 0.24)), Vector3(0, 0.02, 0), top, 0.03, 0.03)
-				items.append([top * 0.5, Vector3(0.16, 0.04, 0.08), Color(0.36, 0.6, 0.28), Vector3(0, -rad_to_deg(a), 25)])
-				var fc := Color(0.6, 0.45, 0.92) if i != 1 else Color(0.96, 0.96, 1.0)
-				for k in 5:
-					var b := k * TAU / 5.0
-					items.append([top + Vector3(cos(b) * 0.08, 0.0, sin(b) * 0.08), Vector3(0.1, 0.04, 0.07), fc, Vector3(0, -rad_to_deg(b), 0)])
-				items.append([top + Vector3(0, 0.03, 0), Vector3(0.04, 0.04, 0.04), Color(1.0, 0.95, 0.6)])
-		4:  # 더덕: 막대를 감아 오르는 덩굴과 종 모양 꽃
-			add_mcyl(n, dark_wood_mat, 0.03, 0.035, 0.9, Vector3(0, 0.45, 0))
-			for i in 7:
-				var a := i * 1.4
-				var y := 0.12 + i * 0.11
-				items.append([Vector3(cos(a) * 0.08, y, sin(a) * 0.08), Vector3(0.14, 0.05, 0.1), Color(0.34, 0.56, 0.28), Vector3(0, -rad_to_deg(a), 15)])
-			for y in [0.5, 0.78]:
-				items.append([Vector3(0.1, y, 0.0), Vector3(0.1, 0.13, 0.1), Color(0.66, 0.72, 0.5)])
-				items.append([Vector3(0.1, y - 0.06, 0.0), Vector3(0.11, 0.04, 0.11), Color(0.55, 0.3, 0.4)])
-		5:  # 산삼: 손바닥 잎 다섯 장과 빨간 열매
-			add_beam(n, make_color(Color(0.36, 0.5, 0.26)), Vector3(0, 0.02, 0), Vector3(0, 0.55, 0), 0.03, 0.03)
-			for i in 3:
-				var a := i * TAU / 3.0
-				var base := Vector3(cos(a) * 0.12, 0.42, sin(a) * 0.12)
-				add_beam(n, make_color(Color(0.36, 0.5, 0.26)), Vector3(0, 0.4, 0), base, 0.02, 0.02)
-				for k in 5:
-					var b := a + (k - 2) * 0.45
-					items.append([base + Vector3(cos(b) * 0.1, 0.0, sin(b) * 0.1), Vector3(0.14, 0.03, 0.06), Color(0.3, 0.55, 0.26), Vector3(0, -rad_to_deg(b), 0)])
-			for i in 7:
-				items.append([Vector3(r.randf_range(-0.05, 0.05), 0.6 + r.randf_range(0, 0.06), r.randf_range(-0.05, 0.05)), Vector3(0.06, 0.06, 0.06), Color(0.9, 0.12, 0.12)])
-	add_blobs(n, items)
-	add_blobs(n, [[Vector3(0, 0.02, 0), Vector3(0.55, 0.1, 0.55), Color(0.45, 0.33, 0.22)]], null, true)
-
-func update_wild(delta: float) -> void:
-	for ws in wild_spots:
-		var node: Node3D = ws[0]
-		if node.visible:
-			continue
-		ws[2] = float(ws[2]) - delta
-		if float(ws[2]) <= 0.0:
-			if node.has_meta("anchor"):
-				node.position = random_near(node.get_meta("anchor"), SCATTER_HERB)
-			node.visible = true
-			pop3d(node, true)
-
-func pick_wild(t: Dictionary) -> void:
-	var node: Node3D = t["node"]
-	var k := int(t["id"])
-	node.visible = false
-	for ws in wild_spots:
-		if ws[0] == node:
-			ws[2] = HERB_REGROW
-	sfx("pop")
-	burst3d(node.position + Vector3(0, 0.6, 0), Color(0.6, 0.9, 0.5))
-	herb_counts[k] = int(herb_counts[k]) + 1
-	var nm: String = HERBS[k]["name"]
-	var lines := []
-	var cnt := int(herb_counts[k])
-	if cnt < HERB_NEED:
-		lines.append(["", tr("%s을(를) 캤다! (%d/%d) 3분 뒤에 다시 자라요.") % [nm, cnt, HERB_NEED]])
-	elif cnt == HERB_NEED:
-		var rw: int = HERBS[k]["reward"]
-		earn(rw)
-		lines.append(["", tr("%s을(를) %d번 모아 약초 도감에 올렸다! 장터에 팔아 엽전 %d냥. (약초 도감 %d/%d)") % [nm, HERB_NEED, rw, herb_kinds_done(), HERBS.size()]])
-		if herb_kinds_done() >= HERBS.size() and not herb_reward:
-			herb_reward = true
-			earn(40)
-			lines.append(["", tr("약초 도감을 모두 채웠다! 마을 사람들이 고맙다며 엽전 40냥을 모아 주었다.")])
-	else:
-		earn(1)
-		lines.append(["", tr("%s을(를) 캐서 장터에 팔았다. 엽전 1냥.") % nm])
-	save_south()
-	say(lines, Callable())
 
 func laundry_spot(seg: int) -> Vector3:
 	var ranges := [[-35.0, -15.0], [-13.0, 12.0], [14.0, 35.0]]
@@ -1681,7 +1574,6 @@ func farm_visual() -> void:
 		(s[0] as Node3D).visible = farm_state == 2
 
 func update_south(delta: float) -> void:
-	update_wild(delta)
 	if farm_state == 1 or farm_state == 3:
 		farm_timer -= delta
 		if farm_timer <= 0.0:

@@ -35,7 +35,7 @@ func chapter_id() -> String:
 	return "ch2"
 
 func chapter_state() -> Dictionary:
-	return {"time": time_of_day, "quest": quest, "feast": feast, "delivered": delivered, "stones": stones, "ending": ending, "basket": basket}
+	return {"time": time_of_day, "quest": quest, "feast": feast, "delivered": delivered, "stones": stones, "ending": ending, "basket": basket, "herbalist": herbalist_met}
 
 func restore_chapter_state(d: Dictionary) -> void:
 	time_of_day = d.get("time", 0.0)
@@ -43,6 +43,7 @@ func restore_chapter_state(d: Dictionary) -> void:
 	feast = d.get("feast", feast)
 	delivered = d.get("delivered", [])
 	stones = d.get("stones", stones)
+	herbalist_met = d.get("herbalist", false)
 	ending = d.get("ending", "")
 	basket = d.get("basket", BASKET_FULL)
 
@@ -62,6 +63,8 @@ func build_chapter() -> void:
 	make_sorghum()
 	make_terrain_grass()
 	make_story()
+	make_wild_spots("ch2")
+	make_herbalist()
 	var r := RandomNumberGenerator.new()
 	r.seed = 5
 	make_clouds(r)
@@ -1371,6 +1374,42 @@ func talk_to(id: String) -> void:
 			talk_guest(id)
 		"oppa", "nui":
 			talk_kids(id)
+		"herbalist":
+			talk_herbalist()
+
+# ---------- 약초꾼 할아버지 (고갯길 약초 다섯 가지) ----------
+var herbalist_met := false
+
+func make_herbalist() -> void:
+	var at := on_ground(-14.5, -6.0)
+	var n := make_npc("herbalist", tr("약초꾼 할아버지"), Color(0.55, 0.5, 0.35), at, 1.0, true)
+	n.rotation.y = PI * 0.35
+	make_basket(at + Vector3(1.0, 0, 0.6), 0.8, Color(0.5, 0.62, 0.36))
+
+func talk_herbalist() -> void:
+	var who := tr("약초꾼 할아버지")
+	if not herbalist_met:
+		herbalist_met = true
+		save_progress()
+		say([
+			[who, tr("허허, 고갯길에 웬 아이냐. 나는 이 산에서 평생 약초를 캔 늙은이란다.")],
+			[who, tr("이 고갯길에는 약초가 다섯 가지 있지. 고사리, 취나물, 오미자, 칡뿌리, 그리고 귀한 영지버섯.")],
+			[who, tr("종류마다 세 번씩 캐 오면 도감에 올라가. 다 모으면 내가 품삯을 두둑이 주마.")],
+			[who, tr("영지버섯은 비가 오거나 안개 낀 날에만 오래된 그루터기에 돋는단다. 날씨를 잘 보거라.")],
+		], Callable())
+		return
+	var lines := []
+	var here := herbs_in("ch2")
+	var done := herb_done_in("ch2")
+	if done >= here.size():
+		lines.append([who, tr("고갯길 약초를 다 모았구나! 너만 한 약초꾼이 없겠다.")])
+	else:
+		lines.append([who, tr("고갯길 약초 %d/%d. 아직 모자란 걸 알려 주마.") % [done, here.size()]])
+		for i in here:
+			if int(herb_counts[i]) < HERB_NEED:
+				lines.append([who, tr("%s: %s") % [HERBS[i]["name"], HERBS[i]["hint"]]])
+				break
+	say(lines, Callable())
 
 func talk_mom() -> void:
 	if quest == S_ARRIVE:
