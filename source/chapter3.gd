@@ -799,7 +799,8 @@ void vertex() {
 }
 void fragment() {
 	vec4 c = texture(tex, UV);
-	if (c.a < 0.5) { discard; }
+	// 테두리는 모양(입체 몸)이 정해요. 그림 밖으로 많이 벗어난 곳만 지워요
+	if (c.a < 0.15) { discard; }
 	ALBEDO = c.rgb;
 	EMISSION = c.rgb * glow;
 	ROUGHNESS = 0.35;
