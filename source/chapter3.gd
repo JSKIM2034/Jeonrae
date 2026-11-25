@@ -84,13 +84,18 @@ func cam_ground(x: float, z: float) -> float:
 func cam_ceiling() -> float:
 	return -0.35 if swimming else INF
 
+func leave_blocked() -> String:
+	if event_lock or swimming:
+		return tr("지금은 떠날 수 없어요!")
+	return ""
+
 # 남쪽 끝 이정표: 2장으로 돌아가요
 func on_gate() -> void:
 	ask("", tr("어디로 갈까요?\n(바닷가 마을 이야기는 저장돼요.)"), [tr("갈대 나루 건너 이야기골(집 마을)로"), tr("오누이 고갯길로 돌아가기"), tr("더 둘러볼래요")], func(i: int):
 		if i == 0:
-			go_to_chapter("home")
+			go_to_chapter("home", road_card_text("home"))
 		elif i == 1:
-			go_to_chapter("ch2"))
+			try_go("ch2"))
 
 # 집 마을에서 갈대 나루를 건너오면 남쪽 어귀에서 바다(북쪽)를 보고 서요
 func arrive_from(from: String) -> void:
@@ -411,6 +416,8 @@ func make_shore_village() -> void:
 	add_mcyl(gate, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
 	add_tag(gate, tr("이야기골과 오누이 고갯길로 가는 길"), 2.6)
+	# 남쪽 길 끝: 걸어 들어가면 갈대 나루 건너 이야기골로
+	add_exit(on_ground(1.0, 51.8), 1.8, "home")
 
 func make_leaf_bush(pos: Vector3, size: Vector3, c: Color, seed_v: int) -> void:
 	if not tree_tried:

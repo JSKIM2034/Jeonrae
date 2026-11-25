@@ -320,6 +320,23 @@ func make_roads() -> void:
 	fmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	sway_items.append([fmi, fmi.position, 0, 1.3, 0.5])
 	add_solid(Vector3(0, 2, 31.0), Vector3(16, 8, 1), Color(0, 0, 0, 0))
+	# 길 끝: 걸어 들어가면 그 길 너머 지역으로 (안개 숲길은 닫힘)
+	add_exit(Vector3(-31.2, 0, -29.2), 2.2, "ch1")
+	add_exit(Vector3(0.6, 0, -32.6), 2.0, "ch2")
+	add_exit(Vector3(30.0, 0, -26.8), 1.8, "ch3")
+	add_exit(Vector3(0.0, 0, 30.0), 1.6, "fog")
+	# 아직 안 열린 길에는 짙은 안개가 끼어 있어요 (이야기를 끝내면 걷혀요)
+	var lock_fog := []
+	for road in [["ch2", Vector3(0.6, 0, -32.0)], ["ch3", Vector3(29.5, 0, -27.0)]]:
+		if road_open(road[0]):
+			continue
+		for i in 9:
+			var fp: Vector3 = road[1] + Vector3(r.randf_range(-3.0, 3.0), r.randf_range(0.6, 2.2), r.randf_range(-2.0, 1.5))
+			lock_fog.append([fp, Vector3(r.randf_range(2.0, 3.4), r.randf_range(1.2, 2.0), r.randf_range(1.6, 2.6)), Color(1, 1, 1)])
+	if not lock_fog.is_empty():
+		var lmi := add_blobs(self, lock_fog, fog_mat)
+		lmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		sway_items.append([lmi, lmi.position, 0, 2.1, 0.5])
 
 func make_road_sign(pos: Vector3, id: String, text: String, rot_y: float) -> void:
 	var sign := make_spot(pos, "gate", id, "", true)
@@ -545,19 +562,22 @@ func look_at_thing(id: String) -> void:
 
 func on_gate() -> void:
 	var id: String = current_thing.get("id", "")
+	if (id == "ch2" or id == "ch3") and not road_open(id):
+		say([["", road_locked_text(id)]], Callable())
+		return
 	match id:
 		"ch1":
 			ask("", tr("버드나무 길을 따라 흥부네 마을로 갈까요?\n(이야기골은 저장돼요.)"), [tr("흥부네 마을로 가기"), tr("더 둘러볼래요")], func(i: int):
 				if i == 0:
-					go_to_chapter("ch1"))
+					go_to_chapter("ch1", road_card_text("ch1")))
 		"ch2":
 			ask("", tr("돌고개를 넘어 오누이 고갯길로 갈까요?\n(이야기골은 저장돼요.)"), [tr("오누이 고갯길로 가기"), tr("더 둘러볼래요")], func(i: int):
 				if i == 0:
-					go_to_chapter("ch2"))
+					try_go("ch2"))
 		"ch3":
 			ask("", tr("갈대 나루에서 배를 타고 바닷가 마을로 갈까요?\n(이야기골은 저장돼요.)"), [tr("바닷가 마을로 가기"), tr("더 둘러볼래요")], func(i: int):
 				if i == 0:
-					go_to_chapter("ch3"))
+					try_go("ch3"))
 		_:
 			say([["", tr("아직 이 길은 안개에 덮여 있어요. 언젠가 새 이야기가 열릴 곳이래요.")]], Callable())
 

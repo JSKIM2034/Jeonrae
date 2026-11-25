@@ -93,13 +93,21 @@ func _process(delta: float) -> void:
 func cam_ground(x: float, z: float) -> float:
 	return height_at(x, z)
 
+# 엄마와 함께 걷거나 호랑이 사건 중에는 길 끝으로 가도 떠나지 않아요
+func leave_blocked() -> String:
+	if mom_follow:
+		return tr("엄마와 함께 고개를 넘는 중이에요. 지금은 다른 데로 갈 수 없어요.")
+	if event_lock:
+		return tr("지금은 떠날 수 없어요!")
+	return ""
+
 # 남쪽 끝 이정표: 1장 마을로 돌아가요
 func on_gate() -> void:
 	ask("", tr("어디로 갈까요?\n(오누이 고갯길 이야기는 저장돼요.)"), [tr("돌고개 넘어 이야기골(집 마을)로"), tr("흥부네 마을로 돌아가기"), tr("더 둘러볼래요")], func(i: int):
 		if i == 0:
-			go_to_chapter("home")
+			go_to_chapter("home", road_card_text("home"))
 		elif i == 1:
-			go_to_chapter("ch1"))
+			try_go("ch1"))
 
 # 집 마을에서 돌고개를 넘어오면 남쪽 어귀에서 북쪽을 보고 서요
 func arrive_from(from: String) -> void:
@@ -313,6 +321,9 @@ func make_feast_village() -> void:
 	add_mcyl(gate3, wood_mat, 0.1, 0.12, 2.2, Vector3(0, 1.1, 0))
 	add_mbox(gate3, plank_mat, Vector3(1.6, 0.45, 0.08), Vector3(0, 1.85, 0.08))
 	add_tag(gate3, tr("바닷가 마을, 이야기골 가는 길"), 2.6)
+	# 길 끝: 남쪽은 돌고개 넘어 이야기골, 북쪽은 지름길로 바닷가 마을
+	add_exit(on_ground(1.0, 50.4), 1.7, "home")
+	add_exit(on_ground(-6.0, -73.2), 1.6, "ch3")
 
 # ---------- 고개 셋 (숲과 바위) ----------
 
@@ -1885,9 +1896,9 @@ func on_action() -> void:
 			if t["id"] == "ch3":
 				ask("", tr("북쪽 갈림길이에요. 어디로 갈까요?\n(오누이 고갯길 이야기는 저장돼요.)"), [tr("지름길로 바닷가 마을 가기"), tr("이야기골(집 마을)로 돌아가기"), tr("더 둘러볼래요")], func(i: int):
 					if i == 0:
-						go_to_chapter("ch3")
+						try_go("ch3")
 					elif i == 1:
-						go_to_chapter("home"))
+						go_to_chapter("home", road_card_text("home")))
 			else:
 				on_gate()
 		_:

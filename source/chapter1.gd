@@ -72,10 +72,11 @@ func after_ui() -> void:
 	scatter_items()
 
 func start_chapter() -> void:
+	# 다시 올 때는 마을 이름만 짧게, 처음 올 때는 이야기 제목 카드
 	if resumed:
-		show_card(tr("지난번 이야기에 이어서\n책장을 다시 펼쳐요..."), 0.6, 1.6, Callable())
+		show_card(tr("흥부네 마을\n이어서 걸어요..."), 0.6, 1.6, Callable())
 		return
-	show_card(tr("흥부와 놀부, 해와 달이 된 오누이...\n\n점점 잊혀 가는 옛이야기들이\n이 책 속에 잠들어 있어요.\n\n우리 이야기를 다시 세상에 들려줄\n첫 장을 펼쳐 볼까요?"), 1.0, 8.0, func():
+	show_card(tr("흥부네 마을\n흥부와 놀부\n\n책장을 넘기자\n박꽃 핀 초가 마을이 펼쳐졌어요."), 1.0, 4.0, func():
 		if not walk_hint_seen:
 			show_walk_hint())
 # 박: 뽀얀 둥근 몸통에 은은한 골, 꼭지, 덩굴과 하얀 박꽃
@@ -318,6 +319,8 @@ func make_border(r: RandomNumberGenerator) -> void:
 	make_jangseung(Vector3(-4.7, 0, 37.5), false)
 	make_jangseung(Vector3(0.7, 0, 37.5), true)
 	make_signpost(Vector3(1.6, 0, 34.0))
+	# 남쪽 길 끝: 걸어 들어가면 버드나무 길 따라 이야기골로
+	add_exit(Vector3(-0.5, 0, 38.0), 2.0, "home")
 
 func make_paths() -> void:
 	make_dirt_path([Vector2(-2.0, -13.6), Vector2(-2.3, -8.0), Vector2(-1.6, -2.5), Vector2(-2.3, 3.5), Vector2(-1.8, 8.0), Vector2(-2.4, 12.5), Vector2(-2.0, 18.0), Vector2(-2.7, 25.0), Vector2(-1.7, 32.0), Vector2(-2.2, 39.0), Vector2(-2.0, 48.0)], 2.5, 1.0)
@@ -3335,9 +3338,9 @@ func splat_forest(_x: float, z: float) -> float:
 func on_gate() -> void:
 	ask("", tr("“이 길을 따라가면 해와 달이 된 오누이 이야기”\n이정표 아래 작은 팻말: “버드나무 길: 이야기골(집 마을)”\n(흥부네 마을 이야기는 저장돼요. 돌아오면 이어서 할 수 있어요.)"), [tr("오누이 고갯길로 가기"), tr("이야기골(집 마을)로 가기"), tr("다음에 갈게요")], func(i: int):
 		if i == 0:
-			go_to_chapter("ch2")
+			try_go("ch2")
 		elif i == 1:
-			go_to_chapter("home"))
+			go_to_chapter("home", road_card_text("home")))
 
 # 집 마을에서 버드나무 길로 돌아오면 남쪽 이정표 안쪽에서 북쪽을 보고 서요
 func arrive_from(from: String) -> void:

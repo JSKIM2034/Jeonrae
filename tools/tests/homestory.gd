@@ -84,7 +84,11 @@ func run() -> void:
 	m.leave_room()
 	await settle()
 	check(not m.in_room() and m.player.position.distance_to(Vector3(0, 0.3, 11.4)) < 1.0, "left the house to the yard")
-	# 돌고개 -> 2장 남쪽 -> 다시 집 마을 돌고개 입구
+	# 돌고개 -> 2장 남쪽 -> 다시 집 마을 돌고개 입구 (길 열리는 순서는 walkroads 테스트가 봐요. 여기선 가 본 길로 열어 둬요)
+	var cfo := cfg()
+	cfo.set_value("common", "roads_open", ["home", "ch1", "ch2", "ch3"])
+	cfo.save("user://save.cfg")
+	m.refresh_roads()
 	m.current_thing = {"kind": "gate", "id": "ch2", "node": m}
 	m.on_gate()
 	m.on_option(0)
