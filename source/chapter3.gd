@@ -23,7 +23,7 @@ func chapter_id() -> String:
 	return "ch3"
 
 func chapter_state() -> Dictionary:
-	return {"quest": quest, "lured": lured, "backed": backed, "ginseng": has_ginseng, "clams": clams_done, "pearls": pearls, "fish": fish_seen, "ending": ending, "king_thanked": king_thanked, "mulji": mulji_done, "octo": octo_found, "chest": chest_done}
+	return {"quest": quest, "lured": lured, "backed": backed, "ginseng": has_ginseng, "clams": clams_done, "pearls": pearls, "fish": fish_seen, "ending": ending, "king_thanked": king_thanked, "mulji": mulji_done, "octo": octo_found, "chest": chest_done, "seafisher": seafisher_met}
 
 func restore_chapter_state(d: Dictionary) -> void:
 	quest = d.get("quest", 0)
@@ -33,11 +33,13 @@ func restore_chapter_state(d: Dictionary) -> void:
 	clams_done = d.get("clams", false)
 	pearls = d.get("pearls", [false, false, false])
 	fish_seen = d.get("fish", [false, false, false, false])
+	sync_sea_book()
 	ending = d.get("ending", "")
 	king_thanked = d.get("king_thanked", false)
 	mulji_done = d.get("mulji", false)
 	octo_found = d.get("octo", [false, false, false, false, false])
 	chest_done = d.get("chest", false)
+	seafisher_met = d.get("seafisher", false)
 
 func build_chapter() -> void:
 	height_noise.seed = 31
@@ -50,6 +52,8 @@ func build_chapter() -> void:
 	make_terrain()
 	make_sea()
 	make_shore_village()
+	make_rock_fishing()
+	make_wild_spots("ch3")
 	make_undersea()
 	make_palace()
 	make_story()
@@ -830,7 +834,7 @@ void fragment() {
 		add_child(mi)
 		schools.append([mm, null, c, float(info["r"]), 0.35 + fk * 0.06, fk])
 
-func update_fish(t: float) -> void:
+func update_fish_schools(t: float) -> void:
 	for sc in schools:
 		var bm: MultiMesh = sc[0]
 		var c: Vector3 = sc[2]
@@ -850,6 +854,7 @@ func update_fish(t: float) -> void:
 		# 가까이 가면 도감에 올라요
 		if not fish_seen[fk] and player.position.distance_to(c) < rad + 3.5:
 			fish_seen[fk] = true
+			sync_sea_book()
 			sfx("good")
 			float_text(tr("물고기 도감: %s!") % FISH_KINDS[fk]["name"], get_viewport().get_visible_rect().size * Vector2(0.5, 0.35), Color(0.7, 0.95, 1.0), 1.6)
 			var all := true
@@ -1381,7 +1386,8 @@ func _process(delta: float) -> void:
 		player_bubbles_pending = false
 		player.add_child(bubbles)
 	var t := anim_t
-	update_fish(t)
+	update_fish_schools(t)
+	update_rock_waves(delta)
 	update_jellies(t, delta)
 	for sh in shafts:
 		(sh[0] as Node3D).rotation.y += delta * 0.015
@@ -1688,6 +1694,8 @@ func talk_to(id: String) -> void:
 			talk_octopus()
 		"crab":
 			talk_crab()
+		"seafisher":
+			talk_seafisher()
 
 func talk_jara() -> void:
 	match quest:
@@ -2881,3 +2889,101 @@ func finish_trial() -> void:
 	earn(30)
 	set_quest(S_END)
 	show_card(tr("빈 책장에 별주부전 그림이 새로 생겼어요.\n\n세 이야기가 모두 채워졌어요!\n\n(체험판은 여기까지예요.\n다음 이야기 책장도 곧 열려요.)"), 0.0, 5.0, Callable())
+
+# ---------- 바닷속에서 본 물고기는 공용 도감(바닷속 칸)에도 올라가요 ----------
+const SEA_IDS := ["juldom", "jwichi", "bollak", "deungbul"]
+func sync_sea_book() -> void:
+	var changed := false
+	for k in SEA_IDS.size():
+		var i := fish_index(SEA_IDS[k])
+		if fish_seen[k] and int(fish_caught[i]) == 0:
+			fish_caught[i] = 1
+			changed = true
+		elif int(fish_caught[i]) > 0 and not fish_seen[k]:
+			fish_seen[k] = true
+	if changed:
+		save_book()
+
+# ---------- 갯바위 낚시 (collect_plan.md: 망둥어·노래미·우럭·감성돔·돌돔, 갯바위 어부) ----------
+# 걸린 물고기가 파도를 타고 밀려왔다 빠졌다 해요. 파도 박자에 맞춰 초록 칸을 움직여요
+const ROCK_C := Vector3(-20.0, 0, -5.2)
+var waves_t := 0.0
+
+func rock_stand() -> Vector3:
+	return on_ground(ROCK_C.x, ROCK_C.z)
+
+func make_rock_fishing() -> void:
+	var st := rock_stand()
+	var rocks := []
+	var r := RandomNumberGenerator.new()
+	r.seed = 41
+	# 물가로 뻗은 검은 갯바위
+	for i in 14:
+		var x := ROCK_C.x + r.randf_range(-3.5, 3.5)
+		var z := ROCK_C.z + r.randf_range(-4.5, -1.0)
+		if absf(x - ROCK_C.x) < 1.0 and z > ROCK_C.z - 1.6:
+			continue
+		var g := height_at(x, z)
+		var sz := Vector3(r.randf_range(1.0, 1.9), r.randf_range(0.6, 1.3), r.randf_range(0.9, 1.6))
+		rocks.append([Vector3(x, maxf(g, -0.2) + sz.y * 0.35, z), sz, Color(0.3, 0.3, 0.32).lerp(Color(0.42, 0.4, 0.38), r.randf()), Vector3(r.randf_range(-10, 10), r.randf_range(0, 360), r.randf_range(-10, 10))])
+	add_blobs(self, rocks, stone_blob_mat, true)
+	var spot := make_spot(st, "fish", "rock", tr("갯바위 낚시터"), true)
+	spot.visible = true
+	make_basket(st + Vector3(1.2, 0, 0.8), 0.8, Color(0.5, 0.62, 0.7))
+	var n := make_npc("seafisher", tr("갯바위 어부"), Color(0.4, 0.45, 0.55), on_ground(ROCK_C.x - 2.2, ROCK_C.z + 1.6), 1.0, true)
+	n.rotation.y = PI * 0.8
+
+var seafisher_met := false
+func talk_seafisher() -> void:
+	var who := tr("갯바위 어부")
+	if not seafisher_met:
+		seafisher_met = true
+		say([
+			[who, tr("어이, 꼬마 낚시꾼! 갯바위 낚시는 연못하고 딴판이라네.")],
+			[who, tr("물고기가 걸리면 파도를 타고 밀려왔다 빠졌다 하지. 파도 박자를 읽어서 초록 칸을 맞추게.")],
+			[who, tr("여기선 망둥어, 노래미, 우럭, 감성돔, 그리고 귀한 돌돔이 올라와. 비 오는 날엔 감성돔, 맑은 날엔 돌돔이 잘 물지.")],
+		], Callable())
+		return
+	var here := fish_in("ch3_rock")
+	var got := fish_found_in("ch3_rock")
+	if got >= here.size():
+		say([[who, tr("갯바위 물고기를 다 낚아 본 꼬마라니, 이 바다에 소문이 자자하네!")]], Callable())
+	else:
+		say([[who, tr("갯바위 물고기 %d/%d. 날씨가 바뀌면 다시 와 보게. 물고기도 날씨를 탄다네.") % [got, here.size()]]], Callable())
+
+func start_fishing() -> void:
+	if current_thing.get("id", "") == "rock":
+		start_rock_fishing()
+
+func start_rock_fishing() -> void:
+	fish_place = "ch3_rock"
+	start_game("fish", {"world": true, "art": "world", "title": tr("찌가 쏙 들어가면 눌러서 채요!\n걸리면 파도 박자에 맞춰 초록 칸을 움직여요")}, fish_done)
+	var st := rock_stand()
+	var sea := Vector3(ROCK_C.x + 0.5, 0.0, ROCK_C.z - 6.0)
+	var fspot: Node3D = null
+	for t in things:
+		if t["kind"] == "fish" and t["id"] == "rock":
+			fspot = t["node"]
+	world_game_begin(st, sea, st + Vector3(2.4, 3.2, 3.4), sea + Vector3(0, 0, 1.5))
+	if fspot != null:
+		world_hide(fspot)
+	hold_tool("rod")
+	var bob := Node3D.new()
+	world_node(bob)
+	add_ball(bob, Color(0.9, 0.2, 0.2), 0.08, Vector3(0, 0.05, 0))
+	add_ball(bob, Color(1, 1, 1), 0.075, Vector3(0, -0.01, 0))
+	w["bobber"] = bob
+	w["bob_at"] = sea + Vector3(0, 0.06, 0)
+	w["fight_c"] = sea + Vector3(0, 0.02, 0)
+	make_fish_world_parts()
+	waves_t = 0.0
+
+func update_rock_waves(delta: float) -> void:
+	if not (mg_active and fish_place == "ch3_rock" and w.has("bob_at")):
+		return
+	waves_t -= delta
+	if waves_t <= 0.0:
+		waves_t = 1.0 / 0.54
+		# 파도가 갯바위에 부서져요 (힘겨루기 박자와 같아요)
+		splash3d(rock_stand() + Vector3(rng.randf_range(-2.0, 2.0), 0.2, -2.6), true)
+		sfx("splash", rng.randf_range(0.7, 0.85))
