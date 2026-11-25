@@ -22,6 +22,15 @@ var height_noise := FastNoiseLite.new()
 func chapter_id() -> String:
 	return "ch3"
 
+# 다른 마을 부탁을 말할 때 (해녀: 조개를 다 캔 뒤, 용왕: 병이 나은 뒤)
+func request_open(id: String) -> bool:
+	match id:
+		"haenyeo_ssuk":
+			return clams_done
+		"yongwang_yeongji":
+			return king_healed()
+	return false
+
 func chapter_state() -> Dictionary:
 	return {"quest": quest, "lured": lured, "backed": backed, "ginseng": has_ginseng, "clams": clams_done, "pearls": pearls, "fish": fish_seen, "ending": ending, "king_thanked": king_thanked, "mulji": mulji_done, "octo": octo_found, "chest": chest_done, "seafisher": seafisher_met}
 

@@ -38,6 +38,10 @@ var house_stage := 1   # 1 허름한 초가 → 2 고친 초가 → 3 넓은 초
 func chapter_id() -> String:
 	return "home"
 
+# 다른 마을 부탁을 말할 때 (할머니: 처음 인사한 뒤)
+func request_open(id: String) -> bool:
+	return id == "granny_sancheoneo" and met_granny
+
 func state_section() -> String:
 	return "home"
 

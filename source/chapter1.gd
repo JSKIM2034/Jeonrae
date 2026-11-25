@@ -7,6 +7,15 @@ var treasure_pos: Array = []   # 박을 탄 자리 (쌀, 비단, 금은보화 �
 func chapter_id() -> String:
 	return "ch1"
 
+# 다른 마을 부탁을 말할 때 (흥부: 이야기를 끝낸 뒤, 강태공: 낚시를 배운 뒤)
+func request_open(id: String) -> bool:
+	match id:
+		"heungbu_miyeok":
+			return tales_done_list().has("ch1")
+		"fisher_doldom":
+			return fisher_met
+	return false
+
 func chapter_state() -> Dictionary:
 	var vis := []
 	for t in things:

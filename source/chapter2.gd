@@ -34,6 +34,15 @@ var road_pts: PackedVector2Array
 func chapter_id() -> String:
 	return "ch2"
 
+# 다른 마을 부탁을 말할 때 (약초꾼: 인사한 뒤, 잔칫집 영감: 이야기를 끝낸 뒤)
+func request_open(id: String) -> bool:
+	match id:
+		"herbalist_hamcho":
+			return herbalist_met
+		"host_fish":
+			return tales_done_list().has("ch2")
+	return false
+
 func chapter_state() -> Dictionary:
 	return {"time": time_of_day, "quest": quest, "feast": feast, "delivered": delivered, "stones": stones, "ending": ending, "basket": basket, "herbalist": herbalist_met, "mom_together": mom_together}
 
