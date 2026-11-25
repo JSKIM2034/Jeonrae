@@ -75,6 +75,13 @@ func run() -> void:
 			(ws[0] as Node3D).visible = true
 			ws[2] = 0.0
 			m.pick_wild({"node": ws[0], "id": str(ws[1]), "kind": "wild"})
+			# 칡뿌리는 당기기 놀이를 이겨야 캐져요
+			for i in 1200:
+				if not m.mg_active:
+					break
+				await get_tree().process_frame
+				m.mg_off = m.mg_trail
+				m.mg_progress = maxf(m.mg_progress, 0.97)
 			await settle()
 	check(m.herb_done_in("ch2") == 5, "all pass herbs in the book")
 	check(m.book_rewards.has("herb_ch2") and m.coins >= c0 + 30 + 4 + 6 + 8 + 10 + 16, "complete reward 30 plus sales")

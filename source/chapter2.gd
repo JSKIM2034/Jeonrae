@@ -65,6 +65,7 @@ func build_chapter() -> void:
 	make_story()
 	make_wild_spots("ch2")
 	make_herbalist()
+	make_rock_pool()
 	var r := RandomNumberGenerator.new()
 	r.seed = 5
 	make_clouds(r)
@@ -92,6 +93,11 @@ func _process(delta: float) -> void:
 	var t := story_time(player.position.z)
 	set_time_of_day(lerpf(time_of_day, t, minf(1.0, delta * 2.0)))
 	update_story(delta)
+	update_pool(delta)
+
+func start_fishing() -> void:
+	if current_thing.get("id", "") == "pool":
+		start_pool_fishing()
 
 func cam_ground(x: float, z: float) -> float:
 	return height_at(x, z)
@@ -330,7 +336,7 @@ func make_passes() -> void:
 		var x := r.randf_range(-32, 32)
 		var z := r.randf_range(-50, 14)
 		var p := Vector2(x, z)
-		if road_distance(p) < 4.5:
+		if road_distance(p) < 4.5 or p.distance_to(POOL_C) < 7.5:
 			continue
 		var h := height_at(x, z)
 		# 언덕 위일수록 숲이 빽빽해요
@@ -465,7 +471,7 @@ func make_terrain_grass() -> void:
 		var x := r.randf_range(-34, 34)
 		var z := r.randf_range(-80, 52)
 		var p := Vector2(x, z)
-		if road_distance(p) < 1.4:
+		if road_distance(p) < 1.4 or p.distance_to(POOL_C) < POOL_R + 0.6:
 			continue
 		if Vector2(x - FIELD_C.x, z - FIELD_C.z).length() < 8.0:
 			continue
@@ -1890,6 +1896,10 @@ func action_text(t: Dictionary) -> String:
 			return tr("나무 오르기")
 		"pray":
 			return tr("하늘에 빌기")
+		"crayrock":
+			if not cray.is_empty() and cray["rock"] == int(t["id"]):
+				return tr("가재 잡기!")
+			return tr("돌 뒤집기")
 	return super(t)
 
 func on_action() -> void:
@@ -1930,6 +1940,9 @@ func on_action() -> void:
 						go_to_chapter("home", road_card_text("home")))
 			else:
 				on_gate()
+		"crayrock":
+			sfx("tap")
+			on_crayrock(t)
 		_:
 			super()
 
@@ -2284,3 +2297,288 @@ func scene_pose() -> bool:
 			pose_custom(Vector3(-2.7, 0.15, -0.5), Vector3(-2.7, 0.15, -0.5), -0.05, 0.1)
 			return true
 	return super()
+
+# ---------- 바위 웅덩이 (collect_plan.md: 들여다보기 낚시 동자개·열목어·산천어, 돌 밑 가재) ----------
+# 물이 맑아서 물고기가 보여요. 원하는 물고기가 찌로 다가오면 채고, 아니면 보내요
+const POOL_C := Vector2(10.5, -7.5)
+const POOL_R := 2.2
+var pool_y := 0.0
+var pool_fish: Array = []      # [노드, 종류, 각도, 반지름, 빠르기]
+var cray_rocks: Array = []     # [자리 노드, 돌 노드, 다시 놓일 때까지 남은 시간]
+var cray: Dictionary = {}      # 뒤집은 돌에서 나온 가재 {node, from, to, t, rock}
+
+func pool_center() -> Vector3:
+	return Vector3(POOL_C.x, pool_y, POOL_C.y)
+
+func make_rock_pool() -> void:
+	var top := -100.0
+	for i in 16:
+		var a := i * TAU / 16.0
+		top = maxf(top, height_at(POOL_C.x + cos(a) * (POOL_R + 0.3), POOL_C.y + sin(a) * (POOL_R + 0.3)))
+	pool_y = top + 0.05
+	# 둘레 바위 (물가를 둥글게 감싸요)
+	var rocks := []
+	var r := RandomNumberGenerator.new()
+	r.seed = 77
+	for i in 18:
+		var a := i * TAU / 18.0 + r.randf_range(-0.08, 0.08)
+		var rr := POOL_R + 0.45
+		var x := POOL_C.x + cos(a) * rr
+		var z := POOL_C.y + sin(a) * rr
+		var g := height_at(x, z)
+		var hgt := maxf(0.5, pool_y - g + 0.35)
+		rocks.append([Vector3(x, g + hgt * 0.45, z), Vector3(r.randf_range(0.8, 1.1), hgt, r.randf_range(0.7, 0.9)), Color(0.5, 0.49, 0.46).lerp(Color(0.62, 0.6, 0.55), r.randf()), Vector3(0, r.randf_range(0, 360), 0)])
+	add_blobs(self, rocks, stone_blob_mat, true)
+	# 맑은 물과 자갈 바닥
+	var bed := MeshInstance3D.new()
+	var bm := CylinderMesh.new()
+	bm.top_radius = POOL_R + 0.2
+	bm.bottom_radius = POOL_R
+	bm.height = 1.4
+	bed.mesh = bm
+	bed.material_override = make_color(Color(0.55, 0.56, 0.48))
+	bed.position = pool_center() + Vector3(0, -0.9, 0)
+	add_child(bed)
+	var water := MeshInstance3D.new()
+	var wm := CylinderMesh.new()
+	wm.top_radius = POOL_R + 0.25
+	wm.bottom_radius = POOL_R + 0.25
+	wm.height = 0.02
+	wm.radial_segments = 40
+	water.mesh = wm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.45, 0.72, 0.78, 0.28)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.roughness = 0.05
+	mat.metallic_specular = 0.9
+	water.material_override = mat
+	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	water.position = pool_center()
+	add_child(water)
+	add_solid(pool_center() + Vector3(0, 0.5, 0), Vector3(POOL_R * 1.7, 2.0, POOL_R * 1.7), Color(0, 0, 0, 0))
+	# 낚시 자리 (남쪽 물가)
+	var stand := on_ground(POOL_C.x, POOL_C.y + POOL_R + 1.4)
+	var spot := make_spot(stand, "fish", "pool", tr("바위 웅덩이 낚시터"), true)
+	spot.visible = true
+	# 들여다보이는 물고기들
+	fish_place = "ch2_pool"
+	for i in 5:
+		var k := pick_fish() if i > 0 else fish_index("dongjagae")
+		var n := Node3D.new()
+		add_child(n)
+		make_fish_body(n, k)
+		n.scale = Vector3.ONE * 1.4
+		pool_fish.append([n, k, r.randf() * TAU, r.randf_range(0.6, POOL_R - 0.5), r.randf_range(0.35, 0.7) * (1.0 if i % 2 == 0 else -1.0)])
+	# 가재가 숨은 넓적 돌 세 개 (동쪽 물가)
+	for i in 3:
+		var a := -0.9 + i * 0.55
+		var x := POOL_C.x + cos(a) * (POOL_R + 1.4)
+		var z := POOL_C.y + sin(a) * (POOL_R + 1.4)
+		var rp := on_ground(x, z)
+		var sp := make_spot(rp, "crayrock", str(i), "", true)
+		sp.visible = true
+		var stone := Node3D.new()
+		sp.add_child(stone)
+		add_blobs(stone, [[Vector3(0, 0.1, 0), Vector3(0.75, 0.2, 0.6), Color(0.55, 0.53, 0.48)]], stone_blob_mat, true)
+		cray_rocks.append([sp, stone, 0.0])
+
+# 물고기 몸 (낚아 올릴 때와 같은 모양, 물속에서 보여요)
+func make_fish_body(n: Node3D, k: int) -> void:
+	var f: Dictionary = FISH[k]
+	var col: Color = f["col"]
+	var ln: float = f["len"]
+	add_blobs(n, [
+		[Vector3.ZERO, Vector3(0.5 * ln, 0.16, 0.13), col],
+		[Vector3(-0.3 * ln, 0, 0), Vector3(0.15, 0.14, 0.04), col.darkened(0.15)],
+		[Vector3(0.18 * ln, 0.03, 0.05), Vector3(0.04, 0.04, 0.03), Color(0.05, 0.05, 0.05)],
+		[Vector3(0.18 * ln, 0.03, -0.05), Vector3(0.04, 0.04, 0.03), Color(0.05, 0.05, 0.05)],
+	], blob_gloss())
+	n.set_meta("kind", k)
+
+func update_pool(delta: float) -> void:
+	var chaser: int = w.get("chaser", -1) if mg_active and fish_place == "ch2_pool" else -1
+	for i in pool_fish.size():
+		var pf: Array = pool_fish[i]
+		var n: Node3D = pf[0]
+		if i == chaser:
+			continue
+		pf[2] = float(pf[2]) + delta * float(pf[4]) / maxf(0.5, float(pf[3]))
+		var a: float = pf[2]
+		var rr: float = pf[3] + sin(anim_t * 0.7 + i) * 0.2
+		var p := pool_center() + Vector3(cos(a) * rr, -0.16 - (i % 2) * 0.08, sin(a) * rr)
+		var dir := Vector3(-sin(a), 0, cos(a)) * signf(float(pf[4]))
+		n.position = p
+		n.rotation.y = atan2(-dir.z, dir.x)
+		n.rotation.x = sin(anim_t * 8.0 + i) * 0.15
+	# 가재 돌
+	for cr in cray_rocks:
+		if float(cr[2]) > 0.0:
+			cr[2] = float(cr[2]) - delta
+			if float(cr[2]) <= 0.0:
+				(cr[1] as Node3D).rotation = Vector3.ZERO
+				(cr[1] as Node3D).position = Vector3.ZERO
+	if not cray.is_empty():
+		cray["t"] = float(cray["t"]) + delta
+		var cn: Node3D = cray["node"]
+		var t := clampf(float(cray["t"]) / 1.5, 0.0, 1.0)
+		cn.position = (cray["from"] as Vector3).lerp(cray["to"], t) + Vector3(0, absf(sin(t * 30.0)) * 0.03, 0)
+		if t >= 1.0:
+			cn.queue_free()
+			cray = {}
+			if not is_busy():
+				float_text(tr("가재가 웅덩이로 쏙 도망갔다!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.8, 0.6), 1.2)
+
+func start_pool_fishing() -> void:
+	fish_place = "ch2_pool"
+	start_game("fish", {"world": true, "art": "world", "title": tr("원하는 물고기가 찌를 물면 눌러요!\n걸리면 눌렀다 뗐다 하며 초록 칸에")}, fish_done)
+	var c := pool_center()
+	var stand := on_ground(POOL_C.x, POOL_C.y + POOL_R + 1.4)
+	var fspot: Node3D = null
+	for t in things:
+		if t["kind"] == "fish" and t["id"] == "pool":
+			fspot = t["node"]
+	world_game_begin(stand, c, stand + Vector3(2.4, 4.6, 1.2), c + Vector3(0, -0.3, -0.2))
+	if fspot != null:
+		world_hide(fspot)
+	hold_tool("rod")
+	# 웅덩이 물고기를 날씨에 맞게 다시 골라요 (맑은 날 산천어, 안개 낀 날 열목어가 더 자주)
+	for i in range(1, pool_fish.size()):
+		var k := pick_fish()
+		if k != int(pool_fish[i][1]):
+			var n: Node3D = pool_fish[i][0]
+			for ch in n.get_children():
+				ch.queue_free()
+			make_fish_body(n, k)
+			pool_fish[i][1] = k
+	var bob := Node3D.new()
+	world_node(bob)
+	add_ball(bob, Color(0.9, 0.2, 0.2), 0.07, Vector3(0, 0.05, 0))
+	add_ball(bob, Color(1, 1, 1), 0.065, Vector3(0, -0.01, 0))
+	w["bobber"] = bob
+	w["bob_at"] = c + Vector3(0.2, 0.04, 0.4)
+	w["fight_c"] = c + Vector3(0, -0.05, 0)
+	w["chaser"] = -1
+	w["chase_wait"] = rng.randf_range(1.0, 2.0)
+	make_fish_world_parts()
+	mg_timer = 999.0
+
+# 물고기 한 마리가 찌로 다가와서 물어요. 그때 누르면 그 물고기가 걸려요
+func update_pool_bite(delta: float) -> void:
+	var bob: Vector3 = w["bob_at"]
+	var ci: int = w.get("chaser", -1)
+	if mg_step == 0:
+		mg_timer = 999.0
+		if ci < 0:
+			w["chase_wait"] = float(w["chase_wait"]) - delta
+			if float(w["chase_wait"]) <= 0.0:
+				w["chaser"] = rng.randi_range(0, pool_fish.size() - 1)
+		else:
+			var n: Node3D = pool_fish[ci][0]
+			var tgt := bob + Vector3(-0.15, -0.12, 0)
+			var dv := tgt - n.position
+			if dv.length() < 0.08:
+				fish_kind = int(pool_fish[ci][1])
+				mg_step = 1
+				mg_timer = lerpf(1.2, 0.8, fish_hard())
+				sfx("pop", 0.7)
+				shake(4)
+			else:
+				var step := minf(dv.length(), delta * 0.9)
+				n.position += dv.normalized() * step
+				n.rotation.y = atan2(-dv.z, dv.x)
+	elif mg_step == 1 and ci >= 0:
+		var n2: Node3D = pool_fish[ci][0]
+		n2.position = bob + Vector3(-0.15, -0.12, 0) + Vector3(sin(anim_t * 30.0) * 0.02, 0, 0)
+	# 물었다 놓쳤으면 그 물고기는 돌아가고 다른 물고기를 기다려요
+	if mg_step == 0 and w.get("last_step", 0) == 1:
+		w["chaser"] = -1
+		w["chase_wait"] = rng.randf_range(1.0, 2.2)
+	w["last_step"] = mg_step
+
+func on_crayrock(t: Dictionary) -> void:
+	var i := int(t["id"])
+	var cr: Array = cray_rocks[i]
+	if not cray.is_empty() and cray["rock"] == i:
+		# 가재를 붙잡아요
+		var cn: Node3D = cray["node"]
+		cn.queue_free()
+		cray = {}
+		fish_place = "ch2_pool"
+		fish_kind = fish_index("gajae")
+		burst3d((t["node"] as Node3D).position + Vector3(0, 0.4, 0), Color(1, 0.75, 0.5))
+		fish_done(true, true)
+		return
+	if float(cr[2]) > 0.0:
+		say([["", tr("방금 뒤집어 본 돌이다. 조금 있다가 다시 와 보자.")]], Callable())
+		return
+	var stone: Node3D = cr[1]
+	stone.rotation = Vector3(0, 0, 1.2)
+	stone.position = Vector3(0.35, 0.15, 0)
+	cr[2] = 40.0
+	sfx("pop")
+	if rng.randf() < 0.7:
+		var at: Vector3 = (t["node"] as Node3D).position
+		var cn := Node3D.new()
+		add_child(cn)
+		add_blobs(cn, [
+			[Vector3(0, 0.06, 0), Vector3(0.16, 0.07, 0.08), Color(0.62, 0.36, 0.24)],
+			[Vector3(-0.13, 0.05, 0), Vector3(0.1, 0.05, 0.07), Color(0.58, 0.33, 0.22)],
+			[Vector3(0.12, 0.06, 0.06), Vector3(0.08, 0.04, 0.04), Color(0.66, 0.38, 0.26)],
+			[Vector3(0.12, 0.06, -0.06), Vector3(0.08, 0.04, 0.04), Color(0.66, 0.38, 0.26)],
+		], blob_gloss())
+		var to := pool_center() + (at - pool_center()).normalized() * (POOL_R - 0.2)
+		to.y = pool_y - 0.1
+		cn.look_at_from_position(at, to, Vector3.UP)
+		cray = {"node": cn, "from": at + Vector3(0, 0.05, 0), "to": to, "t": 0.0, "rock": i}
+		float_text(tr("가재다! 얼른 잡아요!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.85, 0.5), 1.2)
+	else:
+		say([["", tr("돌 밑에는 젖은 모래뿐이다.")]], Callable())
+
+# ---------- 칡뿌리 캐기: 너무 세게 당기면 뚝 끊겨요 ----------
+var chik_thing: Dictionary = {}
+
+func pick_wild(t: Dictionary) -> void:
+	if HERBS[int(t["id"])]["id"] != "chik" or int(herb_counts[int(t["id"])]) >= HERB_NEED:
+		super(t)
+		return
+	chik_thing = t
+	fish_place = "ch2_chik"
+	start_game("fish", {"world": true, "art": "world", "title": tr("굵은 칡뿌리를 당겨요!\n꾹 눌렀다 뗐다 하며 초록 칸에 맞춰요")}, chik_done)
+	var at: Vector3 = (t["node"] as Node3D).position
+	var stand := at + Vector3(0, 0, 1.3)
+	stand.y = height_at(stand.x, stand.z)
+	world_game_begin(stand, at, stand + Vector3(1.8, 2.4, 2.6), at + Vector3(0, 0.3, 0))
+	w["bob_at"] = at
+	w["fight_c"] = at
+	w["root"] = t["node"]
+	mg_step = 2
+	mg_progress = 0.3
+	mg_off = 0.25
+	mg_trail = 0.3
+	mg_dir = 0.5
+	mg_speed = 0.0
+	mg_frame_angle = 0.0
+
+func update_chik_world(_delta: float) -> void:
+	if mg_step == 0:
+		# 놓치면(기회 하나 줄고) 다시 당기기부터
+		mg_step = 2
+		mg_progress = 0.3
+	var root: Node3D = w.get("root")
+	if root != null:
+		root.rotation.z = sin(anim_t * 20.0) * 0.05 * (1.0 if mg_step == 3 else 0.3)
+		root.position.y = height_at(root.position.x, root.position.z) + mg_progress * 0.15
+
+func chik_done(ok: bool, _good: bool) -> void:
+	fish_place = "ch2_pool"
+	var node: Node3D = chik_thing["node"]
+	node.position.y = height_at(node.position.x, node.position.z)
+	node.rotation = Vector3.ZERO
+	if ok:
+		super.pick_wild(chik_thing)
+	else:
+		node.visible = false
+		for ws in wild_spots:
+			if ws[0] == node:
+				ws[2] = 30.0
+		say([["", tr("뚝! 칡뿌리가 끊어지고 말았다. 조금 있다가 다시 해 보자.")]], Callable())
