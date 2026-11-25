@@ -1185,8 +1185,37 @@ func make_well_tree(pos: Vector3) -> void:
 	leaves.append([Vector3(0, 7.2, -0.9), Vector3(2.6, 1.6, 2.6), Color(0.34, 0.6, 0.3)])
 	for end in [Vector3(-1.5, 3.7, -0.7), Vector3(1.4, 4.2, -0.9)]:
 		leaves.append([end + Vector3(0, 0.2, -0.3), Vector3(0.9, 0.6, 0.9), Color(0.3, 0.58, 0.28)])
-	var canopy := add_blobs(tree, leaves)
-	sway_items.append([canopy, canopy.position, 0, pos.x * 0.7 + pos.z * 0.5, 0.4])
+	if leaf_mat == null:
+		var canopy := add_blobs(tree, leaves)
+		sway_items.append([canopy, canopy.position, 0, pos.x * 0.7 + pos.z * 0.5, 0.4])
+		return
+	# 둥근 덩어리 대신, 다른 나무들처럼 잎 그림 카드를 여러 장 겹쳐 잎사귀가 살랑이는 나무로
+	var quad := QuadMesh.new()
+	quad.size = Vector2(1.3, 1.3)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = quad
+	var cards := []
+	for lv in leaves:
+		var c: Vector3 = lv[0]
+		var sz: Vector3 = lv[1]
+		var lc: Color = lv[2]
+		var n := int(clampf(sz.x * sz.y * sz.z * 3.0, 6.0, 22.0))
+		for i in n:
+			var p := c + Vector3(r.randf_range(-0.5, 0.5) * sz.x, r.randf_range(-0.5, 0.5) * sz.y, r.randf_range(-0.5, 0.5) * sz.z)
+			var b := Basis.from_euler(Vector3(r.randf_range(-0.9, 0.9), r.randf() * TAU, r.randf_range(-0.5, 0.5)))
+			var k := r.randf_range(0.8, 1.25)
+			var tint := lc.lightened(0.55).lerp(Color(1, 1, 1), 0.25) * Color(1, 1, 1).darkened(r.randf_range(0.0, 0.15))
+			cards.append([Transform3D(b.scaled(Vector3(k, k, k)), p), tint])
+	mm.instance_count = cards.size()
+	for i in cards.size():
+		mm.set_instance_transform(i, cards[i][0])
+		mm.set_instance_color(i, cards[i][1])
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = leaf_mat
+	tree.add_child(mi)
 
 # ---------- 무궁화 꽃이 피었습니다 (셋째 고개: 호랑이 몰래 지나가기) ----------
 # 바위 덤불 셋을 차례로 거쳐 호랑이 뒤로 지나가요. 덤불에 닿을 때마다 호랑이가 더 자주, 더 오래 돌아봐요.
