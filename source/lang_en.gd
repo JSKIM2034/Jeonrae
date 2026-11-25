@@ -1194,4 +1194,9 @@ const EN := {
 	"뒷산 길 · 맑은 날": "Back hill path · sunny",
 	"바닷가 약초 다섯 가지를 다 모았다! 해녀 아주머니가 엽전 30냥을 건네주었다.": "You gathered all five seaside herbs! The diver lady handed you 30 nyang.",
 	"종류마다 3번씩 캐면 도감에 올라가요.\n이 마을 것을 다 모으면 엽전 30냥!": "Gather three of each kind for your book.\nAll of this village's herbs: 30 nyang!",
+	"찌가 쏙 들어가면 눌러서 채요!\n걸리면 손가락을 위아래로 끌어 초록 칸을 물고기에": "Tap when the float dips!\nOnce hooked, drag up and down to keep the green bar on the fish",
+	"물고기가 걸리면 화면을 누른 채 손가락을 위아래로 끌어 초록 칸을 물고기에 맞추거라. 손을 떼면 초록 칸은 그 자리에 멈춘단다.": "Once a fish is hooked, keep your finger on the screen and drag up and down to keep the green bar on the fish. Let go and the bar stays put.",
+	"원하는 물고기가 찌를 물면 눌러요!\n걸리면 위아래로 끌어 초록 칸을 물고기에": "Tap when the fish you want bites!\nOnce hooked, drag up and down to keep the green bar on the fish",
+	"굵은 칡뿌리를 당겨요!\n위아래로 끌어 초록 칸을 뿌리 표시에 맞춰요": "Pull the thick kudzu root!\nDrag up and down to keep the green bar on the root mark",
+	"위아래로 끌어 초록 칸 맞추기 | 남은 기회 %d": "Drag up and down to line up the green bar | Tries left %d",
 }

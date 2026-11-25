@@ -849,7 +849,7 @@ func well_drag(dy: float, dt_ms: float) -> void:
 # ---------- 낚시 (3D): 연못 위 찌, 물고기 그림자, 튀어 오르는 물고기 ----------
 func start_fishing3d() -> void:
 	fish_place = "ch1_pond"
-	start_game("fish", {"world": true, "art": "world", "title": tr("찌가 쏙 들어가면 눌러서 채요!\n걸리면 눌렀다 뗐다 하며 초록 칸에")}, fish_done)
+	start_game("fish", {"world": true, "art": "world", "title": tr("찌가 쏙 들어가면 눌러서 채요!\n걸리면 손가락을 위아래로 끌어 초록 칸을 물고기에")}, fish_done)
 	var stand := POND_C + Vector3(4.1, 0.0, 0.0)
 	var fspot: Node3D = null
 	for t in things:
@@ -1447,7 +1447,7 @@ func fish_book() -> String:
 func fish_how() -> Array:
 	return [
 		[tr("강태공"), tr("찌가 쏙 들어가면 바로 화면을 눌러 낚싯대를 채거라. 너무 일찍 채면 물고기가 놀라 도망간단다.")],
-		[tr("강태공"), tr("물고기가 걸리면 화면을 꾹 눌렀다 뗐다 하며 초록 칸 안에 물고기를 붙잡아 두거라.")],
+		[tr("강태공"), tr("물고기가 걸리면 화면을 누른 채 손가락을 위아래로 끌어 초록 칸을 물고기에 맞추거라. 손을 떼면 초록 칸은 그 자리에 멈춘단다.")],
 	]
 
 func talk_fisher() -> void:

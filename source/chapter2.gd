@@ -94,6 +94,7 @@ func _process(delta: float) -> void:
 	set_time_of_day(lerpf(time_of_day, t, minf(1.0, delta * 2.0)))
 	update_story(delta)
 	update_pool(delta)
+	update_kid_poses(delta)
 
 func start_fishing() -> void:
 	if current_thing.get("id", "") == "pool":
@@ -704,13 +705,12 @@ func apply_story_state() -> void:
 		if quest >= S_TREE:
 			kid.position = tree_pos + (Vector3(-0.9, 0, 0.9) if k == "oppa" else Vector3(-1.5, 0, 0.3))
 			kid.position.y = height_at(kid.position.x, kid.position.z)
-		if quest >= S_ROPE:
-			kid.position.y += 3.4 if k == "oppa" else 3.0
 		if quest >= S_END:
 			kid.visible = false
 	if quest == S_DOOR:
 		tiger_show_disguised()
 	if quest == S_ROPE:
+		seat_kids()
 		tiger.visible = true
 		tiger.position = on_ground(well_pos.x - 1.4, well_pos.z + 0.6)
 		tiger.rotation.y = atan2(tree_pos.x - tiger.position.x, tree_pos.z - tiger.position.z)
@@ -1730,11 +1730,14 @@ func start_climb() -> void:
 
 func climb_done(ok: bool, _good: bool) -> void:
 	if not ok:
+		for k in ["oppa", "nui"]:
+			var kid := npc(k)
+			kid.position = tree_pos + (Vector3(-0.9, 0, 0.9) if k == "oppa" else Vector3(-1.5, 0, 0.3))
+			kid.position.y = height_at(kid.position.x, kid.position.z)
+			release_pose(body_of(kid))
 		say([[tr("오빠"), tr("미끄러졌어! 다시 해 보자, 누이야. 꽉 잡아!")]], Callable())
 		return
-	for k in ["oppa", "nui"]:
-		var kid := npc(k)
-		kid.position.y = height_at(kid.position.x, kid.position.z) + (3.4 if k == "oppa" else 3.0)
+	seat_kids()
 	# 호랑이가 우물가로
 	tiger.position = on_ground(well_pos.x - 1.4, well_pos.z + 0.6)
 	tiger.rotation.y = atan2(well_pos.x - tiger.position.x, well_pos.z - tiger.position.z)
@@ -1787,17 +1790,25 @@ func start_rope() -> void:
 
 func rope_done(ok: bool, _good: bool) -> void:
 	if not ok:
+		seat_kids()
 		say([[tr("오빠"), tr("놓쳤어! 다시 한 번만 더... 하느님!")]], Callable())
 		return
 	event_lock = true
 	# 오누이가 동아줄을 타고 하늘로
 	flash(Color(1, 0.97, 0.85))
 	sfx("win")
+	kids_on_rope(0.8)
+	rope_climb_t = 0.0
 	for k in ["oppa", "nui"]:
 		var kid := npc(k)
+		kid.rotation.z = 0.0
 		var tw := kid.create_tween()
-		tw.tween_property(kid, "position:y", kid.position.y + 26.0, 4.0).set_ease(Tween.EASE_IN)
-		tw.tween_callback(func(): kid.visible = false)
+		# 동아줄을 영차영차 타고 하늘로 (줄도 같이 올라가요)
+		tw.tween_property(kid, "position:y", kid.position.y + 26.0, 4.5).set_ease(Tween.EASE_IN)
+		tw.tween_callback(func():
+			kid.visible = false
+			rope_climb_t = -1.0
+			release_pose(body_of(kid)))
 	if sky_rope != null:
 		var tw2 := sky_rope.create_tween()
 		tw2.tween_interval(1.0)
@@ -2162,15 +2173,16 @@ func scene_update(delta: float) -> void:
 	var prog := clampf(float(mg_count) / goal, 0.0, 1.0)
 	match w["scene"]:
 		"climb":
-			# 오누이가 가지를 잡을 때마다 조금씩 위로
-			var base: Dictionary = w["kid_base"]
-			for k in base:
+			# 오누이가 줄기를 껴안고 가지를 잡을 때마다 한 뼘씩 위로 (팔다리를 번갈아 뻗어요)
+			var tb := tree_base()
+			var sw2: float = w.get("swing", 0.0)
+			for k in ["oppa", "nui"]:
 				var kid := npc(k)
-				var b: Vector3 = base[k]
-				var top := tree_pos + (Vector3(-0.35, 0, 0.35) if k == "oppa" else Vector3(-0.55, 0, -0.1))
-				var p := b.lerp(top, minf(1.0, prog * 2.0))
-				p.y = b.y + prog * (3.4 if k == "oppa" else 3.0)
+				var hug: Vector3 = KID_HUG[k]
+				var p := tb + hug + Vector3(0, prog * (2.6 if k == "oppa" else 2.1), 0)
 				kid.position = kid.position.lerp(p, minf(1.0, delta * 6.0))
+				face_point(kid, Vector3(tb.x, kid.position.y, tb.z))
+				pose_kid_climb(k, (float(mg_count) + (1.0 - sw2)) * PI + (0.0 if k == "oppa" else PI * 0.5))
 		"pine":
 			var tb: Vector3 = w["tiger_base"]
 			tiger.position = tb + Vector3(0, float(cg.get("climb", 0.0)) * 3.4, 0)
@@ -2178,10 +2190,12 @@ func scene_update(delta: float) -> void:
 		"rope":
 			var sw: float = w.get("swing", 0.0)
 			var tilt: float = cg.get("tilt", 0.0)
+			kids_on_rope(prog * 0.8)
 			for k in ["oppa", "nui"]:
 				var kid := npc(k)
-				kid.rotation.y = sin(anim_t * 2.0) * 0.1 + sw * 0.2
+				kid.rotation.y = PI + sin(anim_t * 2.0) * 0.1 + sw * 0.2
 				kid.rotation.z = lerpf(kid.rotation.z, -tilt * 0.35, 0.2)
+				pose_kid_rope(k, (float(mg_count) + (1.0 - sw)) * PI + (0.0 if k == "oppa" else 1.6))
 			if sky_rope != null:
 				sky_rope.rotation.z = lerpf(sky_rope.rotation.z, -tilt * 0.06, 0.2)
 
@@ -2245,13 +2259,8 @@ func cg_event(kind: String, info: Dictionary = {}) -> void:
 			if kind == "pull":
 				w["swing"] = 1.0
 				burst3d(tree_pos + Vector3(-0.3, 4.2, 0.3), Color(1, 0.92, 0.6), 8)
-				for k in ["oppa", "nui"]:
-					var kid := npc(k)
-					kid.position.y += 0.08
 			elif kind == "fall":
-				for k in ["oppa", "nui"]:
-					var kid2 := npc(k)
-					kid2.position.y -= 0.3
+				shake(6)
 
 func catch_item_node(bad: bool) -> Node3D:
 	if w.get("scene", "") != "tteok":
@@ -2430,7 +2439,7 @@ func update_pool(delta: float) -> void:
 
 func start_pool_fishing() -> void:
 	fish_place = "ch2_pool"
-	start_game("fish", {"world": true, "art": "world", "title": tr("원하는 물고기가 찌를 물면 눌러요!\n걸리면 눌렀다 뗐다 하며 초록 칸에")}, fish_done)
+	start_game("fish", {"world": true, "art": "world", "title": tr("원하는 물고기가 찌를 물면 눌러요!\n걸리면 위아래로 끌어 초록 칸을 물고기에")}, fish_done)
 	var c := pool_center()
 	var stand := on_ground(POOL_C.x, POOL_C.y + POOL_R + 1.4)
 	var fspot: Node3D = null
@@ -2543,7 +2552,7 @@ func pick_wild(t: Dictionary) -> void:
 		return
 	chik_thing = t
 	fish_place = "ch2_chik"
-	start_game("fish", {"world": true, "art": "world", "title": tr("굵은 칡뿌리를 당겨요!\n꾹 눌렀다 뗐다 하며 초록 칸에 맞춰요")}, chik_done)
+	start_game("fish", {"world": true, "art": "world", "title": tr("굵은 칡뿌리를 당겨요!\n위아래로 끌어 초록 칸을 뿌리 표시에 맞춰요")}, chik_done)
 	var at: Vector3 = (t["node"] as Node3D).position
 	var stand := at + Vector3(0, 0, 1.3)
 	stand.y = height_at(stand.x, stand.z)
@@ -2551,6 +2560,27 @@ func pick_wild(t: Dictionary) -> void:
 	w["bob_at"] = at
 	w["fight_c"] = at
 	w["root"] = t["node"]
+	# 땅속에서 뽑혀 나오는 굵은 뿌리와, 손에서 뿌리까지 이어진 덩굴
+	var root_mat := make_color(Color(0.5, 0.36, 0.22))
+	var beam := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.07
+	cm.bottom_radius = 0.035
+	cm.height = 1.0
+	beam.mesh = cm
+	beam.material_override = root_mat
+	world_node(beam)
+	w["root_beam"] = beam
+	var vine := MeshInstance3D.new()
+	var vm := CylinderMesh.new()
+	vm.top_radius = 0.025
+	vm.bottom_radius = 0.025
+	vm.height = 1.0
+	vine.mesh = vm
+	vine.material_override = make_color(Color(0.34, 0.5, 0.24))
+	world_node(vine)
+	w["vine"] = vine
+	w["dirt_t"] = 0.0
 	mg_step = 2
 	mg_progress = 0.3
 	mg_off = 0.25
@@ -2559,15 +2589,35 @@ func pick_wild(t: Dictionary) -> void:
 	mg_speed = 0.0
 	mg_frame_angle = 0.0
 
-func update_chik_world(_delta: float) -> void:
+func update_chik_world(delta: float) -> void:
 	if mg_step == 0:
 		# 놓치면(기회 하나 줄고) 다시 당기기부터
 		mg_step = 2
 		mg_progress = 0.3
 	var root: Node3D = w.get("root")
-	if root != null:
-		root.rotation.z = sin(anim_t * 20.0) * 0.05 * (1.0 if mg_step == 3 else 0.3)
-		root.position.y = height_at(root.position.x, root.position.z) + mg_progress * 0.15
+	if root == null:
+		return
+	var g := height_at(root.position.x, root.position.z)
+	root.rotation.z = sin(anim_t * 20.0) * 0.05 * (1.0 if mg_step == 3 else 0.3)
+	root.position.y = g + mg_progress * 0.1
+	# 당길수록 땅속 뿌리가 길게 빠져나와요
+	var hands := (bone_world("handL") + bone_world("handR")) * 0.5
+	var out_len := 0.15 + mg_progress * 0.9
+	var base := root.position + Vector3(0, 0.05, 0)
+	var dir := (hands - base)
+	dir.y = maxf(dir.y, 0.2)
+	dir = dir.normalized()
+	var tip := base + dir * out_len
+	var beam: MeshInstance3D = w["root_beam"]
+	beam.global_transform = Transform3D(Basis(Quaternion(Vector3.UP, dir)) * Basis.from_scale(Vector3(1, out_len, 1)), (base + tip) * 0.5)
+	var vine: MeshInstance3D = w["vine"]
+	var vl := tip.distance_to(hands)
+	if vl > 0.01:
+		vine.global_transform = Transform3D(Basis(Quaternion(Vector3.UP, (hands - tip).normalized())) * Basis.from_scale(Vector3(1, vl, 1)), (tip + hands) * 0.5)
+	w["dirt_t"] = float(w["dirt_t"]) - delta
+	if float(w["dirt_t"]) <= 0.0:
+		w["dirt_t"] = 0.35 if mg_step == 2 else 0.6
+		burst3d(base, Color(0.45, 0.33, 0.22), 6)
 
 func chik_done(ok: bool, _good: bool) -> void:
 	fish_place = "ch2_pool"
@@ -2582,3 +2632,67 @@ func chik_done(ok: bool, _good: bool) -> void:
 			if ws[0] == node:
 				ws[2] = 30.0
 		say([["", tr("뚝! 칡뿌리가 끊어지고 말았다. 조금 있다가 다시 해 보자.")]], Callable())
+
+# ---------- 오누이 몸짓: 나무 오르기, 가지에 앉기, 동아줄 타기 (공중에 뜨지 않게) ----------
+# 우물가 나무(make_well_tree) 굵은 가지 위 앉을 자리 (나무 밑동 기준)
+const KID_SEAT := {"oppa": Vector3(0.74, 3.62, -0.42), "nui": Vector3(-0.72, 3.12, -0.3)}
+# 나무를 껴안고 오르는 자리 (줄기 둘레, 카메라 쪽)
+const KID_HUG := {"oppa": Vector3(0.25, 0, 0.75), "nui": Vector3(-0.5, 0, 0.6)}
+var rope_climb_t := -1.0
+
+func tree_base() -> Vector3:
+	return Vector3(tree_pos.x, height_at(tree_pos.x, tree_pos.z) - 0.1, tree_pos.z)
+
+func rope_xz() -> Vector3:
+	return tree_pos + Vector3(-0.3, 0, 0.3)
+
+func face_point(n: Node3D, target: Vector3) -> void:
+	n.rotation.y = atan2(target.x - n.position.x, target.z - n.position.z)
+
+# 줄기를 껴안고 팔다리를 번갈아 뻗어요 (ph 가 반 바퀴 돌 때마다 한 번 영차)
+func pose_kid_climb(k: String, ph: float) -> void:
+	var a := sin(ph)
+	pose_other(body_of(npc(k)), Vector3(-2.5 + 0.45 * a, 0.25, -0.7), Vector3(-2.5 - 0.45 * a, 0.25, -0.7), 0.2, [-0.9 - 0.45 * a, 1.3, -0.9 + 0.45 * a, 1.3])
+
+# 가지에 걸터앉아 두 손으로 가지를 짚어요. 다리는 아래로 대롱대롱
+func pose_kid_sit(k: String) -> void:
+	var dangle := sin(anim_t * 2.0 + (0.0 if k == "oppa" else 1.5)) * 0.15
+	pose_other(body_of(npc(k)), Vector3(-0.35, 0.55, -0.3), Vector3(-0.35, 0.55, -0.3), 0.05, [-1.45, 1.4 + dangle, -1.45, 1.4 - dangle])
+
+# 동아줄을 두 손으로 번갈아 붙잡고, 두 다리로 줄을 감아요
+func pose_kid_rope(k: String, ph: float) -> void:
+	var a := sin(ph)
+	pose_other(body_of(npc(k)), Vector3(-2.85 + 0.3 * a, 0.1, -0.35), Vector3(-2.85 - 0.3 * a, 0.1, -0.35), 0.1, [-0.75 - 0.2 * a, 1.25, -0.75 + 0.2 * a, 1.25])
+
+func seat_kids() -> void:
+	var tb := tree_base()
+	for k in ["oppa", "nui"]:
+		var kid := npc(k)
+		var seat: Vector3 = tb + KID_SEAT[k]
+		kid.position = seat - Vector3(0, 0.62, 0)
+		kid.rotation.y = atan2(0.45, 1.0)
+		pose_kid_sit(k)
+
+func kids_on_rope(lift: float) -> void:
+	var r := rope_xz()
+	var ground := height_at(r.x, r.z)
+	for k in ["oppa", "nui"]:
+		var kid := npc(k)
+		var y := ground + (3.9 if k == "oppa" else 2.7) + lift
+		kid.position = Vector3(r.x, y, r.z) + Vector3(0.05, 0, 0.24)
+		kid.rotation.y = PI
+
+func update_kid_poses(delta: float) -> void:
+	if quest < S_TREE or quest > S_ROPE:
+		return
+	if rope_climb_t >= 0.0:
+		rope_climb_t += delta
+		for k in ["oppa", "nui"]:
+			pose_kid_rope(k, anim_t * 7.0 + (0.0 if k == "oppa" else 1.6))
+		return
+	var sc: String = w.get("scene", "") if mg_active else ""
+	if sc == "climb" or sc == "rope":
+		return
+	if quest == S_ROPE:
+		for k in ["oppa", "nui"]:
+			pose_kid_sit(k)
