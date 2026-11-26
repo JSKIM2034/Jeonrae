@@ -2569,51 +2569,140 @@ var exit_last_out := Vector3.ZERO
 var roads_cache := {}          # 지역 id -> 열렸나
 
 func add_exit(at: Vector3, r: float, to: String, label: String = "") -> void:
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.albedo_color = Color(1.0, 0.92, 0.6, 0.25)
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var disc := MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = r * 0.75
-	cm.bottom_radius = r * 0.75
-	cm.height = 0.02
-	cm.radial_segments = 32
-	disc.mesh = cm
-	disc.material_override = mat
-	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	disc.position = at + Vector3(0, 0.06, 0)
-	add_child(disc)
-	# 테두리에 빛나는 고리, 가운데 위로 은은한 빛기둥 (길 끝이 멀리서도 보이게)
-	var ring := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	tm.inner_radius = r * 0.72
-	tm.outer_radius = r * 0.82
-	tm.rings = 32
-	tm.ring_segments = 6
-	ring.mesh = tm
-	var ring_mat := mat.duplicate() as StandardMaterial3D
-	ring.material_override = ring_mat
-	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	ring.scale = Vector3(1, 0.3, 1)
-	disc.add_child(ring)
-	var beam := MeshInstance3D.new()
-	var bm := CylinderMesh.new()
-	bm.top_radius = r * 0.55
-	bm.bottom_radius = r * 0.7
-	bm.height = 2.4
-	bm.cap_top = false
-	bm.cap_bottom = false
-	beam.mesh = bm
-	var beam_mat := mat.duplicate() as StandardMaterial3D
-	beam.material_override = beam_mat
-	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	beam.position.y = 1.2
-	disc.add_child(beam)
+	# 길 끝: 기둥 대신 나뭇잎 사이로 비스듬히 내려오는 햇살 몇 줄기, 땅에 번진 따스한 빛, 떠오르는 빛 먼지
+	var root := Node3D.new()
+	root.position = at
+	add_child(root)
+	var rr := RandomNumberGenerator.new()
+	rr.seed = int(at.x * 13.0 + at.z * 7.0)
+	var shaft := make_sun_shafts(root, rr, 4, r * 0.75, 7.0, Vector2(0.7, 1.5))
+	var glow := make_ground_glow(root, r * 1.5)
+	var motes := make_motes(root, r * 0.7)
 	if label != "":
-		add_tag(disc, label, 2.6)
-	exits.append({"c": Vector2(at.x, at.z), "r": r, "to": to, "mat": mat, "ring": ring_mat, "beam": beam_mat, "node": disc})
+		add_tag(root, label, 2.6)
+	exits.append({"c": Vector2(at.x, at.z), "r": r, "to": to, "shaft": shaft, "glow": glow, "motes": motes, "node": root, "level": 0.0})
+
+# 햇살 줄기: 모두 같은 쪽(해 쪽)에서 비스듬히 내려와 땅에 닿아요. 위아래로 스르르 사라지고 천천히 일렁여요
+var sun_shaft_shader: Shader
+func make_sun_shafts(parent: Node3D, rr: RandomNumberGenerator, count: int, spread: float, height: float, width: Vector2) -> ShaderMaterial:
+	if sun_shaft_shader == null:
+		sun_shaft_shader = Shader.new()
+		sun_shaft_shader.code = """shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled, fog_disabled;
+uniform float strength = 0.0;
+uniform vec3 tint : source_color = vec3(1.0, 0.9, 0.62);
+void fragment() {
+	float across = 1.0 - abs(UV.x * 2.0 - 1.0);
+	across = across * across * (3.0 - 2.0 * across);
+	float v = UV.y;
+	float fade = smoothstep(0.0, 0.45, v) * (1.0 - smoothstep(0.9, 1.0, v));
+	float bottom = mix(0.55, 1.0, v);
+	float shimmer = 0.7 + 0.3 * sin(TIME * 0.9 + NODE_POSITION_WORLD.x * 0.6 + v * 5.0 + UV.x * 2.0);
+	ALBEDO = tint;
+	ALPHA = clamp(across * fade * bottom * shimmer * strength, 0.0, 1.0);
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sun_shaft_shader
+	var tilt := Basis.from_euler(Vector3(0.32, 0.6, 0.0))
+	for i in count:
+		var h := height * rr.randf_range(0.8, 1.1)
+		var foot := Vector3(rr.randf_range(-spread, spread), 0.0, rr.randf_range(-spread, spread))
+		var top := foot - tilt * Vector3(0, -h, 0)
+		var holder := Node3D.new()
+		holder.position = top
+		holder.basis = tilt * Basis(Vector3.UP, rr.randf_range(-0.3, 0.3))
+		parent.add_child(holder)
+		var w := rr.randf_range(width.x, width.y)
+		for q in 2:
+			var mi := MeshInstance3D.new()
+			var qm := QuadMesh.new()
+			qm.size = Vector2(w, h)
+			qm.center_offset = Vector3(0, -h / 2.0, 0)
+			mi.mesh = qm
+			mi.material_override = mat
+			mi.rotation.y = q * PI / 2.0 + 0.4
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			holder.add_child(mi)
+	return mat
+
+# 땅에 번진 빛: 가장자리가 부드럽게 사라지는 둥근 빛 웅덩이 (고리 테두리 없이)
+var ground_glow_shader: Shader
+func make_ground_glow(parent: Node3D, radius: float) -> ShaderMaterial:
+	if ground_glow_shader == null:
+		ground_glow_shader = Shader.new()
+		ground_glow_shader.code = """shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled, fog_disabled;
+uniform float strength = 0.0;
+uniform vec3 tint : source_color = vec3(1.0, 0.88, 0.55);
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float d = length(p);
+	float a = pow(max(0.0, 1.0 - d), 2.0);
+	float dapple = 0.8 + 0.2 * sin(p.x * 7.0 + TIME * 0.7) * sin(p.y * 6.0 - TIME * 0.5);
+	ALBEDO = tint;
+	ALPHA = clamp(a * dapple * strength, 0.0, 1.0);
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = ground_glow_shader
+	var mi := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(radius * 2.0, radius * 2.0)
+	mi.mesh = pm
+	mi.material_override = mat
+	mi.position.y = 0.07
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(mi)
+	return mat
+
+# 햇살 속을 천천히 떠오르는 작은 빛 먼지
+func make_motes(parent: Node3D, radius: float) -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(0.07, 0.07)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.albedo_color = Color(1.0, 0.9, 0.6, 0.8)
+	m.albedo_texture = soft_dot_tex()
+	qm.material = m
+	p.mesh = qm
+	p.amount = 14
+	p.lifetime = 4.5
+	p.preprocess = 4.5
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = radius
+	p.direction = Vector3(0, 1, 0)
+	p.spread = 25.0
+	p.initial_velocity_min = 0.08
+	p.initial_velocity_max = 0.22
+	p.gravity = Vector3(0, 0.02, 0)
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 1.4
+	var curve := Curve.new()
+	curve.add_point(Vector2(0, 0))
+	curve.add_point(Vector2(0.3, 1))
+	curve.add_point(Vector2(1, 0))
+	p.scale_amount_curve = curve
+	p.position.y = 0.9
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(p)
+	return p
+
+var soft_dot_cache: Texture2D
+func soft_dot_tex() -> Texture2D:
+	if soft_dot_cache == null:
+		var img := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+		for y in 32:
+			for x in 32:
+				var d := Vector2(x - 15.5, y - 15.5).length() / 16.0
+				var a := clampf(1.0 - d, 0.0, 1.0)
+				img.set_pixel(x, y, Color(1, 1, 1, a * a))
+		soft_dot_cache = ImageTexture.create_from_image(img)
+	return soft_dot_cache
 
 # 이 길이 열렸나 (흥부네는 처음부터, 오누이는 흥부와 놀부를 끝내면, 바닷가는 오누이를 끝내면. 가 본 곳은 계속 열림)
 func road_open(id: String) -> bool:
@@ -2678,11 +2767,18 @@ func update_exits(delta: float) -> void:
 		var e: Dictionary = exits[i]
 		var d := p.distance_to(e["c"])
 		var open := road_open(e["to"])
-		var pulse := 0.5 + 0.5 * sin(anim_t * 2.5 + i)
-		var base_c := Color(1.0, 0.88, 0.45) if open else Color(0.85, 0.88, 0.95)
-		(e["mat"] as StandardMaterial3D).albedo_color = Color(base_c, (0.18 + 0.12 * pulse) if open else 0.1)
-		(e["ring"] as StandardMaterial3D).albedo_color = Color(base_c, (0.55 + 0.3 * pulse) if open else 0.25)
-		(e["beam"] as StandardMaterial3D).albedo_color = Color(base_c, (0.06 + 0.06 * pulse) if open else 0.0)
+		var breathe := 0.85 + 0.15 * sin(anim_t * 0.8 + i * 1.7)
+		# 해가 지면 햇살이 달빛처럼 푸르스름하고 옅어져요. 닫힌 길은 햇살 없이 옅은 안개빛만
+		var night := 1.0 if is_night() else smoothstep(0.55, 0.9, time_of_day)
+		var warm := Color(1.0, 0.88, 0.58).lerp(Color(0.7, 0.8, 1.0), night)
+		var lv: float = (1.0 + float(e.get("boost", 0.0))) * (0.65 if weather == "rain" or weather == "fog" else 1.0)
+		var sm: ShaderMaterial = e["shaft"]
+		var gm: ShaderMaterial = e["glow"]
+		sm.set_shader_parameter("tint", warm)
+		gm.set_shader_parameter("tint", warm if open else Color(0.75, 0.8, 0.9))
+		sm.set_shader_parameter("strength", (0.24 * breathe * lv * (1.0 - night * 0.4)) if open else 0.0)
+		gm.set_shader_parameter("strength", (0.45 * breathe * lv) if open else 0.08)
+		(e["motes"] as CPUParticles3D).emitting = open
 		if d < float(e["r"]) + 1.0:
 			near_any = true
 		if d < float(e["r"]):

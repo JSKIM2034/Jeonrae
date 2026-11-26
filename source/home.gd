@@ -129,24 +129,26 @@ func after_ui() -> void:
 	cam_yaw_target = 0.0
 	update_guide()
 
-# 할머니께 인사한 뒤 아직 흥부네 마을에 안 가 봤으면, 버드나무 길 이정표에 빛기둥을 세워 길을 알려 줘요
+# 할머니께 인사한 뒤 아직 흥부네 마을에 안 가 봤으면, 버드나무 길 끝 햇살을 더 환하고 넓게 비춰 길을 알려 줘요
 var guide_beam: Node3D
 func update_guide() -> void:
 	if guide_beam == null:
 		guide_beam = Node3D.new()
 		guide_beam.position = EXIT_CH1
 		add_child(guide_beam)
-		var mat := StandardMaterial3D.new()
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.albedo_color = Color(1.0, 0.9, 0.5, 0.35)
-		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-		var beam := add_mcyl(guide_beam, mat, 0.5, 0.7, 14.0, Vector3(0, 7.0, 0))
-		beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		sway_items.append([beam, beam.position, 0, 0.5, 0.2])
+		var rr := RandomNumberGenerator.new()
+		rr.seed = 31
+		guide_mat = make_sun_shafts(guide_beam, rr, 3, 1.2, 12.0, Vector2(1.4, 2.2))
 	var cf := ConfigFile.new()
 	cf.load(SAVE_PATH)
 	guide_beam.visible = met_granny and not cf.has_section("ch1_state")
+	for e in exits:
+		if e["to"] == "ch1":
+			e["boost"] = 0.8 if guide_beam.visible else 0.0
+	if guide_mat != null:
+		guide_mat.set_shader_parameter("strength", 0.15 if guide_beam.visible else 0.0)
+
+var guide_mat: ShaderMaterial
 
 func start_chapter() -> void:
 	update_lots()
