@@ -76,6 +76,7 @@ func build_chapter() -> void:
 	make_wild_spots("ch2")
 	make_herbalist()
 	make_rock_pool()
+	make_tales()
 	var r := RandomNumberGenerator.new()
 	r.seed = 5
 	make_clouds(r)
@@ -1070,6 +1071,8 @@ func update_fireflies(delta: float) -> void:
 			if fireflies_got == FIREFLY_N:
 				earn(15)
 				float_text(tr("엄마: 초롱이 대낮처럼 환하구나! 고맙다."), get_viewport().get_visible_rect().size * Vector2(0.5, 0.32), Color(1, 0.95, 0.75), 2.0)
+				if not tale_read["ch2"][2]:
+					float_text(tr("오두막 앞에 이야기 조각이 나타났어요!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(1, 0.9, 0.5), 2.4)
 			update_quest_text()
 
 func reset_fireflies() -> void:
@@ -2888,3 +2891,24 @@ func make_ember() -> Node3D:
 	sp.color_ramp = ramp
 	n.add_child(sp)
 	return n
+
+# ---------- 이야기 조각 (collect_plan.md 7장: 해와 달이 된 오누이 5조각) ----------
+# 0 떡집 아궁이 뒤, 1 우물가 나무 뒤, 2 오두막 앞(반딧불을 다 모으거나 이야기를 끝낸 뒤), 3 셋째 고개 서낭당(돌 셋을 다 얹으면), 4 약초꾼 부탁
+func make_tales() -> void:
+	make_tale_spot(on_ground(COOK_POS.x - 1.1, COOK_POS.z - 2.2), "ch2", 0)
+	make_tale_spot(on_ground(tree_pos.x - 1.2, tree_pos.z - 2.4), "ch2", 1)
+	make_tale_spot(on_ground(COTTAGE_C.x + 1.5, COTTAGE_C.z + 4.5), "ch2", 2)
+	var rd: Array = RIDGES[2]
+	make_tale_spot(on_ground(float(rd[1]) + 4.8, float(rd[0]) + 2.2), "ch2", 3)
+
+func tale_spot_ready(g: String, i: int) -> bool:
+	if g != "ch2":
+		return true
+	match i:
+		2:
+			return fireflies_got >= FIREFLY_N or quest >= S_END
+		3:
+			return not stones.has(false)
+		4:
+			return false
+	return true

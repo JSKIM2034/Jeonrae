@@ -62,6 +62,7 @@ func build_chapter() -> void:
 	make_sea()
 	make_shore_village()
 	make_rock_fishing()
+	make_tales()
 	make_wild_spots("ch3")
 	make_undersea()
 	make_palace()
@@ -1812,6 +1813,11 @@ func talk_flatfish() -> void:
 		say([
 			[tr("넙치 문지기"), tr("멈추시오! 용궁에 들어가려면 내 수수께끼를 풀어야 하오.")],
 		], func(): ask(tr("넙치 문지기"), tr("\"눈은 둘인데 한쪽에만 붙었고, 바닥에 납작 엎드려 사는 건?\""), [tr("넙치!"), tr("가자미!"), tr("문어!")], on_riddle))
+	elif quest > S_GATE and not tale_read["ch3"][3]:
+		var l := [[tr("넙치 문지기"), tr("(두 눈을 데굴데굴) 아, 우리 형제를 다 찾아낸 그대로구려. 상으로 이야기 하나 들려주리다.")]]
+		l.append_array(tale_lines("ch3", 3))
+		sfx("good")
+		say(l, func(): update_quest_text(); save_progress())
 	elif quest > S_GATE:
 		say([[tr("넙치 문지기"), tr("(두 눈을 데굴데굴) 수상한 자는 못 들어간다... 아, 그대는 이미 들어왔지.")]], Callable())
 	else:
@@ -1839,6 +1845,9 @@ func sand_done(ok: bool, _good: bool) -> void:
 		return
 	var l := [[tr("넙치 문지기"), tr("열둘을 다 찾아내다니! 눈썰미가 넙치만 하구려. 들어가시오.")]]
 	l.append([tr("넙치 문지기"), tr("용왕님께서 전각 앞에서 기다리신다오.")])
+	if not tale_read["ch3"][3]:
+		l.append([tr("넙치 문지기"), tr("그 눈썰미에 상으로 우리 형제 이야기를 하나 들려주리다.")])
+		l.append_array(tale_lines("ch3", 3))
 	say(l, func():
 		follow_on = false
 		var jara := npc("jara")
@@ -2996,3 +3005,20 @@ func update_rock_waves(delta: float) -> void:
 		# 파도가 갯바위에 부서져요 (힘겨루기 박자와 같아요)
 		splash3d(rock_stand() + Vector3(rng.randf_range(-2.0, 2.0), 0.2, -2.6), true)
 		sfx("splash", rng.randf_range(0.7, 0.85))
+
+# ---------- 이야기 조각 (collect_plan.md 7장: 별주부전 5조각) ----------
+# 0 갯바위 낚시터 옆, 1 뒷산 산삼 자리 근처, 2 용궁 전각 옆(용궁에 들어간 뒤), 3 넙치 문지기(모래 찾기를 끝내면), 4 해녀 부탁
+func make_tales() -> void:
+	make_tale_spot(on_ground(ROCK_C.x + 2.4, ROCK_C.z + 2.4), "ch3", 0)
+	make_tale_spot(on_ground(GINSENG_POS.x + 2.6, GINSENG_POS.z + 2.2), "ch3", 1)
+	make_tale_spot(Vector3(-9.6, PALACE_Y + 0.25, -119.4), "ch3", 2)
+
+func tale_spot_ready(g: String, i: int) -> bool:
+	if g != "ch3":
+		return true
+	match i:
+		2:
+			return quest >= S_COURT and quest != S_ESCAPE
+		3, 4:
+			return false
+	return true

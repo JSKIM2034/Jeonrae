@@ -162,37 +162,6 @@ func make_herb_visual(h: Node3D) -> void:
 	# 뿌리 쪽 흙더미
 	add_blobs(h, [[Vector3(0, 0.02, 0), Vector3(0.6, 0.12, 0.6), Color(0.45, 0.33, 0.22)]], null, true)
 
-# 이야기 조각: 빛나는 두루마리가 둥실둥실 돌아요
-func make_piece_visual(p: Node3D) -> void:
-	var f := Node3D.new()
-	f.position.y = 0.6
-	p.add_child(f)
-	var paper := make_color(Color(1.0, 0.95, 0.78))
-	paper.emission_enabled = true
-	paper.emission = Color(1.0, 0.85, 0.45)
-	paper.emission_energy_multiplier = 0.45
-	add_mbox(f, paper, Vector3(0.5, 0.34, 0.02), Vector3.ZERO)
-	var ink := make_color(Color(0.35, 0.25, 0.2))
-	for i in 4:
-		add_mbox(f, ink, Vector3(0.025, 0.24, 0.025), Vector3(-0.14 + i * 0.09, 0, 0.012))
-	var roll := make_color(Color(0.75, 0.22, 0.2))
-	for sx in [-1.0, 1.0]:
-		add_mcyl(f, roll, 0.045, 0.045, 0.44, Vector3(sx * 0.27, 0, 0))
-		add_mcyl(f, glossy_mat(Color(0.95, 0.75, 0.25)), 0.03, 0.03, 0.54, Vector3(sx * 0.27, 0, 0))
-	var halo := MeshInstance3D.new()
-	var tor := TorusMesh.new()
-	tor.inner_radius = 0.42
-	tor.outer_radius = 0.46
-	halo.mesh = tor
-	var hm := make_color(Color(1.0, 0.9, 0.5))
-	hm.emission_enabled = true
-	hm.emission = Color(1.0, 0.85, 0.4)
-	hm.emission_energy_multiplier = 1.0
-	halo.material_override = hm
-	halo.rotation.x = PI / 2.0
-	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	f.add_child(halo)
-
 # 놀부가 흩뜨려 놓은 빨래: 구겨진 천 더미 + 저고리 한 벌
 func make_laundry_pile(n: Node3D) -> void:
 	var r := RandomNumberGenerator.new()
