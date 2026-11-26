@@ -2073,33 +2073,46 @@ func make_stall(pos: Vector3) -> void:
 	var root := Node3D.new()
 	root.position = pos
 	add_child(root)
-	add_mbox(root, plank_mat, Vector3(4.0, 0.12, 1.2), Vector3(0, 0.9, 0))
-	add_mbox(root, dark_wood_mat, Vector3(3.9, 0.8, 1.0), Vector3(0, 0.45, 0))
+	# 좌판: 널빤지 여러 장을 이은 판, 판 아래 앞가림 널
+	for k in 5:
+		var pz := -0.48 + k * 0.24
+		var pl := add_mbox(root, plank_mat, Vector3(4.0, 0.08, 0.22), Vector3(0, 0.92 + (k % 2) * 0.006, pz))
+		pl.rotation.y = (k - 2) * 0.004
+	add_mbox(root, dark_wood_mat, Vector3(3.9, 0.08, 0.08), Vector3(0, 0.84, 0.56))
+	for k in 13:
+		add_mbox(root, plank_mat, Vector3(0.28, 0.76, 0.05), Vector3(-1.8 + k * 0.3, 0.44, 0.52))
+	add_mbox(root, dark_wood_mat, Vector3(3.9, 0.7, 0.9), Vector3(0, 0.42, -0.02))
+	# 둥근 기둥 넷과 들보
 	for sx in [-1.95, 1.95]:
 		for sz in [-0.6, 1.6]:
-			add_mbox(root, dark_wood_mat, Vector3(0.14, 2.6, 0.14), Vector3(sx, 1.3, sz))
-	# 줄무늬 차양
-	for i in 8:
-		var c := Color(0.86, 0.26, 0.24) if i % 2 == 0 else Color(0.98, 0.94, 0.84)
-		var s := add_box(root, c, Vector3(0.58, 0.06, 2.6), Vector3(-2.03 + i * 0.58, 2.62, 0.5))
-		s.rotation.x = -0.18
-	for i in 8:
-		var fc := Color(0.86, 0.26, 0.24) if i % 2 == 0 else Color(0.98, 0.94, 0.84)
-		add_box(root, fc, Vector3(0.56, 0.32, 0.04), Vector3(-2.03 + i * 0.58, 2.28, 1.78))
-	# 물건: 과일 바구니, 옹기, 비단 두루마리
+			var h := 2.72 if sz < 0.0 else 2.38
+			add_mcyl(root, dark_wood_mat, 0.065, 0.075, h, Vector3(sx, h / 2.0, sz))
+	add_mcyl(root, dark_wood_mat, 0.055, 0.055, 4.1, Vector3(0, 2.7, -0.6)).rotation.z = PI / 2.0
+	add_mcyl(root, dark_wood_mat, 0.055, 0.055, 4.1, Vector3(0, 2.36, 1.6)).rotation.z = PI / 2.0
+	# 줄무늬 천 차양
+	kit_instance(root, awning_mesh())
+	# 바구니(엮은 결)와 과일, 옹기
 	for i in 3:
 		var bp := Vector3(-1.3 + i * 1.0, 0.96, 0.1)
 		add_mcyl(root, basket_mat, 0.3, 0.22, 0.18, bp + Vector3(0, 0.09, 0))
-		var fc: Color = [Color(0.98, 0.5, 0.12), Color(0.85, 0.2, 0.2), Color(0.95, 0.85, 0.3)][i]
-		var fr := []
-		for k in 6:
-			var a := k * TAU / 6.0
-			fr.append([bp + Vector3(cos(a) * 0.13, 0.22, sin(a) * 0.13), Vector3(0.16, 0.14, 0.16), fc])
-		fr.append([bp + Vector3(0, 0.28, 0), Vector3(0.16, 0.14, 0.16), fc])
-		add_blobs(root, fr)
+		var rim := MeshInstance3D.new()
+		var tor := TorusMesh.new()
+		tor.inner_radius = 0.27
+		tor.outer_radius = 0.33
+		tor.rings = 24
+		tor.ring_segments = 6
+		rim.mesh = tor
+		rim.material_override = basket_mat
+		rim.position = bp + Vector3(0, 0.18, 0)
+		root.add_child(rim)
+	kit_instance(root, stall_goods_mesh())
+	# 비단 두루마리 셋 (끝에 둥근 심)
 	for i in 3:
-		var roll := add_mcyl(root, make_color([Color(0.4, 0.6, 0.85), Color(0.95, 0.6, 0.7), Color(0.55, 0.8, 0.55)][i]), 0.1, 0.1, 0.7, Vector3(1.55, 1.06 + i * 0.0, -0.25 + i * 0.22))
+		var col: Color = [Color(0.4, 0.6, 0.85), Color(0.95, 0.6, 0.7), Color(0.55, 0.8, 0.55)][i]
+		var roll := add_mcyl(root, glossy_mat(col), 0.1, 0.1, 0.62, Vector3(1.55, 1.06, -0.25 + i * 0.22))
 		roll.rotation.x = PI / 2.0
+		var core := add_mcyl(root, dark_wood_mat, 0.035, 0.035, 0.72, Vector3(1.55, 1.06, -0.25 + i * 0.22))
+		core.rotation.x = PI / 2.0
 
 func make_rock(pos: Vector3, size: Vector3, r: RandomNumberGenerator) -> void:
 	var items := [[pos, size * Vector3(1.15, 1.0, 1.15), stone_color(r).darkened(0.05)]]
@@ -5054,6 +5067,206 @@ func build_crayfish(st: SurfaceTool, f: Dictionary) -> void:
 		# 눈
 		MeshKit.ball(st, Vector3(0.13, 0.065, sz * 0.025), Vector3.ONE * 0.01, Color(0.05, 0.05, 0.05), 5, 4)
 
+# ---------- 참새, 허수아비, 장터 물건 (meshkit.gd 로 짓는 입체 모양, 정점 색 하나의 재질) ----------
+var prop_mesh_cache := {}
+
+func kit_instance(parent: Node3D, mesh: Mesh, pos: Vector3 = Vector3.ZERO) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = kit_material()
+	mi.position = pos
+	parent.add_child(mi)
+	return mi
+
+# 참새: 밤색 정수리, 흰 뺨에 검은 점, 검은 턱받이, 줄무늬 날개, 꽁지. 앞(+z)을 봐요. 몸 한가운데가 (0,0,0)
+func sparrow_mesh() -> ArrayMesh:
+	if prop_mesh_cache.has("sparrow"):
+		return prop_mesh_cache["sparrow"]
+	var st := MeshKit.begin()
+	var brown := Color(0.58, 0.4, 0.26)
+	MeshKit.ball(st, Vector3(0, 0, 0), Vector3(0.105, 0.095, 0.15), brown, 20, 12)
+	MeshKit.ball(st, Vector3(0, -0.03, 0.03), Vector3(0.088, 0.072, 0.115), Color(0.88, 0.83, 0.74), 16, 10)
+	MeshKit.ball(st, Vector3(0, 0.085, 0.115), Vector3(0.078, 0.074, 0.078), Color(0.52, 0.3, 0.18), 20, 12)
+	for sx in [-1.0, 1.0]:
+		MeshKit.ball(st, Vector3(sx * 0.055, 0.07, 0.135), Vector3(0.026, 0.038, 0.042), Color(0.96, 0.94, 0.9), 8, 5)
+		MeshKit.ball(st, Vector3(sx * 0.072, 0.072, 0.138), Vector3(0.008, 0.017, 0.017), Color(0.12, 0.1, 0.08), 6, 4)
+		MeshKit.ball(st, Vector3(sx * 0.047, 0.1, 0.168), Vector3(0.014, 0.014, 0.014), Color(0.06, 0.05, 0.05), 6, 4)
+		MeshKit.ball(st, Vector3(sx * 0.052, 0.106, 0.176), Vector3(0.004, 0.004, 0.004), Color(1, 1, 1), 4, 3)
+		# 날개: 몸 옆을 덮는 깃 두 겹 (아래 겹은 밝은 줄)
+		var wing_side := Vector3(-sx * 0.55, 1, 0).normalized()
+		MeshKit.leaf(st, Vector3(sx * 0.086, 0.005, 0.07), Vector3(sx * 0.12, -0.08, -1.0), wing_side, 0.2, 0.085, Color(0.46, 0.3, 0.18), 0.05, "oval")
+		MeshKit.leaf(st, Vector3(sx * 0.094, -0.01, 0.05), Vector3(sx * 0.1, -0.1, -1.0), wing_side, 0.13, 0.04, Color(0.82, 0.72, 0.56), 0.05, "long")
+		for k in 3:
+			MeshKit.leaf(st, Vector3(sx * 0.09, 0.02 - k * 0.012, 0.02 - k * 0.03), Vector3(sx * 0.12, -0.08, -1.0), wing_side, 0.11, 0.025, Color(0.25, 0.17, 0.11), 0.05, "long")
+		# 다리와 발가락
+		MeshKit.tube(st, Vector3(sx * 0.03, -0.075, 0.02), Vector3(sx * 0.032, -0.15, 0.03), 0.008, 0.007, Color(0.62, 0.46, 0.36), 4)
+		for t in [-0.4, 0.0, 0.4]:
+			MeshKit.tube(st, Vector3(sx * 0.032, -0.15, 0.03), Vector3(sx * 0.032 + sin(t) * 0.03, -0.152, 0.03 + cos(t) * 0.03), 0.005, 0.004, Color(0.62, 0.46, 0.36), 3)
+	MeshKit.ball(st, Vector3(0, 0.045, 0.175), Vector3(0.034, 0.028, 0.018), Color(0.1, 0.08, 0.07), 8, 5)
+	MeshKit.tube(st, Vector3(0, 0.083, 0.185), Vector3(0, 0.077, 0.235), 0.02, 0.002, Color(0.28, 0.24, 0.2), 6)
+	MeshKit.leaf(st, Vector3(0, 0.02, -0.12), Vector3(0, 0.12, -1.0), Vector3(1, 0, 0), 0.14, 0.075, Color(0.4, 0.27, 0.17), 0.0, "long")
+	var m := MeshKit.finish(st)
+	prop_mesh_cache["sparrow"] = m
+	return m
+
+# 허수아비: 둥근 장대와 가로대, 삼베 저고리(옷고름, 기운 천), 소매와 밑단에 삐져나온 짚,
+# 바느질한 자루 얼굴, 고깔 밀짚모자. 바닥이 (0,0,0), 앞(+z)을 봐요
+func scarecrow_mesh() -> ArrayMesh:
+	if prop_mesh_cache.has("scarecrow"):
+		return prop_mesh_cache["scarecrow"]
+	var r := RandomNumberGenerator.new()
+	r.seed = 77
+	var st := MeshKit.begin()
+	var wood := Color(0.5, 0.36, 0.22)
+	MeshKit.tube(st, Vector3(0, 0, 0), Vector3(0, 2.0, 0), 0.07, 0.058, wood, 8, wood.lightened(0.1))
+	MeshKit.tube(st, Vector3(-0.98, 1.45, 0), Vector3(0.98, 1.45, 0), 0.05, 0.045, wood.darkened(0.05), 8)
+	var cloth := Color(0.8, 0.72, 0.56)
+	MeshKit.tube(st, Vector3(0, 0.86, 0), Vector3(0, 1.58, 0), 0.34, 0.25, cloth, 14, cloth.lightened(0.06))
+	MeshKit.ball(st, Vector3(0, 1.58, 0), Vector3(0.25, 0.07, 0.25), cloth.lightened(0.06), 12, 4)
+	for sx in [-1.0, 1.0]:
+		MeshKit.tube(st, Vector3(sx * 0.2, 1.47, 0), Vector3(sx * 0.78, 1.45, 0), 0.15, 0.13, cloth.darkened(0.04), 10)
+		for k in 11:
+			var a := r.randf() * TAU
+			var d := Vector3(sx, r.randf_range(-0.45, 0.45), r.randf_range(-0.45, 0.45)).normalized()
+			MeshKit.leaf(st, Vector3(sx * 0.76, 1.45 + sin(a) * 0.06, cos(a) * 0.06), d, Vector3(0, cos(a), sin(a)) + Vector3(0.01, 0, 0), r.randf_range(0.16, 0.28), 0.03, Color(0.92, 0.8, 0.45).lerp(Color(0.8, 0.66, 0.32), r.randf()), 0.25, "long")
+	# 밑단 짚
+	for k in 26:
+		var a := k * TAU / 26.0 + r.randf_range(-0.1, 0.1)
+		var out := Vector3(cos(a), 0, sin(a))
+		MeshKit.leaf(st, out * 0.32 + Vector3(0, 0.9, 0), (out * 0.35 + Vector3(0, -1, 0)).normalized(), Vector3(-sin(a), 0, cos(a)), r.randf_range(0.22, 0.34), 0.035, Color(0.92, 0.8, 0.45).lerp(Color(0.78, 0.64, 0.3), r.randf()), -0.15, "long")
+	# 깃(흰 동정)과 붉은 옷고름, 기운 파란 천
+	MeshKit.tube(st, Vector3(-0.15, 1.55, 0.2), Vector3(0.06, 1.3, 0.3), 0.028, 0.026, Color(0.97, 0.96, 0.92), 6)
+	MeshKit.tube(st, Vector3(0.15, 1.55, 0.2), Vector3(-0.02, 1.33, 0.3), 0.028, 0.026, Color(0.97, 0.96, 0.92), 6)
+	MeshKit.leaf(st, Vector3(0.05, 1.31, 0.31), Vector3(0.25, -1, 0.2), Vector3(1, 0.2, -0.3), 0.26, 0.06, Color(0.82, 0.22, 0.2), -0.05, "long")
+	MeshKit.leaf(st, Vector3(0.05, 1.31, 0.31), Vector3(0.05, -1, 0.25), Vector3(1, 0, -0.1), 0.2, 0.05, Color(0.78, 0.2, 0.18), -0.05, "long")
+	MeshKit.ball(st, Vector3(-0.17, 1.08, 0.28), Vector3(0.1, 0.09, 0.03), Color(0.45, 0.55, 0.75), 8, 5, Basis(Vector3.UP, -0.5))
+	for k in 5:
+		var y := 1.03 + k * 0.025
+		MeshKit.tube(st, Vector3(-0.27, y, 0.27), Vector3(-0.25, y, 0.3), 0.006, 0.006, Color(0.3, 0.22, 0.15), 3)
+	# 목을 묶은 새끼줄과 자루 머리
+	MeshKit.tube(st, Vector3(0, 1.6, 0), Vector3(0, 1.67, 0), 0.11, 0.11, Color(0.7, 0.56, 0.32), 10)
+	var sack := Color(0.86, 0.77, 0.56)
+	MeshKit.ball(st, Vector3(0, 1.86, 0), Vector3(0.23, 0.25, 0.21), sack, 24, 14)
+	for sx in [-1.0, 1.0]:
+		MeshKit.ball(st, Vector3(sx * 0.085, 1.9, 0.19), Vector3(0.032, 0.036, 0.016), Color(0.12, 0.1, 0.09), 8, 5)
+		MeshKit.ball(st, Vector3(sx * 0.14, 1.8, 0.165), Vector3(0.045, 0.03, 0.014), Color(0.96, 0.55, 0.5), 8, 5)
+	var prev := Vector3(-0.09, 1.8, 0.2)
+	for k in 7:
+		var t := float(k + 1) / 7.0
+		var p := Vector3(-0.09 + t * 0.18, 1.8 - sin(t * PI) * 0.035, 0.2 + sin(t * PI) * 0.008)
+		MeshKit.tube(st, prev, p, 0.009, 0.009, Color(0.45, 0.18, 0.14), 4)
+		prev = p
+	for k in 6:
+		var x := -0.075 + k * 0.03
+		MeshKit.tube(st, Vector3(x, 1.775, 0.205), Vector3(x, 1.75, 0.2), 0.004, 0.004, Color(0.4, 0.3, 0.2), 3)
+	# 고깔 밀짚모자와 붉은 띠
+	var straw := Color(0.82, 0.66, 0.36)
+	MeshKit.tube(st, Vector3(0, 2.02, 0), Vector3(0, 2.2, 0), 0.56, 0.17, straw, 20, straw.lightened(0.1))
+	MeshKit.tube(st, Vector3(0, 2.015, 0), Vector3(0, 2.025, 0), 0.57, 0.56, straw.darkened(0.2), 20)
+	MeshKit.tube(st, Vector3(0, 2.18, 0), Vector3(0, 2.34, 0), 0.17, 0.11, straw.lightened(0.05), 14)
+	MeshKit.ball(st, Vector3(0, 2.34, 0), Vector3(0.11, 0.035, 0.11), straw.lightened(0.12), 12, 4)
+	MeshKit.tube(st, Vector3(0, 2.19, 0), Vector3(0, 2.23, 0), 0.165, 0.155, Color(0.75, 0.2, 0.18), 14)
+	var m := MeshKit.finish(st)
+	prop_mesh_cache["scarecrow"] = m
+	return m
+
+# 장터 차양: 줄무늬 천이 가운데가 살짝 처지고 앞자락이 물결 모양으로 늘어져요
+func awning_mesh() -> ArrayMesh:
+	if prop_mesh_cache.has("awning"):
+		return prop_mesh_cache["awning"]
+	var st := MeshKit.begin()
+	var x0 := -2.1
+	var x1 := 2.1
+	var z0 := -0.85
+	var z1 := 1.85
+	var stripes := 8
+	var per := 4
+	var nz := 6
+	var red := Color(0.84, 0.24, 0.22)
+	var cream := Color(0.98, 0.94, 0.84)
+	var fn := func(x: float, z: float) -> Vector3:
+		var tz := (z - z0) / (z1 - z0)
+		var y := 2.78 - tz * 0.42 - sin((x - x0) / (x1 - x0) * PI * stripes / 2.0) * 0.0 - sin(tz * PI) * 0.05 * (1.0 - absf((x - (x0 + x1) * 0.5) / (x1 - x0)) * 1.6)
+		return Vector3(x, y, z)
+	for s in stripes:
+		var col := red if s % 2 == 0 else cream
+		for q in per:
+			var xa := x0 + (x1 - x0) * (s * per + q) / float(stripes * per)
+			var xb := x0 + (x1 - x0) * (s * per + q + 1) / float(stripes * per)
+			for k in nz:
+				var za := z0 + (z1 - z0) * k / float(nz)
+				var zb := z0 + (z1 - z0) * (k + 1) / float(nz)
+				var shade := col.darkened(0.08 * k / float(nz))
+				MeshKit.quad(st, fn.call(xa, za), fn.call(xb, za), fn.call(xb, zb), fn.call(xa, zb), shade, shade, shade, shade)
+		# 앞자락: 줄마다 둥글게 늘어진 반달
+		var xs := x0 + (x1 - x0) * s / float(stripes)
+		var xe := x0 + (x1 - x0) * (s + 1) / float(stripes)
+		var top_a: Vector3 = fn.call(xs, z1)
+		var top_b: Vector3 = fn.call(xe, z1)
+		var n := 8
+		for k in n:
+			var ta := float(k) / n
+			var tb := float(k + 1) / n
+			var pa := top_a.lerp(top_b, ta)
+			var pb := top_a.lerp(top_b, tb)
+			var da := pa + Vector3(0, -0.2 - sin(ta * PI) * 0.12, 0.02)
+			var db := pb + Vector3(0, -0.2 - sin(tb * PI) * 0.12, 0.02)
+			MeshKit.quad(st, pa, pb, db, da, col, col, col.darkened(0.12), col.darkened(0.12))
+	var m := MeshKit.finish(st)
+	prop_mesh_cache["awning"] = m
+	return m
+
+# 장터 물건: 감·사과·배가 담긴 바구니 속 과일, 옹기 항아리 두 개 (바구니와 좌판은 따로)
+func stall_goods_mesh() -> ArrayMesh:
+	if prop_mesh_cache.has("goods"):
+		return prop_mesh_cache["goods"]
+	var r := RandomNumberGenerator.new()
+	r.seed = 12
+	var st := MeshKit.begin()
+	for i in 3:
+		var bp := Vector3(-1.3 + i * 1.0, 1.12, 0.1)
+		var pts := []
+		for k in 6:
+			var a := k * TAU / 6.0 + 0.3
+			pts.append(bp + Vector3(cos(a) * 0.15, 0.04, sin(a) * 0.15))
+		pts.append(bp + Vector3(0.0, 0.14, 0.0))
+		pts.append(bp + Vector3(0.06, 0.12, -0.08))
+		for p in pts:
+			match i:
+				0:  # 감: 납작 둥근 주황, 네 갈래 꼭지
+					MeshKit.ball(st, p, Vector3(0.085, 0.07, 0.085), Color(0.98, 0.5, 0.12).lerp(Color(0.95, 0.42, 0.1), r.randf()), 10, 6)
+					for q in 4:
+						var a2 := q * TAU / 4.0 + 0.4
+						MeshKit.leaf(st, p + Vector3(0, 0.065, 0), Vector3(cos(a2), 0.25, sin(a2)), Vector3(-sin(a2), 0, cos(a2)), 0.05, 0.035, Color(0.35, 0.45, 0.2), 0.05)
+				1:  # 사과: 빨갛고 위가 살짝 오목, 꼭지
+					MeshKit.ball(st, p, Vector3(0.08, 0.075, 0.08), Color(0.82, 0.16, 0.16).lerp(Color(0.9, 0.35, 0.2), r.randf() * 0.5), 10, 6)
+					MeshKit.tube(st, p + Vector3(0, 0.06, 0), p + Vector3(0.01, 0.1, 0), 0.007, 0.005, Color(0.35, 0.25, 0.15), 4)
+				_:  # 배: 누렇고 둥글넓적, 점무늬
+					MeshKit.ball(st, p, Vector3(0.088, 0.08, 0.088), Color(0.9, 0.78, 0.4).lerp(Color(0.85, 0.7, 0.35), r.randf()), 10, 6)
+					MeshKit.tube(st, p + Vector3(0, 0.07, 0), p + Vector3(0, 0.1, 0.01), 0.006, 0.005, Color(0.35, 0.25, 0.15), 4)
+		if i == 1:
+			MeshKit.leaf(st, bp + Vector3(0.05, 0.2, 0.0), Vector3(1, 0.3, 0.2), Vector3(0, 0, 1), 0.08, 0.045, Color(0.3, 0.55, 0.25), 0.1)
+	# 옹기 항아리 (좌판 옆 땅바닥): 배가 불룩한 몸, 좁은 목, 두툼한 입술
+	for j in 2:
+		var c := Vector3(-2.45 + j * 0.05, 0.0, 0.55 + j * 0.6)
+		var s := 1.0 - j * 0.25
+		var glaze := Color(0.42, 0.26, 0.16).lerp(Color(0.5, 0.32, 0.2), j)
+		var prof := [[0.0, 0.14], [0.08, 0.2], [0.25, 0.27], [0.42, 0.26], [0.55, 0.19], [0.62, 0.13], [0.66, 0.15], [0.7, 0.14]]
+		for k in prof.size() - 1:
+			var a: Array = prof[k]
+			var b: Array = prof[k + 1]
+			MeshKit.tube(st, c + Vector3(0, float(a[0]) * s, 0), c + Vector3(0, float(b[0]) * s, 0), float(a[1]) * s, float(b[1]) * s, glaze.darkened(0.05 * (1.0 - float(a[0]))), 16, glaze.lightened(0.04))
+		MeshKit.ball(st, c + Vector3(0, 0.6 * s, 0), Vector3(0.13, 0.015, 0.13) * s, Color(0.15, 0.1, 0.08), 12, 3)
+		# 어깨에 손으로 그은 물결 무늬
+		for k in 12:
+			var a := k * TAU / 12.0
+			var a2 := (k + 1) * TAU / 12.0
+			var ra := 0.255 * s
+			MeshKit.tube(st, c + Vector3(cos(a) * ra, (0.46 + sin(k * 1.7) * 0.015) * s, sin(a) * ra), c + Vector3(cos(a2) * ra, (0.46 + sin((k + 1) * 1.7) * 0.015) * s, sin(a2) * ra), 0.006, 0.006, Color(0.75, 0.62, 0.45), 3)
+	var m := MeshKit.finish(st)
+	prop_mesh_cache["goods"] = m
+	return m
+
 # ---------- 벼 포기 (흥부네 최 영감네 논, 모내기): 0 어린 모, 1 푸른 벼, 2 누런 벼 ----------
 var rice_mesh_cache := {}
 
@@ -6242,12 +6455,7 @@ func scene_make_target(at: Vector3) -> Node3D:
 			add_mbox(n, dark_wood_mat, Vector3(0.2, 0.08, 0.2), Vector3(0, 0.43, 0))
 			n.set_meta("from", at)
 		"sparrow":
-			add_blobs(n, [
-				[Vector3(0, 0, 0), Vector3(0.26, 0.2, 0.32), Color(0.6, 0.42, 0.28)],
-				[Vector3(0, 0.1, 0.13), Vector3(0.17, 0.16, 0.16), Color(0.55, 0.32, 0.2)],
-				[Vector3(0, 0.07, 0.18), Vector3(0.12, 0.08, 0.08), Color(0.98, 0.95, 0.9)],
-				[Vector3(0, 0.1, 0.23), Vector3(0.05, 0.04, 0.06), Color(0.3, 0.25, 0.2)],
-			])
+			kit_instance(n, sparrow_mesh(), Vector3(0, 0.08, 0))
 			n.rotation.y = rng.randf() * TAU
 			n.scale = Vector3(1.6, 1.6, 1.6)
 			n.set_meta("from", at)
