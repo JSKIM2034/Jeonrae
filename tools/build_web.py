@@ -28,7 +28,7 @@ for i in range(n):
 page = re.sub(r"var parts = \[.*?\];", "var parts = " + json.dumps(parts).replace('"', "'").replace(",", ", ") + ";", page)
 new_cfg = re.search(r"const GODOT_CONFIG = (\{.*?\});", open(os.path.join(out, "index.html"), encoding="utf-8").read()).group(1)
 page = re.sub(r"const GODOT_CONFIG = \{.*?\};", lambda m: "const GODOT_CONFIG = " + new_cfg + ";", page)
-page = re.sub(r"<title>.*?</title>", "<title>Lost Tales of Korea - 잃어버린 옛이야기</title>", page)
+page = re.sub(r"<title>.*?</title>", "<title>Lost Tales of Korea - 잊혀진 전래동화</title>", page)
 open(os.path.join(ROOT, "index.html"), "w", encoding="utf-8").write(page)
 shutil.rmtree(out)
 print("OK", parts, len(wasm), os.path.getsize(os.path.join(ROOT, "index.pck")))
