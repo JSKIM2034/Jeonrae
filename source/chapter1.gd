@@ -1125,7 +1125,18 @@ func scene_setup(scene: String) -> void:
 				var mk := blob_node([[Vector3.ZERO, Vector3(0.07, 0.07, 0.07), Color(0.9, 0.2, 0.15)]])
 				marks.append(mk)
 			w["marks"] = marks
-			var bundle := blob_node([[Vector3(0, 0.15, 0), Vector3(0.12, 0.35, 0.12), Color(0.45, 0.72, 0.3)], [Vector3(0, 0.0, 0), Vector3(0.1, 0.1, 0.1), Color(0.99, 0.83, 0.69)]])
+			# 손에 든 모 한 움큼: 어린 모 세 포기를 짚으로 묶은 다발
+			var bundle := Node3D.new()
+			world_node(bundle)
+			for k in 3:
+				var bm := MeshInstance3D.new()
+				bm.mesh = rice_mesh(0, k)
+				bm.material_override = kit_material()
+				bm.position = Vector3((k - 1) * 0.025, -0.08, 0)
+				bm.rotation.y = k * 2.1
+				bm.scale = Vector3.ONE * 1.1
+				bundle.add_child(bm)
+			add_mcyl(bundle, make_color(Color(0.85, 0.74, 0.46)), 0.045, 0.045, 0.035, Vector3(0, -0.02, 0))
 			w["bundle"] = bundle
 			var ring := MeshInstance3D.new()
 			var tm := TorusMesh.new()
@@ -1256,10 +1267,8 @@ func make_farm() -> void:
 	pmat.set_shader_parameter("mud", 1.0)
 	var wtr := add_mbox(self, pmat, Vector3(w - 0.4, 0.02, d - 0.4), c + Vector3(0, 0.08, 0))
 	wtr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# 자라는 단계마다 벼 모양을 따로 만들어 두고 바꿔 보여 줘요
-	var young := []
-	var green := []
-	var gold := []
+	# 자라는 단계마다 벼 포기를 따로 만들어 두고 바꿔 보여 줘요 (잎 한 장 한 장 입체로, 멀티메시라 가벼워요)
+	var spots := []
 	var nx := 12
 	var nz := 8
 	for ix in nx:
@@ -1267,19 +1276,29 @@ func make_farm() -> void:
 			var p := c + Vector3(-w / 2.0 + 0.55 + ix * (w - 1.1) / (nx - 1), 0, -d / 2.0 + 0.55 + iz * (d - 1.1) / (nz - 1))
 			if absf(p.x - c.x) < 0.4 or (absf(p.x - c.x - 1.5) < 0.55 and absf(p.z - c.z) < 0.55):
 				continue
-			p += Vector3(r.randf_range(-0.05, 0.05), 0, r.randf_range(-0.05, 0.05))
-			young.append([p + Vector3(0, 0.2, 0), Vector3(0.09, 0.28, 0.09), Color(0.5, 0.76, 0.32)])
-			young.append([p + Vector3(0.04, 0.22, 0), Vector3(0.045, 0.24, 0.045), Color(0.6, 0.82, 0.38), Vector3(0, 0, -22)])
-			var rot := r.randf_range(0, 180)
-			for k in 3:
-				var lean := Vector3(0, rot + k * 60.0, -14.0 + k * 14.0)
-				green.append([p + Vector3((k - 1) * 0.06, 0.4, 0), Vector3(0.07, 0.8, 0.07), Color(0.36, 0.62, 0.25).lerp(Color(0.5, 0.74, 0.32), k / 2.0), lean])
-				gold.append([p + Vector3((k - 1) * 0.06, 0.38, 0), Vector3(0.06, 0.76, 0.06), Color(0.8, 0.68, 0.3).lerp(Color(0.9, 0.78, 0.36), k / 2.0), lean])
-			# 고개 숙인 이삭
-			for k in 2:
-				var sx := -1.0 if k == 0 else 1.0
-				gold.append([p + Vector3(sx * 0.13, 0.74, 0.0), Vector3(0.09, 0.22, 0.07), Color(0.98, 0.82, 0.34), Vector3(0, rot, sx * -50.0)])
-	farm_stages = [add_blobs(self, young), add_blobs(self, green), add_blobs(self, gold)]
+			p += Vector3(r.randf_range(-0.05, 0.05), 0.08, r.randf_range(-0.05, 0.05))
+			spots.append(Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * r.randf_range(0.88, 1.12)), p))
+	farm_stages = []
+	for stage in 3:
+		var holder := Node3D.new()
+		add_child(holder)
+		# 포기 모양 세 가지를 번갈아 써서 똑같아 보이지 않게
+		for v in 3:
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.mesh = rice_mesh(stage, v)
+			var mine := []
+			for k in spots.size():
+				if k % 3 == v:
+					mine.append(spots[k])
+			mm.instance_count = mine.size()
+			for k in mine.size():
+				mm.set_instance_transform(k, mine[k])
+			var mmi := MultiMeshInstance3D.new()
+			mmi.multimesh = mm
+			mmi.material_override = kit_material()
+			holder.add_child(mmi)
+		farm_stages.append(holder)
 	# 논두렁에 난 풀
 	var bank_mm := MultiMesh.new()
 	bank_mm.transform_format = MultiMesh.TRANSFORM_3D

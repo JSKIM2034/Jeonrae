@@ -5054,6 +5054,59 @@ func build_crayfish(st: SurfaceTool, f: Dictionary) -> void:
 		# 눈
 		MeshKit.ball(st, Vector3(0.13, 0.065, sz * 0.025), Vector3.ONE * 0.01, Color(0.05, 0.05, 0.05), 5, 4)
 
+# ---------- 벼 포기 (흥부네 최 영감네 논, 모내기): 0 어린 모, 1 푸른 벼, 2 누런 벼 ----------
+var rice_mesh_cache := {}
+
+func rice_mesh(stage: int, variant: int) -> ArrayMesh:
+	var key := stage * 10 + variant
+	if rice_mesh_cache.has(key):
+		return rice_mesh_cache[key]
+	var r := RandomNumberGenerator.new()
+	r.seed = 700 + key * 31
+	var st := MeshKit.begin()
+	match stage:
+		0:  # 어린 모: 가늘고 여린 잎 여섯 일곱 장이 부채처럼, 밑동은 흙 묻은 연두
+			var n := 6 + variant % 2
+			for i in n:
+				var a := i * TAU / n + r.randf_range(-0.3, 0.3)
+				var lean := r.randf_range(0.18, 0.5)
+				var d := Vector3(cos(a) * lean, 1.0, sin(a) * lean).normalized()
+				MeshKit.leaf(st, Vector3(cos(a) * 0.01, 0.0, sin(a) * 0.01), d, Vector3(-sin(a), 0, cos(a)), r.randf_range(0.26, 0.4), 0.028, Color(0.5, 0.76, 0.32).lerp(Color(0.66, 0.86, 0.4), r.randf()), 0.35, "long")
+			MeshKit.tube(st, Vector3(0, -0.02, 0), Vector3(0, 0.06, 0), 0.022, 0.016, Color(0.62, 0.72, 0.42), 6)
+		1:  # 푸른 벼: 곧게 솟은 줄기와 길게 휘어 늘어진 잎이 수북
+			for i in 7:
+				var a := r.randf() * TAU
+				var top := Vector3(cos(a) * r.randf_range(0.03, 0.08), r.randf_range(0.45, 0.62), sin(a) * r.randf_range(0.03, 0.08))
+				MeshKit.tube(st, Vector3(cos(a) * 0.015, 0, sin(a) * 0.015), top, 0.011, 0.007, Color(0.4, 0.62, 0.28), 4)
+			for i in 16:
+				var a := i * TAU / 16.0 + r.randf_range(-0.25, 0.25)
+				var lean := r.randf_range(0.12, 0.5)
+				var d := Vector3(cos(a) * lean, 1.0, sin(a) * lean).normalized()
+				MeshKit.leaf(st, Vector3(cos(a) * 0.02, r.randf_range(0.0, 0.18), sin(a) * 0.02), d, Vector3(-sin(a), 0, cos(a)), r.randf_range(0.5, 0.85), 0.052, Color(0.24, 0.5, 0.16).lerp(Color(0.4, 0.64, 0.22), r.randf()), 0.4, "long")
+		_:  # 누런 벼: 이삭이 무거워 고개를 숙인 줄기, 잎은 노랗게
+			for i in 8:
+				var a := i * TAU / 8.0 + r.randf_range(-0.3, 0.3)
+				var lean := r.randf_range(0.2, 0.5)
+				var d := Vector3(cos(a) * lean, 1.0, sin(a) * lean).normalized()
+				MeshKit.leaf(st, Vector3(cos(a) * 0.02, r.randf_range(0.0, 0.15), sin(a) * 0.02), d, Vector3(-sin(a), 0, cos(a)), r.randf_range(0.4, 0.65), 0.035, Color(0.78, 0.66, 0.3).lerp(Color(0.66, 0.62, 0.3), r.randf()), 0.45, "long")
+			for i in 5:
+				var a := i * TAU / 5.0 + r.randf_range(-0.3, 0.3)
+				var out := Vector3(cos(a), 0, sin(a))
+				var top := out * r.randf_range(0.06, 0.12) + Vector3(0, r.randf_range(0.62, 0.74), 0)
+				MeshKit.tube(st, out * 0.015, top, 0.01, 0.007, Color(0.72, 0.62, 0.3), 4)
+				# 이삭: 줄기 끝에서 바깥으로 둥글게 휘어 내려가는 낟알 줄
+				var prev := top
+				for q in 7:
+					var t := float(q + 1) / 7.0
+					var p := top + out * (sin(t * 1.4) * 0.2) + Vector3(0, -t * t * 0.26 + t * 0.04, 0)
+					MeshKit.tube(st, prev, p, 0.006, 0.005, Color(0.8, 0.68, 0.3), 3)
+					var side := out.cross(Vector3.UP) * (0.014 if q % 2 == 0 else -0.014)
+					MeshKit.ball(st, p + side, Vector3(0.016, 0.026, 0.016), Color(0.96, 0.8, 0.32).lerp(Color(0.9, 0.7, 0.26), r.randf()), 5, 3)
+					prev = p
+	var m := MeshKit.finish(st)
+	rice_mesh_cache[key] = m
+	return m
+
 # ---------- 입체 약초 (잎·줄기·꽃·열매를 진짜 모양으로, meshkit.gd) ----------
 var herb_mesh_cache := {}
 
@@ -6439,8 +6492,15 @@ func scene_update(delta: float) -> void:
 			var planted: Array = w["planted"]
 			while planted.size() < mg_items.size():
 				var it: Array = mg_items[planted.size()]
-				var p := plant_world_pos(it[0], it[1]) + Vector3(0, 0.1, float(it[2]) * 0.004)
-				var sd := blob_node([[Vector3(0, 0.12, 0), Vector3(0.07, 0.3, 0.07), Color(0.45, 0.72, 0.3)], [Vector3(0.03, 0.14, 0), Vector3(0.04, 0.26, 0.04), Color(0.55, 0.8, 0.36), Vector3(0, 0, -20)]])
+				# 손이 있던 자리 그대로 심어요: 화면 칸 어긋남(픽셀)을 못줄 간격 비율로 바꿔요 (큰 화면에서도 같은 자리)
+				var sc_i := 1.0 - int(it[0]) * 0.12
+				var du := float(it[2]) / maxf(1.0, mg_overlay.size.x * 0.2 * sc_i)
+				var p := plant_world_pos(it[0], it[1]).lerp(plant_world_pos(it[0], int(it[1]) + 1), du) + Vector3(0, 0.02, 0)
+				var sd := MeshInstance3D.new()
+				sd.mesh = rice_mesh(0, planted.size() % 3)
+				sd.material_override = kit_material()
+				sd.rotation.y = planted.size() * 1.7
+				world_node(sd)
 				sd.global_position = p
 				pop3d(sd, true)
 				splash3d(p)
