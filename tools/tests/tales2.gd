@@ -121,7 +121,7 @@ func run() -> void:
 		if b.visible:
 			vis += 1
 	check(vis == 5, "5 piece buttons for the pass")
-	check(m.tales_all_count() == [8, 17], "total count %s" % str(m.tales_all_count()))
+	check(m.tales_all_count() == [8, 22], "total count %s" % str(m.tales_all_count()))
 	m.book_village = "ch1"
 	m.show_book("story")
 	vis = 0
@@ -135,7 +135,7 @@ func run() -> void:
 	for b in m.story_buttons:
 		if b.visible:
 			vis += 1
-	check(vis == 0, "story hollow tab empty for now")
+	check(vis == 5 and String(m.story_buttons[0].text).contains("???"), "story hollow tab: 5 buttons, unfound ???")
 	m.book_village = "ch2"
 	m.show_book("story")
 	m.read_story(3)

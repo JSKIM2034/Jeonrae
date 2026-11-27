@@ -119,8 +119,36 @@ func build_chapter() -> void:
 	make_clouds(r)
 	add_ridge_ring(150.0, 40.0, 10.0, 24.0, Color(0.3, 0.5, 0.28), Color(0.42, 0.6, 0.36), 23)
 	make_room()
+	make_tales()
 	make_npc("storyteller", tr("이야기꾼 할머니"), Color.WHITE, GRANNY_POS, 1.0, true)
 	npcs["storyteller"].rotation.y = -0.5
+
+# ---------- 이야기 조각 (collect_plan.md 7장: 이야기골 5조각) ----------
+# 0 할머니 집 장독대 옆, 1 정자나무 뒤(등불이 하나라도 켜지면), 2 서쪽 빈 집터 안,
+# 3 할머니 부탁(산천어), 4 내 집 방 안 궤짝 옆(이야기골 연못 물고기와 약초를 다 모으면)
+const TALE_HOME_POS := [Vector3(21.4, 0, 0.6), Vector3(-2.6, 0, -6.4), Vector3(-17.2, 0, 10.4)]
+const TALE_ROOM_OFS := Vector3(-0.7, 0, -2.15)
+func make_tales() -> void:
+	for i in TALE_HOME_POS.size():
+		make_tale_spot(TALE_HOME_POS[i], "home", i)
+	make_tale_spot(ROOM_C + TALE_ROOM_OFS, "home", 4)
+
+func home_book_done() -> bool:
+	return book_rewards.has("fish_home_pond") and book_rewards.has("herb_home")
+
+func tale_spot_ready(g: String, i: int) -> bool:
+	if g != "home":
+		return true
+	match i:
+		0, 2:
+			return met_granny
+		1:
+			return met_granny and tales_count() >= 1
+		3:
+			return false
+		4:
+			return home_book_done()
+	return true
 
 func after_ui() -> void:
 	# 새 게임은 내 집 마당에서 정자나무와 할머니를 바라보며 시작해요
@@ -591,6 +619,16 @@ func granny_hints() -> Array:
 		out.append(tr("흥부 이야기를 끝냈으니 북쪽 돌고개 안개가 걷혔단다. 그 길로 가면 해와 달이 된 오누이 이야기가 있지. 호랑이를 조심하렴."))
 	if tales.has("ch2") and not tales.has("ch3"):
 		out.append(tr("오누이 고갯길 북쪽 끝에서 바닷가로 내려가면 별주부 이야기가 기다린단다."))
+	# 이야기골 이야기 조각 귀띔
+	var hf: Array = tale_flags("home")
+	if not hf[0] or not hf[2]:
+		out.append(tr("이 마을에도 잊힌 이야기 조각이 숨어 있단다. 할미 집 장독대 옆이랑 서쪽 빈 집터를 한번 살펴보렴."))
+	if not hf[1] and tales_count() >= 1:
+		out.append(tr("등불이 켜지니 정자나무 뒤편에서 뭔가 반짝이더구나. 나무가 처음 심어진 해의 이야기일지도 몰라."))
+	if not hf[4] and home_book_done():
+		out.append(tr("연못 식구도 마을 풀도 다 만나 보았구나. 그러고 보니 네 집 궤짝 옆 벽 틈에 뭔가 끼어 있던데..."))
+	elif not hf[4] and hf[0] and hf[1] and hf[2]:
+		out.append(tr("네 집에 살던 사람이 남긴 것이 있을지도 모른단다. 이 마을 연못 물고기와 풀을 다 만나 보면 알게 될 게다."))
 	out.append(tr("북쪽 돌고개를 넘으면 오누이 고갯길, 동북쪽 갈대 나루에서 배를 타면 바닷가 마을이란다."))
 	out.append(tr("집에 들어가 푹 쉬어 가렴. 책장에는 네가 모은 이야기들이 꽂혀 있지."))
 	out.append(tr("이야기를 다 들려주고 나면, 저 빈 집터들도 북적북적해질 게다."))
