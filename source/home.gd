@@ -191,9 +191,13 @@ func paint_ground_splat() -> void:
 				splat_stamp(splat_r, yard.position.x + x, yard.position.y + y, 0.6, 2.2, 0.55)
 				x += 1.2
 			y += 1.2
-	for i in 40:
-		var a := TAU * i / 40.0
-		splat_stamp(splat_g, POND_HOME.x + cos(a) * 4.6, POND_HOME.z + sin(a) * 3.2, 0.4, 1.4)
+	# 물가 젖은 흙: 둘레를 고르게 칠하지 않고 군데군데 얼룩지게
+	var mr := RandomNumberGenerator.new()
+	mr.seed = 91
+	for i in 26:
+		var a := mr.randf() * TAU
+		var f := mr.randf_range(0.85, 1.1)
+		splat_stamp(splat_g, POND_HOME.x + cos(a) * POND_RX * f, POND_HOME.z + sin(a) * POND_RZ * f, mr.randf_range(0.1, 0.5), mr.randf_range(0.9, 1.8), mr.randf_range(0.35, 0.75))
 
 # 주인공 집: 처음엔 허름한 초가 (1장 흥부네처럼 낡고 기운 집)
 func make_my_house() -> void:
@@ -370,13 +374,39 @@ func make_small_pond() -> void:
 	flat_ellipse(c, POND_RX, POND_RZ, 0.06, water_material(1, Vector4(c.x, c.z, POND_RX, POND_RZ), Color(0.12, 0.36, 0.52), Color(0.42, 0.68, 0.72)))
 	var r := RandomNumberGenerator.new()
 	r.seed = 12
+	# 물가 돌: 둘레를 빙 두르지 않고 몇 군데에만 무리 지어, 크기와 물에 잠긴 정도도 제각각
 	var stones := []
-	var a := 0.0
-	while a < TAU:
-		a += r.randf_range(0.22, 0.34)
-		if sin(a) > 0.75 and absf(cos(a)) < 0.3:
-			continue   # 남쪽 가운데는 뜰채 놀이 자리로 비워요
-		stones.append([c + Vector3(cos(a) * (POND_RX + 0.3), 0.08, sin(a) * (POND_RZ + 0.3)), Vector3(r.randf_range(0.5, 0.9), r.randf_range(0.28, 0.45), r.randf_range(0.4, 0.7)), stone_color(r)])
+	for cl in [0.35, 1.25, 2.3, 3.55, 4.4, 5.6]:
+		var n := r.randi_range(2, 4)
+		for k in n:
+			var a: float = cl + r.randf_range(-0.22, 0.22)
+			if sin(a) > 0.75 and absf(cos(a)) < 0.3:
+				continue   # 남쪽 가운데는 뜰채 놀이 자리로 비워요
+			var f := r.randf_range(0.9, 1.12)
+			var big := r.randf_range(0.35, 0.85)
+			stones.append([c + Vector3(cos(a) * POND_RX * f, r.randf_range(-0.04, 0.06), sin(a) * POND_RZ * f), Vector3(big, big * r.randf_range(0.45, 0.7), big * r.randf_range(0.7, 0.95)), stone_color(r), Vector3(r.randf_range(-12, 12), r.randf_range(0, 360), r.randf_range(-12, 12))])
+	# 물가에 자란 풀 무더기 (돌이 없는 곳을 채워 둘레 선이 안 보이게)
+	var tufts := []
+	for k in 30:
+		var a := r.randf() * TAU
+		if sin(a) > 0.7 and absf(cos(a)) < 0.35:
+			continue
+		var f := r.randf_range(0.95, 1.15)
+		var gp := c + Vector3(cos(a) * POND_RX * f, 0.0, sin(a) * POND_RZ * f)
+		tufts.append(Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * r.randf_range(0.7, 1.2)), gp))
+	var tmm := MultiMesh.new()
+	tmm.transform_format = MultiMesh.TRANSFORM_3D
+	tmm.use_colors = true
+	tmm.mesh = make_tuft_mesh()
+	tmm.instance_count = tufts.size()
+	for k in tufts.size():
+		tmm.set_instance_transform(k, tufts[k])
+		tmm.set_instance_color(k, Color(0.4, 0.62, 0.3).lerp(Color(0.58, 0.76, 0.38), r.randf()))
+	var tmi := MultiMeshInstance3D.new()
+	tmi.multimesh = tmm
+	tmi.material_override = grass_material()
+	tmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(tmi)
 	add_blobs(self, stones, stone_blob_mat)
 	add_solid(c + Vector3(0, 0.5, 0), Vector3(POND_RX * 1.65, 1.0, POND_RZ * 1.55), Color(0, 0, 0, 0))
 	house_rects.append(Rect2(c.x - POND_RX - 1.0, c.z - POND_RZ - 1.0, POND_RX * 2.0 + 2.0, POND_RZ * 2.0 + 2.0))

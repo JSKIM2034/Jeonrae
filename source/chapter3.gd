@@ -223,7 +223,11 @@ func make_sea() -> void:
 	var wd := 900.0
 	var dp := 700.0
 	var c := Vector3(0, 0, SHORE_Z - dp / 2.0)
-	sea_top = add_mbox(self, water_material(2, Vector4(c.x, c.z, wd / 2.0, dp / 2.0), Color(0.08, 0.36, 0.55), Color(0.3, 0.68, 0.78), Vector2(0.0, 0.03), 0.9), Vector3(wd, 0.02, dp), c + Vector3(0, 0.05, 2.0))
+	var sea_mat := water_material(2, Vector4(c.x, c.z, wd / 2.0, dp / 2.0), Color(0.08, 0.36, 0.55), Color(0.3, 0.68, 0.78), Vector2(0.0, 0.03), 0.9, false)
+	# 수면이 아주 넓어서 물가 빛깔이 바닷가 몇 미터에만 생기게 폭을 맞춰요
+	sea_mat.set_shader_parameter("edge_scale", dp / 2.0 / 6.0)
+	sea_top = add_mbox(self, sea_mat, Vector3(wd, 0.02, dp), c + Vector3(0, 0.05, 2.0))
+	make_shore_wash()
 	# 물속에서 올려다본 수면: 밝게 일렁이는 반투명 막
 	var under := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
@@ -659,7 +663,7 @@ func make_seabed() -> void:
 			for c in [[ix, iz], [ix + 1, iz], [ix + 1, iz + 1], [ix, iz + 1]]:
 				var x: float = C3_X0 + 4.0 + c[0] * step
 				var z: float = z0 + c[1] * step
-				q.append(Vector3(x, height_at(x, z) + 0.04, z))
+				q.append(Vector3(x, minf(height_at(x, z) + 0.04, -0.02), z))
 			for idx in [0, 1, 2, 0, 2, 3]:
 				st.add_vertex(q[idx])
 	st.generate_normals()
@@ -3022,3 +3026,74 @@ func tale_spot_ready(g: String, i: int) -> bool:
 		3, 4:
 			return false
 	return true
+
+# 물가: 바다와 모래가 만나는 곳을 얇은 물막·밀려왔다 빠지는 거품·젖은 모래로 덮어 반듯한 선이 안 보이게
+func make_shore_wash() -> void:
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+render_mode blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform float line_z = -5.0;
+uniform vec3 water = vec3(0.16, 0.42, 0.5);
+uniform vec3 wet = vec3(0.42, 0.34, 0.22);
+varying vec3 wp;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+void vertex() {
+	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+void fragment() {
+	float d = wp.z - line_z;
+	float wob = (noise(wp.xz * vec2(0.35, 0.8)) - 0.5) * 0.9;
+	float reach = 0.7 + 0.8 * (0.5 + 0.5 * sin(TIME * 0.55 + wp.x * 0.09)) + wob;
+	vec3 col;
+	float a;
+	if (d < reach) {
+		// 얇은 물막: 바다 쪽에서 짙고 물가로 갈수록 투명
+		float t = smoothstep(-2.5, reach, d);
+		col = mix(water, mix(water, wet, 0.5), t);
+		a = 0.88 * smoothstep(-2.8, -0.7, d) * (1.0 - 0.65 * smoothstep(0.2, reach, d));
+		// 물 끝의 거품 줄
+		float foam = smoothstep(reach - 0.25, reach - 0.05, d) * (0.55 + 0.45 * noise(wp.xz * vec2(1.5, 3.0) + vec2(TIME * 0.3, 0.0)));
+		col = mix(col, vec3(0.93, 0.96, 0.95), foam * 0.85);
+		a = max(a, foam * 0.8);
+	} else {
+		// 물이 빠진 뒤 젖은 모래가 점점 마르는 쪽
+		float dry = smoothstep(reach, reach + 2.8 + wob, d);
+		col = wet;
+		a = (1.0 - dry) * 0.5;
+	}
+	ALBEDO = col;
+	ROUGHNESS = 0.7;
+	ALPHA = clamp(a, 0.0, 1.0);
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	mat.set_shader_parameter("line_z", SHORE_Z + 1.0)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var xs := 80
+	var zs := 14
+	for i in xs:
+		for k in zs:
+			var pts := []
+			for q in [[i, k], [i + 1, k], [i + 1, k + 1], [i, k + 1]]:
+				var x: float = -80.0 + q[0] * 2.0
+				var z: float = SHORE_Z - 3.0 + q[1] * 0.6
+				pts.append(Vector3(x, maxf(height_at(x, z), 0.05) + 0.035, z))
+			for idx in [0, 1, 2, 0, 2, 3]:
+				st.set_normal(Vector3.UP)
+				st.add_vertex(pts[idx])
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	shore_wash = mi
+
+var shore_wash: MeshInstance3D

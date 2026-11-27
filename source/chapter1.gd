@@ -1182,14 +1182,16 @@ func make_fishing_pond() -> void:
 	var none := Color(0, 0, 0, 0)
 	flat_ellipse(c, rx, rz, 0.06, water_material(1, Vector4(c.x, c.z, rx, rz), Color(0.12, 0.36, 0.52), Color(0.42, 0.68, 0.72)))
 	# 물가 돌 (나루터 쪽은 비워요)
+	# 둘레를 빙 두르지 않고 몇 군데에만 무리 지어, 크기와 물에 잠긴 정도도 제각각
 	var stones := []
-	var a := 0.0
-	while a < TAU:
-		a += r.randf_range(0.18, 0.3)
-		if absf(wrapf(a, -PI, PI)) < 0.3:
-			continue
-		var k := r.randf_range(0.0, 0.35)
-		stones.append([c + Vector3(cos(a) * (rx + 0.3 + k), 0.08, sin(a) * (rz + 0.3 + k)), Vector3(r.randf_range(0.5, 1.0), r.randf_range(0.3, 0.55), r.randf_range(0.45, 0.8)), stone_color(r)])
+	for cl in [0.9, 1.7, 2.9, 4.1, 4.8, 5.6]:
+		for k in r.randi_range(2, 4):
+			var a: float = cl + r.randf_range(-0.2, 0.2)
+			if absf(wrapf(a, -PI, PI)) < 0.3:
+				continue
+			var f := r.randf_range(0.92, 1.14)
+			var big := r.randf_range(0.4, 0.95)
+			stones.append([c + Vector3(cos(a) * rx * f, r.randf_range(-0.04, 0.07), sin(a) * rz * f), Vector3(big, big * r.randf_range(0.45, 0.7), big * r.randf_range(0.7, 0.95)), stone_color(r), Vector3(r.randf_range(-12, 12), r.randf_range(0, 360), r.randf_range(-12, 12))])
 	add_blobs(self, stones, stone_blob_mat)
 	# 갈대와 부들
 	var reeds := []
@@ -1766,11 +1768,14 @@ func make_decor() -> void:
 		var bank := []
 		var x := -38.0
 		while x < 38.0:
-			x += r.randf_range(1.0, 1.7)
-			if absf(x + 2.0) < 2.3:
-				continue
-			var zb: float = creek_z(x) + side * (creek_half(x) + 0.12)
-			bank.append([Vector3(x, 0.08, zb + r.randf_range(-0.2, 0.2)), Vector3(r.randf_range(0.6, 1.1), r.randf_range(0.35, 0.6), r.randf_range(0.5, 0.8)), stone_color(r)])
+			x += r.randf_range(2.5, 7.0)
+			for k in r.randi_range(1, 3):
+				var xx := x + r.randf_range(-0.9, 0.9)
+				if absf(xx + 2.0) < 2.3:
+					continue
+				var zb: float = creek_z(xx) + side * (creek_half(xx) + r.randf_range(-0.25, 0.5))
+				var big := r.randf_range(0.4, 1.0)
+				bank.append([Vector3(xx, r.randf_range(0.0, 0.08), zb), Vector3(big, big * r.randf_range(0.45, 0.65), big * r.randf_range(0.65, 0.9)), stone_color(r), Vector3(r.randf_range(-10, 10), r.randf_range(0, 360), r.randf_range(-10, 10))])
 		add_blobs(self, bank, stone_blob_mat)
 	var foam := []
 	for i in 22:
@@ -2992,12 +2997,16 @@ func paint_ground_splat() -> void:
 	# 개울가 진흙
 	var cx := -50.0
 	while cx <= 50.0:
-		splat_stamp(splat_g, cx, creek_z(cx), creek_half(cx) + 0.2, creek_half(cx) + 1.4)
+		var jag := sin(cx * 0.83) * 0.35 + sin(cx * 2.1 + 1.0) * 0.25
+		splat_stamp(splat_g, cx, creek_z(cx), creek_half(cx) + 0.1, creek_half(cx) + 1.1 + jag, 0.75 + 0.25 * sin(cx * 1.3))
 		cx += 0.6
 	# 연못 둘레
-	for i in 48:
-		var a := TAU * i / 48.0
-		splat_stamp(splat_g, POND_C.x + cos(a) * 5.4, POND_C.z + sin(a) * 3.9, 0.4, 1.6)
+	var mr := RandomNumberGenerator.new()
+	mr.seed = 57
+	for i in 30:
+		var a := mr.randf() * TAU
+		var f := mr.randf_range(0.88, 1.12)
+		splat_stamp(splat_g, POND_C.x + cos(a) * 5.6 * f, POND_C.z + sin(a) * 4.0 * f, mr.randf_range(0.1, 0.5), mr.randf_range(1.0, 2.0), mr.randf_range(0.35, 0.8))
 	# 논두렁 둘레
 	for fc in [[FARM_C, 9.0, 7.0], [Vector3(-34.5, 0, -3), 6.0, 6.0]]:
 		var c: Vector3 = fc[0]

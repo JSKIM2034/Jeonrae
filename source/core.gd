@@ -3276,6 +3276,7 @@ uniform float foam_amt = 0.7;
 uniform float spec = 0.75;
 uniform float rough = 0.07;
 uniform float mud = 0.0;
+uniform float edge_scale = 1.0;
 varying vec3 wp;
 void vertex() {
 	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -3290,21 +3291,31 @@ void fragment() {
 		vec2 q = abs(wp.xz - area.xy) / area.zw;
 		edge = 1.0 - max(q.x, q.y);
 	}
-	edge = clamp(edge, 0.0, 1.0);
+	// 가장자리가 반듯한 선이 되지 않게 잔물결처럼 들쭉날쭉
+	float wob = texture(ripple, wp.xz * 0.11).g - 0.5;
+	edge = clamp(edge * edge_scale + wob * 0.09 - 0.045, 0.0, 1.0);
 	vec3 n1 = texture(ripple, wp.xz * 0.16 + TIME * flow).rgb;
 	vec3 n2 = texture(ripple, wp.xz * 0.29 + vec2(TIME * 0.013, -TIME * 0.019) - TIME * flow * 0.6).rgb;
 	NORMAL_MAP = normalize((n1 + n2) * 0.5);
 	NORMAL_MAP_DEPTH = 0.7;
-	vec3 col = mix(shallow, deep, smoothstep(0.0, 0.55, edge));
+	vec3 col = mix(mix(shallow, deep, 0.75), deep, smoothstep(0.2, 0.6, edge));
+	// 물가: 얕은 물 아래 젖은 흙이 비치는 빛깔로 (하얀 테두리 대신)
+	vec3 bank = mix(deep, vec3(0.13, 0.14, 0.08), 0.7);
+	col = mix(bank, col, smoothstep(0.02, 0.28, edge));
+	// 물결이 닿는 곳에만 끊어진 거품이 살짝
 	float wave = 0.6 + 0.4 * sin(TIME * 1.6 + wp.x * 1.7 + wp.z * 1.3);
-	float foam = smoothstep(0.14, 0.0, edge) * wave * foam_amt;
-	col = mix(col, vec3(0.94, 0.98, 1.0), foam);
+	float lap = smoothstep(0.03, 0.08, edge) * smoothstep(0.16, 0.08, edge);
+	float broken = smoothstep(0.52, 0.7, texture(ripple, wp.xz * 0.35 + vec2(TIME * 0.02, 0.0)).b);
+	float foam = lap * broken * wave * foam_amt * 0.2;
+	col = mix(col, vec3(0.9, 0.95, 0.97), foam);
 	// 논물: 흙이 비치는 얼룩
 	float blot = texture(ripple, wp.xz * 0.05).r;
 	col = mix(col, col * (0.8 + blot * 0.4), mud);
 	ALBEDO = col;
-	ROUGHNESS = rough;
-	SPECULAR = spec;
+	// 물가 얕은 곳은 하늘을 덜 비춰요 (밝은 테두리가 생기지 않게)
+	ROUGHNESS = mix(0.95, rough, smoothstep(0.12, 0.5, edge));
+	SPECULAR = spec * smoothstep(0.12, 0.5, edge);
+	//SOFT ALPHA = smoothstep(0.0, 0.16, edge) * 0.9 + smoothstep(0.16, 0.6, edge) * 0.1;
 }
 """
 
@@ -3321,7 +3332,10 @@ func make_ground_mat() -> void:
 		if ResourceLoader.exists(path):
 			ground_mat.set_shader_parameter(k + "_tex", load(path))
 
-func water_material(shape: int, area: Vector4, deep: Color, shallow: Color, flow: Vector2 = Vector2(0.0, 0.0), foam: float = 0.7) -> ShaderMaterial:
+var water_shaders := {}
+
+# soft: 물가로 갈수록 투명해져 땅과 스르르 섞여요 (넓은 바다 수면처럼 끝이 안 보여야 하는 곳은 false)
+func water_material(shape: int, area: Vector4, deep: Color, shallow: Color, flow: Vector2 = Vector2(0.0, 0.0), foam: float = 0.7, soft: bool = true) -> ShaderMaterial:
 	if ripple_tex == null:
 		var n := FastNoiseLite.new()
 		n.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -3334,10 +3348,14 @@ func water_material(shape: int, area: Vector4, deep: Color, shallow: Color, flow
 		ripple_tex.as_normal_map = true
 		ripple_tex.bump_strength = 6.0
 		ripple_tex.noise = n
-	var sh := Shader.new()
-	sh.code = WATER_SHADER
+	if not water_shaders.has(soft):
+		var sh := Shader.new()
+		sh.code = WATER_SHADER.replace("//SOFT ", "") if soft else WATER_SHADER
+		if soft:
+			sh.code = sh.code.replace("cull_disabled;", "cull_disabled, depth_draw_opaque;")
+		water_shaders[soft] = sh
 	var m := ShaderMaterial.new()
-	m.shader = sh
+	m.shader = water_shaders[soft]
 	m.set_shader_parameter("ripple", ripple_tex)
 	m.set_shader_parameter("shape", shape)
 	m.set_shader_parameter("area", area)
