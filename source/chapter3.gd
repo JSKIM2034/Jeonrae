@@ -2029,7 +2029,7 @@ func on_action() -> void:
 # ---------- 미니게임 ----------
 
 func start_clam() -> void:
-	start_game("dig", {"world": true, "scene": "clam", "art": "world", "title": tr("거품이 뽀글뽀글 오르는 숨구멍을 톡!\n바지락은 톡톡, 맛조개는 위로 쓱, 꽃게는 피해요"), "goal": 8, "lives": 3, "unit": tr("조개")}, clam_done)
+	start_game("dig", {"world": true, "scene": "clam", "art": "world", "title": tr("거품이 뽀글뽀글 오르는 숨구멍을 톡!\n바지락은 톡톡, 맛조개는 위로 쓱, 꽃게는 피해요"), "goal": 6, "lives": 3, "unit": tr("조개"), "rounds": [{"goal": 7, "round_text": tr("물이 들어오기 전에 조금만 더 캐요!"), "title": tr("물 들어오기 전에 서둘러요!\n꽃게는 여전히 조심")}]}, clam_done)
 
 func clam_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -2044,7 +2044,7 @@ func clam_done(ok: bool, _good: bool) -> void:
 	], func(): save_progress())
 
 func start_drum() -> void:
-	start_game("rhythm", {"world": true, "scene": "drum", "art": "world", "title": tr("둥둥! 용궁 잔치 북을 박자에 맞춰 톡!\n꽃게 집게(빨간 X)가 올 땐 멈춰요"), "goal": 16, "bpm": 112, "bad_ratio": 0.18, "note": tr("둥"), "bad_text": tr("앗, 꽃게 집게!"), "unit": tr("북")}, drum_done)
+	start_game("rhythm", {"world": true, "scene": "drum", "art": "world", "title": tr("둥둥! 용궁 잔치 북을 박자에 맞춰 톡!\n꽃게 집게(빨간 X)가 올 땐 멈춰요"), "goal": 12, "bpm": 112, "bad_ratio": 0.18, "note": tr("둥"), "bad_text": tr("앗, 꽃게 집게!"), "unit": tr("북"), "rounds": [{"goal": 14, "bpm": 130, "bad_ratio": 0.22, "round_text": tr("잔치가 무르익어요! 북장단이 빨라져요"), "title": tr("빠른 잔치 장단! 둥둥 둥둥\n꽃게 집게 땐 멈춰요")}]}, drum_done)
 
 func drum_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -2055,7 +2055,7 @@ func drum_done(ok: bool, _good: bool) -> void:
 	say([[tr("꽃게 신하"), tr("둥둥 덩실! 물고기들이 춤을 춰요! 고마워요!")]], func(): update_quest_text())
 
 func start_pearl() -> void:
-	start_game("catch", {"world": true, "scene": "pearl", "art": "world", "title": tr("큰 조개가 뱉는 진주는 받고\n뾰족한 성게는 피하세요"), "goal": 12, "interval": 0.62, "speed": 0.4, "bad_ratio": 0.32, "good": tr("진주"), "bad": tr("성게"), "basket": tr("소쿠리")}, pearl_done)
+	start_game("catch", {"world": true, "scene": "pearl", "art": "world", "title": tr("큰 조개가 뱉는 진주는 받고\n뾰족한 성게는 피하세요"), "goal": 8, "interval": 0.62, "speed": 0.4, "bad_ratio": 0.32, "good": tr("진주"), "bad": tr("성게"), "basket": tr("소쿠리"), "rounds": [{"goal": 8, "interval": 0.5, "speed": 0.48, "bad_ratio": 0.4, "round_text": tr("큰 조개가 신이 났어요! 진주도 성게도 빨라져요"), "title": tr("더 빨라졌어요!\n진주만 소쿠리로 받아요")}]}, pearl_done)
 
 func pearl_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -2637,7 +2637,7 @@ func make_chest() -> void:
 
 
 func start_shell() -> void:
-	start_game("simon", {"world": true, "scene": "chest", "art": "world", "title": tr("상자 자물쇠는 조개 소리로 열려요!\n울리는 순서를 기억했다가 똑같이 눌러요"), "goal": 4, "start_len": 3, "lives": 3, "unit": tr("소리")}, shell_done)
+	start_game("simon", {"world": true, "scene": "chest", "art": "world", "title": tr("상자 자물쇠는 조개 소리로 열려요!\n울리는 순서를 기억했다가 똑같이 눌러요"), "goal": 4, "start_len": 3, "lives": 3, "unit": tr("소리"), "rounds": [{"goal": 3, "start_len": 5, "round_text": tr("두 번째 자물쇠! 조개 노래가 더 길어요"), "title": tr("두 번째 자물쇠!\n더 긴 소리를 기억해요")}]}, shell_done)
 
 func shell_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -2653,7 +2653,7 @@ func shell_done(ok: bool, _good: bool) -> void:
 
 # ---------- 용궁 춤 따라 하기 (잔치 셋째 일) ----------
 func start_dance() -> void:
-	start_game("dance", {"world": true, "scene": "dance", "art": "world", "title": tr("자라가 추는 용궁 춤을 잘 보고\n화살표 순서대로 휙휙 따라 해요"), "goal": 4, "start_len": 3, "lives": 3, "unit": tr("마디")}, dance_done)
+	start_game("dance", {"world": true, "scene": "dance", "art": "world", "title": tr("자라가 추는 용궁 춤을 잘 보고\n화살표 순서대로 휙휙 따라 해요"), "goal": 4, "start_len": 3, "lives": 3, "unit": tr("마디"), "rounds": [{"goal": 3, "start_len": 5, "round_text": tr("자라: 이번엔 용궁 춤 둘째 마당이오!"), "title": tr("둘째 마당! 더 긴 춤을\n화살표 순서대로 따라 해요")}]}, dance_done)
 
 func dance_done(ok: bool, _good: bool) -> void:
 	var jara := npc("jara")

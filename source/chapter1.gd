@@ -2019,7 +2019,7 @@ func talk_wife() -> void:
 		say([[tr("놀부 마누라"), tr("뭘 봐? 우리 집엔 남 줄 쌀 한 톨 없어!")]], Callable())
 
 func start_rice() -> void:
-	start_game("catch", {"world": true, "scene": "rice", "title": tr("놀부 마누라의 밥주걱은 피하고\n튀는 밥풀만 바가지로 받으세요"), "goal": 12, "interval": 0.6, "speed": 0.42, "bad_ratio": 0.35, "good": tr("밥풀"), "bad": tr("주걱"), "basket": tr("바가지"), "art": "world"}, rice_done)
+	start_game("catch", {"world": true, "scene": "rice", "title": tr("놀부 마누라의 밥주걱은 피하고\n튀는 밥풀만 바가지로 받으세요"), "goal": 8, "interval": 0.6, "speed": 0.42, "bad_ratio": 0.35, "good": tr("밥풀"), "bad": tr("주걱"), "basket": tr("바가지"), "art": "world", "rounds": [{"goal": 8, "interval": 0.5, "bad_ratio": 0.45, "round_text": tr("놀부 마누라가 약이 올랐어요! 주걱이 더 자주 날아와요"), "title": tr("주걱이 더 자주 날아와요!\n밥풀만 골라 받으세요")}, {"goal": 10, "interval": 0.42, "speed": 0.5, "bad_ratio": 0.3, "round_text": tr("밥솥이 넘쳐요! 밥풀이 우수수 쏟아져요"), "title": tr("마지막! 밥풀이 우수수\n주걱은 그래도 조심!")}]}, rice_done)
 
 func rice_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -2134,7 +2134,7 @@ func talk_kid1() -> void:
 
 # 구렁이 쫓기
 func start_snake() -> void:
-	start_game("tap", {"world": true, "scene": "snake", "title": tr("구렁이가 제비 둥지로 기어와요!\n닿기 전에 눌러서 쫓아내세요"), "goal": 12, "interval": 0.75, "life": 1.6, "target": tr("구렁이"), "center": tr("둥지"), "color": Color(0.5, 0.38, 0.25), "art": "world"}, snake_done)
+	start_game("tap", {"world": true, "scene": "snake", "title": tr("구렁이가 제비 둥지로 기어와요!\n닿기 전에 눌러서 쫓아내세요"), "goal": 8, "interval": 0.75, "life": 1.6, "target": tr("구렁이"), "center": tr("둥지"), "color": Color(0.5, 0.38, 0.25), "art": "world", "rounds": [{"goal": 8, "interval": 0.65, "life": 1.3, "round_text": tr("구렁이가 약이 올라 더 빨리 기어와요"), "title": tr("구렁이가 더 빨라졌어요!\n재빨리 눌러 쫓아내세요")}, {"goal": 8, "interval": 0.55, "life": 1.1, "round_text": tr("마지막 힘을 내요! 새끼 제비들이 떨고 있어요"), "title": tr("마지막! 둥지를 끝까지 지켜요")}]}, snake_done)
 
 func snake_done(ok: bool, _good: bool) -> void:
 	if not ok:

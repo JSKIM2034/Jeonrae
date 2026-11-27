@@ -55,8 +55,11 @@ func game(name: String) -> void:
 	m.mg_lives = 99
 	print("  count ", m.mg_count, " lives ", m.mg_lives)
 	await snap(name)
-	m.end_game(true)
-	await settle()
+	# 단계가 여러 개인 놀이는 단계마다 이겨요
+	for r in 4:
+		if m.mg_active:
+			m.end_game(true)
+			await settle()
 func touch(pos: Vector2, down: bool) -> void:
 	var ev := InputEventScreenTouch.new()
 	ev.pressed = down

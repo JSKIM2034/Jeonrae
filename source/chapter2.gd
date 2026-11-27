@@ -968,7 +968,7 @@ func make_stack_table() -> void:
 	add_solid(STACK_POS + Vector3(0, 0.5, 0), Vector3(1.4, 1.0, 0.9), Color(0, 0, 0, 0))
 
 func start_stack() -> void:
-	start_game("stack", {"world": true, "scene": "stack", "art": "world", "title": tr("떡 쌓기! 움직이는 떡판을 톡 눌러 쌓아요\n딱 맞으면 퍼펙트, 어긋나면 잘려요"), "goal": 12, "base_w": 0.5, "speed": 0.5, "lives": 3, "unit": tr("층")}, stack_done)
+	start_game("stack", {"world": true, "scene": "stack", "art": "world", "title": tr("떡 쌓기! 움직이는 떡판을 톡 눌러 쌓아요\n딱 맞으면 퍼펙트, 어긋나면 잘려요"), "goal": 8, "base_w": 0.5, "speed": 0.5, "lives": 3, "unit": tr("층"), "rounds": [{"goal": 8, "base_w": 0.42, "speed": 0.62, "round_text": tr("떡집 할머니: 한 판 더! 이번엔 떡판이 더 빨라요"), "title": tr("두 번째 떡탑! 떡판이 더 빨라요\n딱 맞춰 톡!")}]}, stack_done)
 
 func stack_done(ok: bool, _good: bool) -> void:
 	var h := mg_count
@@ -1395,7 +1395,7 @@ func sneak_caught() -> void:
 
 # ---------- 솔방울 던지기 (나무 위로 올라오는 호랑이) ----------
 func start_pine() -> void:
-	start_game("aim", {"world": true, "scene": "pine", "art": "world", "title": tr("호랑이가 도끼로 콕콕 나무를 올라와요!\n새총을 뒤로 당겼다 놓아 솔방울을 맞혀요"), "goal": 6, "climb_speed": 0.05, "knock": 0.16, "target_r": 0.1, "hit_text": tr("딱! 아야!"), "lose_text": tr("호랑이가 너무 높이 올라왔어요!"), "unit": tr("명중")}, pine_done)
+	start_game("aim", {"world": true, "scene": "pine", "art": "world", "title": tr("호랑이가 도끼로 콕콕 나무를 올라와요!\n새총을 뒤로 당겼다 놓아 솔방울을 맞혀요"), "goal": 6, "climb_speed": 0.05, "knock": 0.16, "target_r": 0.1, "hit_text": tr("딱! 아야!"), "lose_text": tr("호랑이가 너무 높이 올라왔어요!"), "unit": tr("명중"), "rounds": [{"goal": 5, "climb_speed": 0.065, "knock": 0.14, "round_text": tr("호랑이가 털고 일어나 다시 기어올라요!"), "title": tr("호랑이가 더 빨리 올라와요!\n솔방울을 연거푸 맞혀요")}]}, pine_done)
 
 func pine_done(ok: bool, _good: bool) -> void:
 	tiger.position = on_ground(tree_pos.x - 0.9, tree_pos.z + 0.9)
@@ -1617,7 +1617,7 @@ func talk_kids(id: String) -> void:
 # ---------- 잔치 일: 떡메치기, 떡 받기 ----------
 
 func start_pound() -> void:
-	start_game("rhythm", {"world": true, "scene": "pound", "art": "world", "title": tr("쿵덕쿵덕 떡메치기! 박자에 맞춰 톡!\n영감님이 떡을 뒤집을 땐(빨간 X) 멈춰요"), "goal": 14, "bpm": 100, "bad_ratio": 0.2, "note": tr("쿵"), "bad_text": tr("앗, 영감님 손!"), "unit": tr("떡메")}, pound_done)
+	start_game("rhythm", {"world": true, "scene": "pound", "art": "world", "title": tr("쿵덕쿵덕 떡메치기! 박자에 맞춰 톡!\n영감님이 떡을 뒤집을 땐(빨간 X) 멈춰요"), "goal": 10, "bpm": 100, "bad_ratio": 0.2, "note": tr("쿵"), "bad_text": tr("앗, 영감님 손!"), "unit": tr("떡메"), "rounds": [{"goal": 12, "bpm": 120, "bad_ratio": 0.25, "round_text": tr("흥이 올랐어요! 장단이 빨라져요"), "title": tr("빠른 장단! 쿵덕쿵덕 쿵덕쿵덕\n빨간 X 땐 멈춰요")}]}, pound_done)
 
 func pound_done(ok: bool, good: bool) -> void:
 	if not ok:
@@ -1631,7 +1631,7 @@ func pound_done(ok: bool, good: bool) -> void:
 	say(l, func(): update_quest_text(); save_progress())
 
 func start_tteok() -> void:
-	start_game("catch", {"world": true, "scene": "tteok", "art": "world", "title": tr("떡집 할머니가 던지는 떡은 채반으로 받고\n튀는 불똥은 피하세요"), "goal": 12, "interval": 0.62, "speed": 0.42, "bad_ratio": 0.3, "good": tr("떡"), "bad": tr("불똥"), "basket": tr("채반")}, tteok_done)
+	start_game("catch", {"world": true, "scene": "tteok", "art": "world", "title": tr("떡집 할머니가 던지는 떡은 채반으로 받고\n튀는 불똥은 피하세요"), "goal": 8, "interval": 0.62, "speed": 0.42, "bad_ratio": 0.3, "good": tr("떡"), "bad": tr("불똥"), "basket": tr("채반"), "rounds": [{"goal": 8, "interval": 0.52, "bad_ratio": 0.42, "round_text": tr("아궁이 불이 세졌어요! 불똥이 더 튀어요"), "title": tr("불똥이 더 많아졌어요!\n떡만 채반으로 받아요")}]}, tteok_done)
 
 func tteok_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -1686,7 +1686,7 @@ func pass1_choice(i: int) -> void:
 		set_quest(S_PASS2))
 
 func start_paws() -> void:
-	start_game("swipe", {"world": true, "scene": "paws", "art": "world", "title": tr("호랑이 앞발이 광주리로 쑥!\n앞발 쪽으로 손가락을 휙 쳐내 막아요"), "goal": 10, "tele": 0.85, "window": 0.55, "gap": 0.8, "feint_ratio": 0.22, "hit_text": tr("떡을 빼앗겼어요!"), "unit": tr("막기")}, paws_done)
+	start_game("swipe", {"world": true, "scene": "paws", "art": "world", "title": tr("호랑이 앞발이 광주리로 쑥!\n앞발 쪽으로 손가락을 휙 쳐내 막아요"), "goal": 8, "tele": 0.85, "window": 0.55, "gap": 0.8, "feint_ratio": 0.22, "hit_text": tr("떡을 빼앗겼어요!"), "unit": tr("막기"), "rounds": [{"goal": 8, "tele": 0.7, "gap": 0.65, "feint_ratio": 0.35, "round_text": tr("호랑이가 약이 올랐어요! 속임수 앞발도 늘어요"), "title": tr("호랑이가 더 빨라졌어요!\n속임수 앞발엔 속지 마요")}]}, paws_done)
 
 func paws_done(ok: bool, _good: bool) -> void:
 	if not ok:
