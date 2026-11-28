@@ -1730,7 +1730,46 @@ func start_run() -> void:
 	for k in range(start_i, road_pts.size()):
 		run_path.append(road_pts[k])
 	run_i = 0
+	make_run_logs()
 	float_text(tr("달려요!"), get_viewport().get_visible_rect().size / 2.0, Color(1, 0.9, 0.4), 1.5)
+	var vs := get_viewport().get_visible_rect().size
+	float_text(tr("길을 막은 통나무는 점프 버튼으로 훌쩍!") if is_touch_device() else tr("길을 막은 통나무는 스페이스로 훌쩍!"), vs * Vector2(0.5, 0.42), Color(1, 0.97, 0.85), 1.3)
+
+# 달리기 길 중간 두 곳에 호랑이가 쓰러뜨린 통나무 (뛰어넘어야 해요, 호랑이는 성큼 넘어가요)
+var run_logs: Array = []
+func make_run_logs() -> void:
+	for n in run_logs:
+		if is_instance_valid(n):
+			n.queue_free()
+	run_logs = []
+	if run_path.size() < 6:
+		return
+	for f in [0.34, 0.66]:
+		var i := clampi(int(run_path.size() * f), 1, run_path.size() - 2)
+		var a := run_path[i - 1]
+		var b := run_path[i + 1]
+		var dir := (b - a).normalized()
+		var pos := on_ground(run_path[i].x, run_path[i].y)
+		var body := StaticBody3D.new()
+		body.position = pos
+		body.rotation.y = atan2(dir.x, dir.y) + PI / 2.0
+		add_child(body)
+		var col := CollisionShape3D.new()
+		var sh := BoxShape3D.new()
+		sh.size = Vector3(4.2, 0.5, 0.5)
+		col.shape = sh
+		col.position.y = 0.25
+		body.add_child(col)
+		kit_instance(body, fallen_log_mesh(), Vector3(0, 0.0, 0))
+		run_logs.append(body)
+
+func clear_run_logs() -> void:
+	for n in run_logs:
+		if is_instance_valid(n):
+			var tw: Tween = (n as Node).create_tween()
+			tw.tween_property(n, "scale", Vector3(1, 0.01, 1), 0.4)
+			tw.tween_callback(n.queue_free)
+	run_logs = []
 
 func update_run(delta: float) -> void:
 	if not run_active:
@@ -1742,6 +1781,7 @@ func update_run(delta: float) -> void:
 		run_active = false
 		tiger.visible = false
 		mom.visible = false
+		clear_run_logs()
 		sfx("good")
 		set_quest(S_WARN)
 		say([["", tr("헉헉... 오두막에 먼저 닿았다! 문 앞에 아이 둘이 서 있다.")]], Callable())

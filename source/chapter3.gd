@@ -2785,7 +2785,41 @@ func start_escape() -> void:
 	player.velocity = Vector3.ZERO
 	cam_yaw_target = 0.0
 	set_quest(S_ESCAPE)
+	escape_half = false
+	escape_rings_on()
 	float_text(tr("남쪽으로 헤엄쳐요!"), get_viewport().get_visible_rect().size / 2.0, Color(1, 0.9, 0.4), 1.6)
+
+# 용궁 탈출 (2026-11-28 늘리기): 오던 길의 물살 고리가 다시 빛나고, 지나가면 물살을 타고 쑥 빨라져요.
+# 반쯤 오면 문어 장군이 화가 나 더 빨라지고 먹물도 자주 뿜어요
+var escape_half := false
+var escape_ring := 0
+func escape_rings_on() -> void:
+	escape_ring = rings.size() - 1
+	for rg in rings:
+		(rg[0] as Node3D).visible = true
+		(rg[0] as Node3D).scale = Vector3.ONE
+
+func update_escape_rings() -> void:
+	if escape_ring < 0:
+		return
+	var rg: Node3D = rings[escape_ring][0]
+	var m: StandardMaterial3D = rg.material_override
+	m.emission_energy_multiplier = 1.6 + sin(anim_t * 6.0) * 0.8
+	var body_c := player.position + Vector3(0, 0.7, 0)
+	# 지나쳐 버린 고리는 건너뛰어요
+	if body_c.z > rg.position.z + 3.0:
+		rg.visible = false
+		escape_ring -= 1
+		return
+	if body_c.distance_to(rg.position) < 2.2:
+		speed_boost = 1.8
+		sfx("good", 1.2)
+		burst3d(rg.position, Color(0.7, 0.95, 1.0), 16)
+		float_text(tr("물살을 탔다! 쑥~"), cam.unproject_position(rg.position), Color(0.8, 1.0, 1.0), 1.1)
+		var tw := rg.create_tween()
+		tw.tween_property(rg, "scale", Vector3.ONE * 1.8, 0.3)
+		tw.tween_callback(func(): rg.visible = false)
+		escape_ring -= 1
 
 func update_chase(delta: float) -> void:
 	if not chase_on:
@@ -2799,15 +2833,24 @@ func update_chase(delta: float) -> void:
 		follow_on = false
 		event_lock = true
 		oc.position = Vector3(OCTOPUS_POS.x, PALACE_Y + 0.25, OCTOPUS_POS.z)
+		for rg in rings:
+			(rg[0] as Node3D).visible = false
+		escape_ring = -1
 		shore_ending()
 		return
 	if chase_wait > 0.0:
 		chase_wait -= delta
 		return
+	update_escape_rings()
+	if not escape_half and player.position.z > (GATE_Z + SHORE_Z) * 0.5:
+		escape_half = true
+		shake(10)
+		sfx("drum")
+		round_banner(tr("반쯤 왔어요!"), tr("문어 장군이 화가 나 더 빨라졌어요! 빛나는 물살 고리를 타고 달아나요"), 2.6)
 	var tgt := player.position + Vector3(0, 0.4, 0)
 	var to := tgt - oc.position
 	var d := to.length()
-	var sp := 2.0 if ink_amt > 0.3 else 3.7
+	var sp := 2.0 if ink_amt > 0.3 else (4.0 if escape_half else 3.7)
 	oc.position += to.normalized() * minf(sp * delta, d)
 	var gh := height_at(oc.position.x, oc.position.z)
 	oc.position.y = maxf(oc.position.y, gh)
@@ -2819,7 +2862,7 @@ func update_chase(delta: float) -> void:
 	# 가끔 먹물을 뿜어요
 	ink_t -= delta
 	if ink_t <= 0.0:
-		ink_t = 3.5
+		ink_t = 2.6 if escape_half else 3.5
 		spawn_ink(oc.position + Vector3(0, 1.5, 0))
 	if d < 1.6:
 		chase_on = false
@@ -2830,6 +2873,8 @@ func update_chase(delta: float) -> void:
 			player.velocity = Vector3.ZERO
 			oc.position = Vector3(OCTOPUS_POS.x, PALACE_Y + 0.25, OCTOPUS_POS.z)
 			reset_ink()
+			escape_half = false
+			escape_rings_on()
 			chase_on = true
 			chase_wait = 3.0)
 

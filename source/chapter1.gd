@@ -25,7 +25,7 @@ func chapter_state() -> Dictionary:
 		"mischief": mischief, "mischief_done": mischief_done, "laundry_found": laundry_found,
 		"hide_state": hide_state, "hiders_found": hiders_found, "axe_done": axe_done, "axe_lied": axe_lied,
 		"helped_nolbu": helped_nolbu, "ending_id": ending_id, "treasure_pos": treasure_pos,
-		"things_vis": vis,
+		"things_vis": vis, "jobs": job_counts,
 	}
 
 func restore_chapter_state(d: Dictionary) -> void:
@@ -42,6 +42,7 @@ func restore_chapter_state(d: Dictionary) -> void:
 	axe_lied = d.get("axe_lied", false)
 	helped_nolbu = d.get("helped_nolbu", false)
 	ending_id = d.get("ending_id", "")
+	job_counts = (d.get("jobs", {}) as Dictionary).duplicate()
 	# 줍거나 나타난 물건들 (조각, 약초, 박, 빨래, 숨은 동생, 덤불)
 	var vis: Array = d.get("things_vis", [])
 	if vis.size() == things.size():
@@ -2331,7 +2332,45 @@ func finish_mischief(id: String) -> void:
 
 
 # ---------- 품팔이와 장터 ----------
+# 품팔이 단골: 같은 일을 여러 번 하면 단골 → 솜씨꾼 → 장인. 품삯이 오르고, 오를 때마다 마을 사람이 칭찬하며 덤을 줘요
+# (2026-11-28 미니게임 늘리기: 같은 일을 되풀이할 이유와 목표. 나중에 집 고치기 재료와도 이어요)
+const JOB_LEVELS := [3, 7, 12]
+const JOB_BONUS := [0, 3, 6, 10]
+const JOB_GIFT := [10, 20, 40]
+const JOB_TITLES_KO := {
+	"water": ["물 긷는 단골", "샘물지기", "우물 장인"],
+	"wood": ["나무하는 단골", "도끼 솜씨꾼", "나무꾼 장인"],
+	"gam": ["감 따는 단골", "장대 솜씨꾼", "까치밥 지킴이"],
+	"shoes": ["짚신 단골", "짚신 솜씨꾼", "짚신 장인"],
+}
+var JOB_TITLES: Dictionary = trd(JOB_TITLES_KO)
+const JOB_PRAISE_KO := {
+	"water": "우물가 아낙",
+	"wood": "나무터 영감",
+	"gam": "감나무집 할아버지",
+	"shoes": "짚신 할아범",
+}
+var JOB_PRAISE: Dictionary = trd(JOB_PRAISE_KO)
+var job_counts := {}
+var cur_job := ""
+
+func job_level(id: String) -> int:
+	var n := int(job_counts.get(id, 0))
+	var lv := 0
+	for th in JOB_LEVELS:
+		if n >= th:
+			lv += 1
+	return lv
+
+func job_badge(id: String) -> String:
+	var n := int(job_counts.get(id, 0))
+	var lv := job_level(id)
+	if lv >= JOB_LEVELS.size():
+		return " ★"
+	return " (%d/%d)" % [n, JOB_LEVELS[lv]]
+
 func start_job(id: String) -> void:
+	cur_job = id
 	if id == "water":
 		start_well3d()
 		return
@@ -2350,14 +2389,30 @@ func job_done(ok: bool, good: bool) -> void:
 	if not ok:
 		say([["", tr("일을 망쳐서 품삯을 받지 못했다. 다시 해 보자.")]], Callable())
 		return
-	var pay := 10
+	var id := cur_job if cur_job != "" else "shoes"
+	var lv0 := job_level(id)
+	job_counts[id] = int(job_counts.get(id, 0)) + 1
+	var lv := job_level(id)
+	var pay := 10 + int(JOB_BONUS[lv0])
 	if good:
-		pay = 15
+		pay += 5
 	earn(pay)
+	var lines := []
 	if good:
-		say([["", tr("솜씨가 좋다고 덤까지 받았다. 엽전 %d냥!") % pay]], Callable())
+		lines.append(["", tr("솜씨가 좋다고 덤까지 받았다. 엽전 %d냥!") % pay])
 	else:
-		say([["", tr("품삯으로 엽전 %d냥을 받았다.") % pay]], Callable())
+		lines.append(["", tr("품삯으로 엽전 %d냥을 받았다.") % pay])
+	if lv > lv0:
+		var title: String = JOB_TITLES[id][lv - 1]
+		var gift: int = JOB_GIFT[lv - 1]
+		earn(gift)
+		sfx("good")
+		lines.append([JOB_PRAISE[id], tr("허허, 이제 보니 \"%s\"(이)로구나! 앞으로 품삯을 더 쳐주마.") % title])
+		lines.append(["", tr("칭호 \"%s\"! 덤으로 엽전 %d냥, 다음부터 품삯 +%d냥.") % [title, gift, int(JOB_BONUS[lv])]])
+		if lv < JOB_LEVELS.size():
+			lines.append(["", tr("(%d번 더 하면 다음 칭호)") % (int(JOB_LEVELS[lv]) - int(job_counts[id]))])
+	save_progress()
+	say(lines, Callable())
 
 func shop() -> void:
 	ask(tr("장터 상인"), tr("어서 오너라! 무엇을 줄까? (가진 엽전 %d냥)") % coins, [tr("엿 5냥"), tr("짚신 20냥 (발이 빨라져요)"), tr("낫 15냥 (덤불을 베요)"), tr("한복 40냥 (옷 갈아입기)"), tr("그만 볼래요")], on_shop)
