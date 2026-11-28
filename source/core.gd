@@ -1933,14 +1933,195 @@ func make_laundry(a: Vector3, b: Vector3) -> void:
 	root.rotation.y = atan2(-d.z, d.x)
 	add_child(root)
 	var length := d.length()
-	add_box(root, Color(0.78, 0.68, 0.48), Vector3(length, 0.03, 0.03), Vector3.ZERO)
-	var cloths := [[-0.95, 0.75, Color(0.99, 0.99, 0.97)], [0.0, 0.95, Color(0.84, 0.92, 1.0)], [0.95, 0.62, Color(1.0, 0.9, 0.86)]]
-	for c in cloths:
+	# 살짝 처진 빨랫줄 (꼰 새끼줄)
+	var st0 := MeshKit.begin()
+	var sag := 0.06 * clampf(length / 3.0, 0.5, 2.0)
+	for k in 12:
+		var x0 := -length / 2.0 + length * k / 12.0
+		var x1 := -length / 2.0 + length * (k + 1) / 12.0
+		var y0 := -sag * (1.0 - pow(2.0 * x0 / length, 2.0))
+		var y1 := -sag * (1.0 - pow(2.0 * x1 / length, 2.0))
+		MeshKit.tube(st0, Vector3(x0, y0, 0), Vector3(x1, y1, 0), 0.014, 0.014, Color(0.74, 0.64, 0.45) if k % 2 == 0 else Color(0.66, 0.56, 0.38), 5)
+	kit_instance(root, MeshKit.finish(st0))
+	# 흰 보자기(줄에 걸쳐 앞뒤로 늘어짐), 옥색 저고리(어깨로 걸림, 소매 펼침), 분홍 치마(주름)
+	var kinds := ["sheet", "jeogori", "chima"]
+	var cols := [Color(0.97, 0.97, 0.94), Color(0.72, 0.86, 0.9), Color(0.98, 0.78, 0.8)]
+	var xs := [-0.95, 0.0, 0.95]
+	for k in 3:
 		var cl := Node3D.new()
-		cl.position = Vector3(c[0] * length / 3.0, 0, 0)
+		var x: float = xs[k] * length / 3.0
+		cl.position = Vector3(x, -sag * (1.0 - pow(2.0 * x / length, 2.0)), 0)
 		root.add_child(cl)
-		add_box(cl, c[2], Vector3(0.72, c[1], 0.03), Vector3(0, -c[1] / 2.0, 0))
-		sway_items.append([cl, cl.position, 1, c[0] * 2.0 + a.x, 0.1])
+		kit_instance(cl, laundry_mesh(kinds[k], cols[k], int(a.x * 7.0 + k)))
+		sway_items.append([cl, cl.position, 1, xs[k] * 2.0 + a.x, 0.1])
+
+# ---------- 천(빨래) 모양: 결이 진 얇은 천을 격자로 짓고 주름만큼 밀어내요 ----------
+# o: 한쪽 모서리, du/dv: 두 변(길이 포함), nu/nv: 칸 수, foldf(u, v) -> 천 면에서 밀려나는 거리(u, v는 0~1)
+# 접힌 골은 어둡게, 솟은 결은 밝게. 가장자리엔 박음질 단
+func cloth_sheet(st: SurfaceTool, o: Vector3, du: Vector3, dv: Vector3, nu: int, nv: int, col: Color, foldf: Callable, hem: Color = Color(0, 0, 0, 0)) -> void:
+	var nrm := du.cross(dv).normalized()
+	var pts := []
+	var cols := []
+	for j in nv + 1:
+		var row := []
+		var crow := []
+		for i in nu + 1:
+			var u := float(i) / nu
+			var v := float(j) / nv
+			var f: float = foldf.call(u, v)
+			row.append(o + du * u + dv * v + nrm * f)
+			# 주름 음영: 옆 칸과의 높이 차로 골/결을 찾아요
+			var fx: float = foldf.call(minf(u + 0.04, 1.0), v) - foldf.call(maxf(u - 0.04, 0.0), v)
+			var c := col.darkened(clampf(fx * 9.0 + (0.08 if f < 0.0 else 0.0), -0.12, 0.32))
+			if hem.a > 0.0 and (u < 0.035 or u > 0.965 or v > 0.965):
+				c = hem
+			crow.append(c)
+		pts.append(row)
+		cols.append(crow)
+	for j in nv:
+		for i in nu:
+			MeshKit.quad(st, pts[j][i], pts[j][i + 1], pts[j + 1][i + 1], pts[j + 1][i], cols[j][i], cols[j][i + 1], cols[j + 1][i + 1], cols[j + 1][i])
+
+# 빨랫줄에 걸린 빨래 (줄이 y=0, 아래로 늘어져요)
+func laundry_mesh(kind: String, col: Color, seed_v: int) -> ArrayMesh:
+	var key := "laundry_%s_%d" % [kind, seed_v % 3]
+	if prop_mesh_cache.has(key):
+		return prop_mesh_cache[key]
+	var ph := float(seed_v % 3) * 1.7
+	var st := MeshKit.begin()
+	match kind:
+		"sheet":
+			# 줄에 반 접어 걸친 보자기: 앞자락 길고 뒷자락 짧게, 아래로 갈수록 물결
+			var w := 0.74
+			var front := func(u: float, v: float) -> float:
+				return (0.035 * sin(u * 11.0 + ph) + 0.015 * sin(u * 23.0 + 1.0)) * pow(v, 1.2) + 0.012 * sin(v * 3.0)
+			cloth_sheet(st, Vector3(-w / 2.0, 0, 0.012), Vector3(w, 0, 0), Vector3(0, -0.78, 0), 16, 10, col, front, col.darkened(0.08))
+			var back := func(u: float, v: float) -> float:
+				return -(0.03 * sin(u * 9.0 + ph + 2.0)) * v
+			cloth_sheet(st, Vector3(-w / 2.0, 0, -0.012), Vector3(w, 0, 0), Vector3(0, -0.42, 0), 14, 6, col.darkened(0.05), back)
+			# 줄 위로 둥글게 넘어가는 접힌 자리
+			for k in 8:
+				var x0 := -w / 2.0 + w * k / 8.0
+				MeshKit.tube(st, Vector3(x0, 0.006, 0), Vector3(x0 + w / 8.0, 0.006, 0), 0.016, 0.016, col.lightened(0.05), 6)
+			# 빨래집게 대신 묶은 끈
+			for sx in [-0.3, 0.3]:
+				MeshKit.tube(st, Vector3(sx, 0.03, 0), Vector3(sx, -0.05, 0.025), 0.008, 0.008, Color(0.6, 0.48, 0.3), 4)
+		"jeogori":
+			# 어깨를 줄에 걸친 저고리: 몸판, 양 소매(살짝 늘어짐), 흰 동정과 깃, 붉은 고름 두 가닥
+			var body := func(u: float, v: float) -> float:
+				return 0.02 * sin(u * 8.0 + ph) * v + 0.01 * sin(v * 9.0)
+			cloth_sheet(st, Vector3(-0.22, -0.02, 0.012), Vector3(0.44, 0, 0), Vector3(0, -0.46, 0), 10, 10, col, body, col.darkened(0.12))
+			cloth_sheet(st, Vector3(-0.22, -0.02, -0.01), Vector3(0.44, 0, 0), Vector3(0, -0.46, 0), 6, 6, col.darkened(0.1), func(u, v): return 0.0)
+			for sx in [-1.0, 1.0]:
+				# 소매: 어깨에서 밖으로, 끝으로 갈수록 처지고 소매 끝은 둥근 배래
+				var sleeve := func(u: float, v: float) -> float:
+					return 0.015 * sin(u * 7.0 + v * 3.0 + ph)
+				var so := Vector3(sx * 0.2, -0.02, 0.008)
+				var du := Vector3(sx * 0.36, -0.12, 0)
+				var dv := Vector3(0, -0.24, 0)
+				cloth_sheet(st, so, du, dv, 8, 5, col.lightened(0.04), sleeve, col.darkened(0.1))
+				# 소매 끝동 (색 띠)
+				cloth_sheet(st, so + du * 0.9 + Vector3(0, 0, 0.002), du * 0.1, dv, 2, 5, Color(0.55, 0.3, 0.45), func(u, v): return 0.0)
+			# 깃과 흰 동정 (목 둘레에서 비스듬히 내려오는 띠)
+			MeshKit.tube(st, Vector3(-0.08, -0.03, 0.028), Vector3(0.05, -0.2, 0.03), 0.018, 0.016, Color(0.98, 0.98, 0.95), 6)
+			MeshKit.tube(st, Vector3(0.08, -0.03, 0.026), Vector3(0.0, -0.12, 0.028), 0.016, 0.014, Color(0.98, 0.98, 0.95), 6)
+			# 고름: 매듭에서 늘어진 붉은 두 가닥
+			var knot := Vector3(0.06, -0.22, 0.034)
+			MeshKit.ball(st, knot, Vector3(0.018, 0.014, 0.01), Color(0.82, 0.18, 0.25), 6, 4)
+			for g in 2:
+				var a0 := knot
+				for q in 4:
+					var a1 := a0 + Vector3(0.01 + g * 0.012 + sin(q + ph) * 0.006, -0.05, 0.004)
+					MeshKit.tube(st, a0, a1, 0.011, 0.011, Color(0.82, 0.18, 0.25), 4)
+					a0 = a1
+		"chima":
+			# 허리말기를 줄에 걸친 치마: 아래로 넓어지고 세로 주름이 촘촘
+			var top_w := 0.42
+			var bot_w := 0.62
+			var nu := 20
+			var nv := 10
+			var pts := []
+			var cs := []
+			for jv in nv + 1:
+				var v := float(jv) / nv
+				var row := []
+				var crow := []
+				var wv := lerpf(top_w, bot_w, v)
+				for iu in nu + 1:
+					var u := float(iu) / nu
+					var pleat := sin(u * TAU * 7.0) * lerpf(0.012, 0.03, v) + sin(u * 5.0 + v * 2.0 + ph) * 0.02 * v
+					row.append(Vector3((u - 0.5) * wv, -0.06 - v * 0.74, 0.012 + pleat))
+					var c := col.darkened(clampf(-cos(u * TAU * 7.0) * 0.12, -0.06, 0.12))
+					if v > 0.95:
+						c = col.darkened(0.12)
+					crow.append(c)
+				pts.append(row)
+				cs.append(crow)
+			for jv in nv:
+				for iu in nu:
+					MeshKit.quad(st, pts[jv][iu], pts[jv][iu + 1], pts[jv + 1][iu + 1], pts[jv + 1][iu], cs[jv][iu], cs[jv][iu + 1], cs[jv + 1][iu + 1], cs[jv + 1][iu])
+			# 흰 허리말기와 끈
+			cloth_sheet(st, Vector3(-top_w / 2.0, 0.01, 0.016), Vector3(top_w, 0, 0), Vector3(0, -0.075, 0), 6, 2, Color(0.97, 0.96, 0.92), func(u, v): return 0.0)
+			MeshKit.tube(st, Vector3(top_w / 2.0, -0.03, 0.02), Vector3(top_w / 2.0 + 0.05, -0.2, 0.03), 0.009, 0.008, Color(0.97, 0.96, 0.92), 4)
+	var m := MeshKit.finish(st)
+	prop_mesh_cache[key] = m
+	return m
+
+# 땅에 흩어진 빨래 더미: 구겨져 겹친 천 몇 장 + 개켜진 저고리 + 붉은 고름 (가운데가 (0,0,0), 땅 위)
+func laundry_pile_mesh(seed_v: int) -> ArrayMesh:
+	var key := "laundry_pile_%d" % (seed_v % 3)
+	if prop_mesh_cache.has(key):
+		return prop_mesh_cache[key]
+	var r := RandomNumberGenerator.new()
+	r.seed = 300 + seed_v % 3
+	var st := MeshKit.begin()
+	var cloth := [Color(0.88, 0.88, 0.84), Color(0.68, 0.8, 0.9), Color(0.92, 0.74, 0.74), Color(0.86, 0.8, 0.62)]
+	for i in 4:
+		var a := r.randf() * TAU
+		# du × dv 가 위(+y)를 보게 (주름이 땅 위로 솟게)
+		var du := Vector3(-sin(a), 0, cos(a)) * r.randf_range(0.5, 0.65)
+		var dv := Vector3(cos(a), 0, sin(a)) * r.randf_range(0.7, 0.9)
+		var o := Vector3(r.randf_range(-0.12, 0.12), 0.035 + i * 0.04, r.randf_range(-0.1, 0.1)) - (du + dv) / 2.0
+		var p1 := r.randf() * TAU
+		var p2 := r.randf() * TAU
+		# 구겨진 천: 가운데가 불룩하고 이리저리 접힌 골, 가장자리는 땅에 처짐
+		var crumple := func(u: float, v: float) -> float:
+			var mid := sin(u * PI) * sin(v * PI)
+			# 가장자리는 땅 쪽으로 처지되 땅 밑으로 꺼지지 않게
+			var edge := minf(minf(u, 1.0 - u), minf(v, 1.0 - v))
+			return mid * 0.1 + 0.03 * sin(u * 9.0 + p1) * sin(v * 7.0 + p2) * (0.4 + mid) + 0.015 * sin((u + v) * 13.0 + p1) - 0.03 * (1.0 - clampf(edge * 6.0, 0.0, 1.0)) + 0.01
+		cloth_sheet(st, o, du, dv, 12, 10, cloth[i], crumple, cloth[i].darkened(0.1))
+	# 비틀어 짠 빨래 뭉치 둘: 꼬인 주름이 진 굵은 천 타래
+	for q in 2:
+		var cc: Color = cloth[(q + 1) % 4]
+		var a := r.randf() * TAU
+		var dirv := Vector3(cos(a), 0, sin(a))
+		var start := Vector3(r.randf_range(-0.15, 0.15), 0.2 + q * 0.03, r.randf_range(-0.12, 0.12)) - dirv * 0.22
+		var rings := []
+		for k in 11:
+			var t := float(k) / 10.0
+			var c := start + dirv * t * 0.44 + Vector3(0, sin(t * PI) * 0.05, 0) + dirv.cross(Vector3.UP) * sin(t * 4.0 + q) * 0.04
+			var rad := 0.05 * (0.55 + 0.45 * sin(t * PI))
+			rings.append([c, rad, rad * 0.8])
+		var tw := float(q) * 1.3
+		kit_loft(st, rings, dirv.cross(Vector3.UP).normalized(), Vector3.UP, 12, func(t: float, ang: float) -> Color:
+			# 꼬인 결: 비스듬한 골이 진하게
+			return cc.darkened(0.2) if sin(ang * 2.0 + t * 22.0 + tw) > 0.55 else cc.lightened(0.04 * sin(ang)))
+	# 위에 반쯤 개켜진 저고리 (몸판, 접힌 소매, 흰 동정)
+	var jo := Vector3(-0.18, 0.2, -0.14)
+	var jcol := Color(0.66, 0.82, 0.8)
+	cloth_sheet(st, jo, Vector3(0, 0.01, 0.32), Vector3(0.42, 0.02, 0), 6, 8, jcol, func(u, v): return 0.02 * sin(v * 6.0) * sin(u * PI), jcol.darkened(0.12))
+	cloth_sheet(st, jo + Vector3(0.36, 0.03, 0.02), Vector3(-0.04, 0.01, 0.2), Vector3(0.28, -0.04, 0.1), 4, 6, jcol.lightened(0.02), func(u, v): return 0.015 * sin(u * PI))
+	MeshKit.tube(st, jo + Vector3(0.08, 0.035, 0.02), jo + Vector3(0.2, 0.04, 0.25), 0.016, 0.014, Color(1, 1, 0.98), 6)
+	# 붉은 고름 한 가닥 (구불구불)
+	var g0 := jo + Vector3(0.24, 0.04, 0.22)
+	for q in 5:
+		var g1 := g0 + Vector3(0.06, -0.008, 0.03 * sin(q * 1.7))
+		MeshKit.tube(st, g0, g1, 0.012, 0.012, Color(0.84, 0.2, 0.28), 4)
+		g0 = g1
+	var m := MeshKit.finish(st)
+	prop_mesh_cache[key] = m
+	return m
 
 func make_basket(pos: Vector3, s: float, fill: Color) -> void:
 	add_mcyl(self, basket_mat, 0.34 * s, 0.25 * s, 0.34 * s, pos + Vector3(0, 0.17 * s, 0))
@@ -3579,13 +3760,43 @@ var leaf_mat: ShaderMaterial
 var bark_mat: StandardMaterial3D
 var bark_red_mat: StandardMaterial3D
 
+# 나무 모델의 잎 면 가운데 숨은 둥근 덩어리(그림 자리가 한 점이라 단색 공처럼 보임, 버드나무에 있었음)를 빼요.
+# 잎 카드는 그림 자리가 넓으니 그대로 남아요.
+func strip_leaf_blobs(mesh: Mesh) -> Mesh:
+	var am := mesh as ArrayMesh
+	if am == null:
+		return mesh
+	var out := ArrayMesh.new()
+	var changed := false
+	for i in am.get_surface_count():
+		var mat := am.surface_get_material(i)
+		var arr := am.surface_get_arrays(i)
+		if mat != null and mat.resource_name == "Leaf" and arr[Mesh.ARRAY_INDEX] != null and arr[Mesh.ARRAY_TEX_UV] != null:
+			var uv: PackedVector2Array = arr[Mesh.ARRAY_TEX_UV]
+			var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+			var keep := PackedInt32Array()
+			for t in range(0, idx.size(), 3):
+				var a := uv[idx[t]]
+				var b := uv[idx[t + 1]]
+				var c := uv[idx[t + 2]]
+				if a.distance_squared_to(b) < 1e-8 and a.distance_squared_to(c) < 1e-8:
+					changed = true
+					continue
+				keep.append(idx[t])
+				keep.append(idx[t + 1])
+				keep.append(idx[t + 2])
+			arr[Mesh.ARRAY_INDEX] = keep
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+		out.surface_set_material(i, mat)
+	return out if changed else mesh
+
 func load_trees() -> void:
 	tree_tried = true
 	if not ResourceLoader.exists("res://models/trees.glb"):
 		return
 	var root: Node = (load("res://models/trees.glb") as PackedScene).instantiate()
 	for node in root.find_children("*", "MeshInstance3D", true, false):
-		tree_meshes[node.name] = (node as MeshInstance3D).mesh
+		tree_meshes[node.name] = strip_leaf_blobs((node as MeshInstance3D).mesh)
 	root.free()
 	var sh := Shader.new()
 	sh.code = """shader_type spatial;
@@ -5247,6 +5458,184 @@ func smooth_rings(ctrl: Array, per: int, axis_z: bool) -> Array:
 	var last: Array = ctrl[ctrl.size() - 1]
 	out.append([Vector3(0, last[1], last[0]) if axis_z else Vector3(0, last[0], last[1]), last[2], last[3]])
 	return out
+
+# 짚신: 발 모양 바닥(씨줄로 촘촘히 엮은 결, 날줄 네 가닥), 앞코 매듭, 양옆 고리(총) 넷씩과 그 사이를 꿴 총갱기,
+# 둥글게 세운 뒤축. 앞(+z)이 발끝, 길이 0.4, 가운데가 (0,0,0)
+func jipsin_mesh() -> ArrayMesh:
+	if prop_mesh_cache.has("jipsin"):
+		return prop_mesh_cache["jipsin"]
+	var st := MeshKit.begin()
+	var straw := Color(0.88, 0.74, 0.45)
+	var straw_dk := Color(0.66, 0.52, 0.3)
+	var straw_lt := Color(0.95, 0.85, 0.58)
+	# 발바닥 윤곽 [z, 가운데 높이, 반폭, 두께]
+	var ctrl := [
+		[-0.2, 0.012, 0.03, 0.012],
+		[-0.185, 0.012, 0.062, 0.016],
+		[-0.14, 0.012, 0.07, 0.017],
+		[-0.06, 0.012, 0.064, 0.017],
+		[0.02, 0.012, 0.078, 0.017],
+		[0.1, 0.012, 0.086, 0.017],
+		[0.16, 0.012, 0.072, 0.016],
+		[0.19, 0.013, 0.045, 0.014],
+		[0.205, 0.014, 0.012, 0.01],
+	]
+	var rings := smooth_rings(ctrl, 4, true)
+	var colf := func(t: float, a: float) -> Color:
+		var z := lerpf(-0.2, 0.205, t)
+		var x := cos(a)
+		# 날줄 네 가닥이 지나는 자리
+		for wx in [-0.62, -0.2, 0.2, 0.62]:
+			if absf(x - wx) < 0.07:
+				return straw_dk
+		# 씨줄: 가로로 촘촘히 엮인 짚, 한 줄씩 엇갈린 결
+		var row := sin(z * 230.0)
+		var off := sin(x * 18.0 + (PI if row > 0.0 else 0.0))
+		var c: Color = straw_lt if off > 0.3 else straw
+		if absf(row) < 0.25:
+			c = straw_dk.lerp(straw, 0.4)
+		return c
+	kit_loft(st, rings, Vector3(1, 0, 0), Vector3(0, 1, 0), 18, colf)
+	# 앞코: 날줄을 모아 묶은 작은 매듭과 발등으로 올라가는 앞총 끈
+	MeshKit.ball(st, Vector3(0, 0.03, 0.19), Vector3(0.022, 0.018, 0.02), straw_dk, 8, 5)
+	# 양옆 고리(총): 바닥 가장자리에서 솟은 작은 짚 고리 넷씩
+	var rope_pts := {-1.0: [], 1.0: []}
+	for sx in [-1.0, 1.0]:
+		for k in 4:
+			var z := lerpf(0.11, -0.1, k / 3.0)
+			var half := 0.0
+			for rg in rings:
+				if absf((rg[0] as Vector3).z - z) < 0.012:
+					half = float(rg[1])
+			var base := Vector3(sx * (half - 0.004), 0.02, z)
+			var top := base + Vector3(sx * -0.012, 0.045, 0)
+			# 고리 = 짧은 두 기둥과 위쪽 반원
+			var prev := base + Vector3(0, 0, 0.014)
+			for q in 7:
+				var a := PI * (q + 1) / 7.0
+				var pt := base + Vector3(sx * -0.012 * sin(a), 0.045 * sin(a), 0.014 * cos(a))
+				MeshKit.tube(st, prev, pt, 0.0045, 0.0045, straw_dk.lerp(straw, 0.5), 4)
+				prev = pt
+			rope_pts[sx].append(top)
+	# 총갱기: 고리 끝을 꿰어 발등을 두르는 새끼줄 (앞코에서 시작해 양옆 고리, 뒤축까지)
+	for sx in [-1.0, 1.0]:
+		var pts: Array = [Vector3(0, 0.035, 0.18)] + rope_pts[sx] + [Vector3(sx * 0.045, 0.06, -0.17)]
+		for k in pts.size() - 1:
+			var a0: Vector3 = pts[k]
+			var a1: Vector3 = pts[k + 1]
+			var mid := (a0 + a1) / 2.0 + Vector3(sx * 0.004, 0.006, 0)
+			MeshKit.tube(st, a0, mid, 0.0055, 0.0055, straw, 5)
+			MeshKit.tube(st, mid, a1, 0.0055, 0.0055, straw.darkened(0.05), 5)
+	# 뒤축: 발뒤꿈치를 감싸는 둥근 짚 둑 (여러 겹)
+	for layer in 3:
+		var y := 0.024 + layer * 0.014
+		var prev2 := Vector3.ZERO
+		for q in 11:
+			var a := lerpf(-1.25, 1.25, q / 10.0)
+			var pt := Vector3(sin(a) * 0.06, y, -0.17 - cos(a) * 0.022)
+			if q > 0:
+				MeshKit.tube(st, prev2, pt, 0.008, 0.008, straw if layer % 2 == 0 else straw_lt, 5)
+			prev2 = pt
+	# 삐져나온 짚 끝 몇 가닥
+	var r := RandomNumberGenerator.new()
+	r.seed = 12
+	for k in 7:
+		var sx := -1.0 if k % 2 == 0 else 1.0
+		var z := r.randf_range(-0.16, 0.16)
+		var b := Vector3(sx * 0.06, 0.015, z)
+		MeshKit.tube(st, b, b + Vector3(sx * r.randf_range(0.015, 0.035), r.randf_range(-0.004, 0.01), r.randf_range(-0.015, 0.015)), 0.0025, 0.001, straw_lt, 3)
+	var m := MeshKit.finish(st)
+	prop_mesh_cache["jipsin"] = m
+	return m
+
+# 새끼줄: 두 가닥 짚을 꼬아 만든 줄 (z 방향, 0 에서 -length 까지)
+func straw_rope_mesh(length: float) -> ArrayMesh:
+	var key := "rope_%d" % int(length * 100.0)
+	if prop_mesh_cache.has(key):
+		return prop_mesh_cache[key]
+	var st := MeshKit.begin()
+	var n := int(length / 0.012)
+	for strand in 2:
+		var ph := PI * strand
+		var col := Color(0.86, 0.72, 0.44) if strand == 0 else Color(0.78, 0.62, 0.36)
+		var prev := Vector3.ZERO
+		for k in n + 1:
+			var z := -length * k / n
+			var a := z * 70.0 + ph
+			var pt := Vector3(cos(a) * 0.012, sin(a) * 0.012, z)
+			if k > 0:
+				MeshKit.tube(st, prev, pt, 0.011, 0.011, col.lightened(0.08 * sin(a)), 6)
+			prev = pt
+	# 끝에 풀린 짚 몇 가닥
+	for k in 5:
+		var a := k * TAU / 5.0
+		MeshKit.tube(st, Vector3(0, 0, 0.0), Vector3(cos(a) * 0.02, sin(a) * 0.02, 0.03), 0.003, 0.0015, Color(0.92, 0.8, 0.5), 3)
+	var m := MeshKit.finish(st)
+	prop_mesh_cache[key] = m
+	return m
+
+# 제비: 매끈한 유선형 몸(남색 등, 흰 배, 붉은 이마와 멱), 긴 제비 꼬리(갈라진 두 가닥). 앞(+z), 가운데 (0,0,0)
+func swallow_mesh() -> ArrayMesh:
+	if prop_mesh_cache.has("swallow"):
+		return prop_mesh_cache["swallow"]
+	var st := MeshKit.begin()
+	var ctrl := [
+		[-0.16, 0.02, 0.01, 0.008],
+		[-0.12, 0.012, 0.03, 0.026],
+		[-0.05, 0.004, 0.052, 0.05],
+		[0.03, 0.006, 0.058, 0.056],
+		[0.09, 0.022, 0.046, 0.046],
+		[0.12, 0.038, 0.04, 0.04],
+		[0.155, 0.048, 0.042, 0.04],
+		[0.19, 0.05, 0.032, 0.03],
+		[0.21, 0.048, 0.012, 0.012],
+	]
+	var rings := smooth_rings(ctrl, 4, true)
+	var navy := Color(0.14, 0.17, 0.36)
+	var navy_hi := Color(0.24, 0.3, 0.55)
+	var white := Color(0.97, 0.95, 0.9)
+	var red := Color(0.78, 0.3, 0.2)
+	var colf := func(t: float, a: float) -> Color:
+		var z := lerpf(-0.16, 0.21, t)
+		var up := sin(a)
+		if z > 0.12:
+			# 머리: 붉은 이마·멱, 위는 남색
+			if up < -0.2 or (z > 0.18 and up < 0.5):
+				return red
+			return navy.lerp(navy_hi, clampf(up, 0.0, 1.0) * 0.6)
+		if z > 0.09 and up < -0.35:
+			return navy   # 가슴의 남색 띠
+		if up < -0.15:
+			return white
+		return navy.lerp(navy_hi, clampf(up, 0.0, 1.0) * 0.5)
+	kit_loft(st, rings, Vector3(1, 0, 0), Vector3(0, 1, 0), 20, colf)
+	for sx in [-1.0, 1.0]:
+		var ep := Vector3(sx * 0.034, 0.062, 0.17)
+		MeshKit.ball(st, ep, Vector3(0.009, 0.01, 0.009), Color(0.04, 0.04, 0.05), 8, 6)
+		MeshKit.ball(st, ep + Vector3(sx * 0.006, 0.004, 0.004), Vector3(0.003, 0.003, 0.003), Color(1, 1, 1), 4, 3)
+		# 길게 갈라진 꼬리깃 (수평으로 V자)
+		MeshKit.leaf(st, Vector3(sx * 0.008, 0.02, -0.14), Vector3(sx * 0.3, 0.05, -1.0), Vector3(1, 0, 0), 0.24, 0.035, navy, 0.0, "long")
+		# 다리
+		MeshKit.tube(st, Vector3(sx * 0.02, -0.04, 0.03), Vector3(sx * 0.024, -0.07, 0.045), 0.006, 0.005, Color(0.3, 0.2, 0.18), 4)
+	# 작은 부리
+	MeshKit.tube(st, Vector3(0, 0.044, 0.205), Vector3(0, 0.042, 0.232), 0.011, 0.002, Color(0.12, 0.1, 0.1), 6)
+	var m := MeshKit.finish(st)
+	prop_mesh_cache["swallow"] = m
+	return m
+
+# 제비 날개 한 짝: 어깨에서 뒤로 뻗은 길고 뾰족한 칼깃 날개 (side: +1 오른쪽, -1 왼쪽)
+func swallow_wing_mesh(side: float) -> ArrayMesh:
+	var key := "swallow_wing_%d" % int(side)
+	if prop_mesh_cache.has(key):
+		return prop_mesh_cache[key]
+	var st := MeshKit.begin()
+	var navy := Color(0.16, 0.19, 0.38)
+	# 몸 옆에 접어 붙인 날개: 수평 깃 몇 장이 뒤로 길게 (끝이 꼬리 쪽으로 뾰족)
+	for k in 4:
+		MeshKit.leaf(st, Vector3(0, k * 0.004, 0.04 - k * 0.018), Vector3(side * 0.12, -0.02, -1.0), Vector3(1, 0, 0), 0.26 - k * 0.03, 0.06 - k * 0.008, navy.lightened(k * 0.05), 0.04, "long")
+	var m := MeshKit.finish(st)
+	prop_mesh_cache[key] = m
+	return m
 
 # 구렁이: 등뼈 점들을 따라 단면 고리를 이어 한 덩어리 몸으로. 납작하고 넓적한 머리, 가는 목, 통통한 몸통,
 # 끝으로 가늘어지는 꼬리. 등은 누런 올리브색에 검은 가로띠, 배는 크림빛 비늘판. 눈과 날름거리는 혀

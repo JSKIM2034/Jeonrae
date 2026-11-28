@@ -164,16 +164,8 @@ func make_herb_visual(h: Node3D) -> void:
 
 # 놀부가 흩뜨려 놓은 빨래: 구겨진 천 더미 + 저고리 한 벌
 func make_laundry_pile(n: Node3D) -> void:
-	var r := RandomNumberGenerator.new()
-	r.seed = int(n.position.x * 3.0 + n.position.z)
-	var cloth := [Color(0.98, 0.98, 0.96), Color(0.82, 0.9, 1.0), Color(1.0, 0.88, 0.86)]
-	var items := []
-	for i in 5:
-		items.append([Vector3(r.randf_range(-0.35, 0.35), 0.04 + i * 0.03, r.randf_range(-0.3, 0.3)), Vector3(r.randf_range(0.7, 1.0), 0.05, r.randf_range(0.5, 0.7)), cloth[i % 3], Vector3(r.randf_range(-5, 5), r.randf_range(0, 180), r.randf_range(-5, 5))])
-	items.append([Vector3(0.1, 0.2, 0.0), Vector3(0.5, 0.18, 0.35), cloth[0], Vector3(0, 30, 10)])
-	# 빨간 고름 하나
-	items.append([Vector3(0.25, 0.2, 0.1), Vector3(0.05, 0.03, 0.34), Color(0.85, 0.25, 0.3), Vector3(0, 35, 0)])
-	add_blobs(n, items, null, true)
+	var mi := kit_instance(n, laundry_pile_mesh(int(absf(n.position.x * 3.0 + n.position.z))))
+	mi.rotation.y = fmod(n.position.x * 1.3, TAU)
 
 # 김 서방네 호박: 골 깊은 주황 호박 + 꼭지 + 잎
 func make_pumpkin(pos: Vector3, s: float, r: RandomNumberGenerator) -> void:
@@ -200,14 +192,27 @@ func make_paddy(center: Vector3, w: float, d: float) -> void:
 	add_mbox(self, make_color(Color(0.42, 0.34, 0.24)), Vector3(w - 0.4, 0.04, d - 0.4), center + Vector3(0, 0.02, 0))
 	var wtr := add_mbox(self, water_material(2, Vector4(center.x, center.z, w / 2.0 - 0.2, d / 2.0 - 0.2), Color(0.36, 0.44, 0.36), Color(0.52, 0.6, 0.48), Vector2.ZERO, 0.25), Vector3(w - 0.4, 0.02, d - 0.4), center + Vector3(0, 0.08, 0))
 	wtr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var rice := []
+	# 줄 맞춰 심은 푸른 벼 포기 (잎 한 장 한 장 입체, 모양 세 가지를 멀티메시로 가볍게)
+	var r := RandomNumberGenerator.new()
+	r.seed = 404
 	var nx := 9
+	var spots := [[], [], []]
 	for ix in nx:
 		for iz in nx:
-			var p := center + Vector3(-w / 2.0 + 0.55 + ix * (w - 1.1) / (nx - 1), 0.25, -d / 2.0 + 0.55 + iz * (d - 1.1) / (nx - 1))
-			rice.append([p, Vector3(0.18, 0.4, 0.18), Color(0.45, 0.7, 0.3)])
-			rice.append([p + Vector3(0.05, 0.08, 0), Vector3(0.08, 0.36, 0.08), Color(0.55, 0.78, 0.35), Vector3(0, 0, -20)])
-	add_blobs(self, rice)
+			var p := center + Vector3(-w / 2.0 + 0.55 + ix * (w - 1.1) / (nx - 1), 0.08, -d / 2.0 + 0.55 + iz * (d - 1.1) / (nx - 1))
+			p += Vector3(r.randf_range(-0.05, 0.05), 0, r.randf_range(-0.05, 0.05))
+			spots[(ix + iz * 2) % 3].append(Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * r.randf_range(0.85, 1.1)), p))
+	for v in 3:
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = rice_mesh(1, v)
+		mm.instance_count = spots[v].size()
+		for k in spots[v].size():
+			mm.set_instance_transform(k, spots[v][k])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.material_override = kit_material()
+		add_child(mmi)
 	house_rects.append(Rect2(center.x - w / 2.0 - 0.3, center.z - d / 2.0 - 0.3, w + 0.6, d + 0.6))
 
 func spawn_rice(pile: Node3D) -> void:
@@ -959,19 +964,15 @@ func scene_setup(scene: String) -> void:
 			bird.position = table + Vector3(0, 0.5, 0)
 			bird.rotation.y = 0.6
 			world_node(bird)
-			var navy := Color(0.17, 0.2, 0.38)
-			add_blobs(bird, [
-				[Vector3(0, 0.1, 0), Vector3(0.26, 0.17, 0.34), navy],
-				[Vector3(0, 0.07, 0.03), Vector3(0.18, 0.11, 0.24), Color(0.97, 0.95, 0.9)],
-				[Vector3(0, 0.2, 0.15), Vector3(0.16, 0.15, 0.15), navy],
-				[Vector3(0, 0.18, 0.24), Vector3(0.05, 0.04, 0.07), Color(1, 0.6, 0.2)],
-				[Vector3(0.06, 0.22, 0.2), Vector3(0.035, 0.035, 0.035), Color(0.05, 0.05, 0.05)],
-				[Vector3(-0.06, 0.22, 0.2), Vector3(0.035, 0.035, 0.035), Color(0.05, 0.05, 0.05)],
-				[Vector3(0, 0.12, -0.24), Vector3(0.08, 0.03, 0.22), navy, Vector3(10, 18, 0)],
-				[Vector3(0, 0.12, -0.24), Vector3(0.08, 0.03, 0.22), navy, Vector3(10, -18, 0)],
-			], blob_gloss())
-			var wl := add_blobs(bird, [[Vector3(0.14, 0.14, -0.02), Vector3(0.08, 0.04, 0.26), navy.lightened(0.1), Vector3(0, 0, -25)]], blob_gloss())
-			var wr := add_blobs(bird, [[Vector3(-0.14, 0.14, -0.02), Vector3(0.08, 0.04, 0.26), navy.lightened(0.1), Vector3(0, 0, 25)]], blob_gloss())
+			kit_instance(bird, swallow_mesh(), Vector3(0, 0.1, 0)).scale = Vector3.ONE * 1.3
+			var wl := Node3D.new()
+			wl.position = Vector3(0.055, 0.16, 0.05)
+			bird.add_child(wl)
+			kit_instance(wl, swallow_wing_mesh(1.0)).scale = Vector3.ONE * 1.3
+			var wr := Node3D.new()
+			wr.position = Vector3(-0.055, 0.16, 0.05)
+			bird.add_child(wr)
+			kit_instance(wr, swallow_wing_mesh(-1.0)).scale = Vector3.ONE * 1.3
 			# 다친 다리 + 부목
 			add_beam(bird, make_color(Color(0.85, 0.55, 0.35)), Vector3(0.05, 0.03, 0.02), Vector3(0.12, -0.02, 0.1), 0.02, 0.02)
 			add_beam(bird, wood_mat, Vector3(0.07, 0.04, 0.0), Vector3(0.15, -0.01, 0.13), 0.035, 0.012)
@@ -989,21 +990,12 @@ func scene_setup(scene: String) -> void:
 			add_mbox(sandal, thatch_dark_mat, Vector3(0.7, 0.06, 0.5), Vector3(0, -0.04, 0))
 			var sole := Node3D.new()
 			sandal.add_child(sole)
-			add_blobs(sole, [[Vector3(0, 0, 0), Vector3(0.18, 0.04, 0.4), Color(0.9, 0.76, 0.46)], [Vector3(0, 0.04, -0.08), Vector3(0.14, 0.05, 0.16), Color(0.85, 0.7, 0.42)]], thatch_blob_mat)
+			kit_instance(sole, jipsin_mesh()).scale = Vector3(1.15, 1.15, 1.0)
 			w["sole"] = sole
 			var twist := Node3D.new()
 			twist.position = Vector3(0, 0.12, 0.25)
 			sandal.add_child(twist)
-			for k in 6:
-				var tor := MeshInstance3D.new()
-				var tm := TorusMesh.new()
-				tm.inner_radius = 0.025
-				tm.outer_radius = 0.05
-				tor.mesh = tm
-				tor.material_override = thatch_dark_mat
-				tor.position = Vector3(0, 0, -k * 0.05)
-				tor.rotation.x = PI / 2.0 + k * 0.4
-				twist.add_child(tor)
+			kit_instance(twist, straw_rope_mesh(0.3))
 			w["twist"] = twist
 		"ong":
 			var jar := Vector3(29, 0, -10)
