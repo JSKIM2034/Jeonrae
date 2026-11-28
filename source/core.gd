@@ -5248,6 +5248,240 @@ func smooth_rings(ctrl: Array, per: int, axis_z: bool) -> Array:
 	out.append([Vector3(0, last[1], last[0]) if axis_z else Vector3(0, last[0], last[1]), last[2], last[3]])
 	return out
 
+# 구렁이: 등뼈 점들을 따라 단면 고리를 이어 한 덩어리 몸으로. 납작하고 넓적한 머리, 가는 목, 통통한 몸통,
+# 끝으로 가늘어지는 꼬리. 등은 누런 올리브색에 검은 가로띠, 배는 크림빛 비늘판. 눈과 날름거리는 혀
+const SNAKE_RINGS := 30
+const SNAKE_LEN := 1.25
+const SNAKE_R := 1.45   # 굵기 배율
+func snake_radius(t: float) -> float:
+	# t: 0 주둥이 끝 → 1 꼬리 끝
+	if t < 0.025:
+		return lerpf(0.006, 0.03, sqrt(t / 0.025))
+	if t < 0.07:
+		return lerpf(0.03, 0.046, (t - 0.02) / 0.05)    # 넓적한 머리
+	if t < 0.1:
+		return lerpf(0.046, 0.032, (t - 0.07) / 0.03)    # 목
+	if t < 0.35:
+		return lerpf(0.032, 0.05, (t - 0.1) / 0.25)
+	if t < 0.6:
+		return 0.05
+	return lerpf(0.05, 0.004, pow((t - 0.6) / 0.4, 1.3))
+
+func snake_mesh(spine: Array, sd: float) -> ArrayMesh:
+	var st := MeshKit.begin()
+	var n := spine.size()
+	var olive := Color(0.5, 0.46, 0.24)
+	var olive_lt := Color(0.66, 0.6, 0.32)
+	var band := Color(0.16, 0.14, 0.08)
+	var belly := Color(0.9, 0.84, 0.6)
+	var head_c := Color(0.42, 0.38, 0.2)
+	var rings := []
+	var us := []
+	var vs := []
+	var prev_side := Vector3(1, 0, 0)
+	for i in n:
+		var p: Vector3 = spine[i]
+		var fwd: Vector3 = ((spine[maxi(i - 1, 0)] as Vector3) - (spine[mini(i + 1, n - 1)] as Vector3))
+		fwd = fwd.normalized() if fwd.length() > 0.0001 else Vector3(0, 0, 1)
+		var side := fwd.cross(Vector3.UP)
+		if side.length() < 0.2:
+			side = prev_side   # 기둥을 오를 때(위를 볼 때)
+		side = side.normalized()
+		if side.dot(prev_side) < 0.0 and i > 0:
+			side = -side
+		prev_side = side
+		var up := side.cross(fwd).normalized()
+		if up.y < 0.0 and absf(fwd.y) < 0.7:
+			up = -up
+			side = -side
+		var t := float(i) / float(n - 1)
+		var r := snake_radius(t) * SNAKE_R
+		var flat := 0.72 if t < 0.08 else 0.86   # 머리는 더 납작, 몸도 배가 조금 납작
+		rings.append([p, r, r * flat])
+		us.append(side)
+		vs.append(up)
+	# 고리마다 방향이 달라서 kit_loft 대신 여기서 직접 이어요
+	var seg := 12
+	var pts := []
+	var cols := []
+	for i in n:
+		var t := float(i) / float(n - 1)
+		var d := t * SNAKE_LEN
+		var row := []
+		var crow := []
+		for k in seg + 1:
+			var a := TAU * k / seg
+			var c: Vector3 = rings[i][0]
+			var off: Vector3 = (us[i] as Vector3) * cos(a) * float(rings[i][1]) + (vs[i] as Vector3) * sin(a) * float(rings[i][2])
+			# 배는 납작하게
+			if sin(a) < -0.3:
+				off -= (vs[i] as Vector3) * (sin(a) + 0.3) * float(rings[i][2]) * 0.35
+			row.append(c + off)
+			var upv := sin(a)
+			var col: Color
+			if upv < -0.5:
+				# 배 비늘판: 가로로 한 칸씩 살짝 진하게
+				col = belly if (i % 2 == 0) else belly.darkened(0.08)
+			elif t < 0.09:
+				# 머리: 위는 짙고 입술 쪽은 밝게
+				col = head_c if upv > -0.1 else olive_lt.lerp(belly, 0.5)
+				if t > 0.055 and upv > 0.2:
+					col = head_c.darkened(0.25)   # 뒤통수 무늬
+			else:
+				var bandv := sin(d * 34.0 + sd)
+				var dorsal := olive.lerp(olive_lt, clampf(-upv * 1.2 + 0.2, 0.0, 1.0))
+				col = band if (bandv > 0.62 and upv > -0.35) else dorsal
+				# 비늘 결: 촘촘한 마름모 음영
+				if sin(d * 160.0 + a * 6.0) > 0.7:
+					col = col.darkened(0.12)
+			crow.append(col)
+		pts.append(row)
+		cols.append(crow)
+	for i in n - 1:
+		for k in seg:
+			MeshKit.quad(st, pts[i][k], pts[i + 1][k], pts[i + 1][k + 1], pts[i][k + 1], cols[i][k], cols[i + 1][k], cols[i + 1][k + 1], cols[i][k + 1])
+	# 주둥이 끝 막기
+	for k in seg:
+		MeshKit.tri(st, rings[0][0], pts[0][k + 1], pts[0][k], cols[0][k], cols[0][k], cols[0][k])
+	# 눈: 머리 양옆 위쪽, 노란 눈에 세로 동공
+	var hi := 2
+	var hc: Vector3 = rings[hi][0]
+	var hu: Vector3 = us[hi]
+	var hv: Vector3 = vs[hi]
+	var hf: Vector3 = ((spine[0] as Vector3) - (spine[4] as Vector3)).normalized()
+	for sx in [-1.0, 1.0]:
+		var ep: Vector3 = hc + hu * sx * float(rings[hi][1]) * 0.82 + hv * float(rings[hi][2]) * 0.45
+		var eb := Basis(hu, hv, hf)
+		MeshKit.ball(st, ep, Vector3(0.0135, 0.0135, 0.0135), Color(0.85, 0.7, 0.2), 8, 6, eb)
+		MeshKit.ball(st, ep + hu * sx * 0.011, Vector3(0.006, 0.013, 0.006), Color(0.05, 0.04, 0.03), 6, 4, eb)
+		MeshKit.ball(st, ep + hu * sx * 0.014 + hv * 0.006, Vector3(0.003, 0.003, 0.003), Color(1, 1, 1), 4, 3)
+	# 날름거리는 갈라진 혀
+	var flick := sin(anim_t * 14.0 + sd)
+	if flick > 0.2:
+		var tip0: Vector3 = (spine[0] as Vector3) - hv * 0.006
+		var tl := 0.07 * (flick - 0.2) / 0.8
+		var mid: Vector3 = tip0 + hf * tl
+		var tongue := Color(0.75, 0.12, 0.15)
+		MeshKit.tube(st, tip0, mid, 0.003, 0.0025, tongue, 4)
+		for sx in [-1.0, 1.0]:
+			MeshKit.tube(st, mid, mid + hf * 0.018 + hu * sx * 0.01, 0.0025, 0.001, tongue, 4)
+	return MeshKit.finish(st)
+
+# 밥풀: 찰기 있는 쌀알 여러 톨이 서로 붙은 작은 덩이. 쌀알 하나하나가 길쭉한 낟알 모양(한쪽에 씨눈 자국)
+# 반들반들 반투명한 흰빛. variant 마다 붙은 모양이 달라요
+func rice_clump_mesh(variant: int) -> ArrayMesh:
+	var key := "rice_clump%d" % variant
+	if prop_mesh_cache.has(key):
+		return prop_mesh_cache[key]
+	var st := MeshKit.begin()
+	var r := RandomNumberGenerator.new()
+	r.seed = 77 + variant * 13
+	# 낟알들이 비슷한 방향으로 나란히 기대어 붙은 작은 덩이 (두 층)
+	var main_dir := Vector3(r.randf_range(-1, 1), r.randf_range(-0.4, 0.4), r.randf_range(-1, 1)).normalized()
+	var across := main_dir.cross(Vector3.UP).normalized()
+	var count := 5 + variant % 3
+	for g in count:
+		var row := g % 3
+		var layer := g / 3
+		var c := across * (float(row) - 1.0) * 0.027 + Vector3.UP * float(layer) * 0.022 \
+			+ main_dir * r.randf_range(-0.02, 0.02) + across * float(layer) * 0.013
+		var dir := main_dir.rotated(Vector3.UP, r.randf_range(-0.6, 0.6)).rotated(across, r.randf_range(-0.35, 0.35)).normalized()
+		var side := dir.cross(Vector3.UP).normalized()
+		var up := side.cross(dir).normalized()
+		# 낟알마다 길이 축으로 조금씩 돌려서 납작한 면이 제각각
+		var roll := r.randf_range(-0.8, 0.8)
+		var side2 := side.rotated(dir, roll)
+		var up2 := up.rotated(dir, roll)
+		rice_grain(st, c, dir, side2, up2, r.randf_range(0.92, 1.08), r.randf())
+	var m := MeshKit.finish(st)
+	prop_mesh_cache[key] = m
+	return m
+
+func rice_grain(st: SurfaceTool, c: Vector3, dir: Vector3, side: Vector3, up: Vector3, size: float, shade: float) -> void:
+	var L := 0.064 * size      # 낟알 길이 (짧고 통통한 멥쌀 밥알)
+	var W := 0.027 * size
+	var H := 0.022 * size
+	var white := Color(0.93, 0.92, 0.88).lerp(Color(0.88, 0.87, 0.8), shade * 0.6)
+	var glow := Color(1.0, 1.0, 0.98)
+	var rings := []
+	var nr := 15
+	for i in nr:
+		var t := float(i) / float(nr - 1)
+		# 끝은 둥글고 가운데가 통통한 낟알
+		# 끝이 뭉툭하게 둥근 통통한 낟알 (초타원 단면 윤곽)
+		var e := absf(2.0 * t - 1.0)
+		var prof := pow(maxf(1.0 - pow(e, 2.6), 0.0), 0.42)
+		prof = maxf(prof, 0.12)
+		# 살짝 휜 낟알
+		rings.append([c + dir * (t - 0.5) * L + up * sin(PI * t) * L * 0.06, W * 0.5 * prof, H * 0.5 * prof])
+	var colf := func(t: float, a: float) -> Color:
+		# 가장자리는 살짝 어둡고 투명한 듯, 등은 반들반들 밝게
+		var col := white.lerp(glow, clampf(sin(a) * 0.7, 0.0, 1.0)).darkened(0.16 * (1.0 - absf(sin(a))))
+		# 끝은 조금 더 투명한 회백색
+		if t < 0.1 or t > 0.9:
+			col = col.lerp(Color(0.84, 0.85, 0.82), 0.4)
+		# 씨눈 자국: 한쪽 끝 옆에 살짝 오목한 크림색
+		if t > 0.1 and t < 0.24 and cos(a) > 0.55:
+			col = Color(0.9, 0.87, 0.76)
+		# 길이 방향 옅은 골
+		if absf(cos(a)) < 0.12:
+			col = col.darkened(0.05)
+		return col
+	var radf := func(t: float, a: float) -> float:
+		var m := 1.0
+		if t > 0.1 and t < 0.24 and cos(a) > 0.55:
+			m = 0.86   # 씨눈 자리 오목
+		return m
+	kit_loft(st, rings, side, up, 14, colf, radf)
+
+# 밥주걱: 넓적한 타원 머리가 살짝 오목하고 손잡이로 가늘어지는 나무 주걱 (나뭇결 무늬, 밥풀 몇 톨 묻음)
+func paddle_mesh() -> ArrayMesh:
+	if prop_mesh_cache.has("paddle"):
+		return prop_mesh_cache["paddle"]
+	var st := MeshKit.begin()
+	# [y, 가운데 z, 가로 반지름, 두께 반지름]
+	var ctrl := [
+		[0.2, 0.0, 0.01, 0.006],
+		[0.18, 0.004, 0.085, 0.012],
+		[0.12, 0.008, 0.11, 0.014],
+		[0.04, 0.006, 0.105, 0.015],
+		[-0.03, 0.002, 0.07, 0.015],
+		[-0.07, 0.0, 0.035, 0.016],
+		[-0.12, 0.0, 0.026, 0.017],
+		[-0.38, 0.0, 0.024, 0.018],
+		[-0.41, 0.0, 0.02, 0.016],
+		[-0.42, 0.0, 0.004, 0.004],
+	]
+	var rings := smooth_rings(ctrl, 4, false)
+	var wood := Color(0.82, 0.63, 0.38)
+	var grain := Color(0.66, 0.46, 0.25)
+	var colf := func(t: float, a: float) -> Color:
+		var y := lerpf(0.2, -0.42, t)
+		var gx := cos(a)
+		var col := wood.lerp(wood.lightened(0.12), clampf(sin(a), 0.0, 1.0))
+		if sin(y * 70.0 + gx * 9.0 + sin(y * 15.0) * 2.0) > 0.75:
+			col = grain
+		if y < -0.36:
+			col = col.darkened(0.15)   # 손때 묻은 손잡이 끝
+		return col
+	# 앞면이 살짝 오목하게 (가운데를 조금 들여요)
+	var radf := func(t: float, a: float) -> float:
+		if t < 0.45 and sin(a) > 0.5:
+			return 0.55
+		return 1.0
+	kit_loft(st, rings, Vector3(1, 0, 0), Vector3(0, 0, 1), 16, colf, radf)
+	# 머리에 붙은 밥풀 몇 톨
+	var r := RandomNumberGenerator.new()
+	r.seed = 9
+	for g in 4:
+		var c := Vector3(r.randf_range(-0.06, 0.06), r.randf_range(0.03, 0.15), 0.014)
+		var dir := Vector3(r.randf_range(-1, 1), r.randf_range(-1, 1), 0.2).normalized()
+		var side := dir.cross(Vector3(0, 0, 1)).normalized()
+		rice_grain(st, c, dir, side, side.cross(dir).normalized(), 0.8, r.randf())
+	var m := MeshKit.finish(st)
+	prop_mesh_cache["paddle"] = m
+	return m
+
 # 참새(멧참새): 머리와 몸이 한 덩어리로 이어진 통통한 몸. 밤색 정수리, 흰 뺨의 검은 점, 검은 턱,
 # 줄무늬 진 갈색 등, 잿빛 흰 배. 앞(+z)을 봐요. 몸 한가운데가 (0,0,0)
 func sparrow_mesh() -> ArrayMesh:
@@ -6762,14 +6996,13 @@ func scene_make_target(at: Vector3) -> Node3D:
 	world_node(n)
 	match w["scene"]:
 		"snake":
-			var segs := []
-			for k in 7:
-				var seg := add_ball(n, Color(0.42, 0.58, 0.26).lerp(Color(0.55, 0.7, 0.3), k / 6.0), 0.1 - k * 0.008, Vector3.ZERO)
-				segs.append(seg)
-			add_ball(segs[0], Color(0.1, 0.08, 0.05), 0.022, Vector3(0.05, 0.05, 0.07))
-			add_ball(segs[0], Color(0.1, 0.08, 0.05), 0.022, Vector3(-0.05, 0.05, 0.07))
-			n.set_meta("segs", segs)
+			# 한 줄로 이어진 매끈한 몸 (매 프레임 등뼈를 따라 다시 지어요)
+			var body := MeshInstance3D.new()
+			body.material_override = kit_material()
+			n.add_child(body)
+			n.set_meta("body", body)
 			n.set_meta("from", at)
+			n.set_meta("seed", rng.randf() * TAU)
 		"kim":
 			add_mbox(n, make_color(Color(0.86, 0.66, 0.4)), Vector3(0.14, 0.75, 0.14), Vector3(0, 0.05, 0))
 			add_mbox(n, dark_wood_mat, Vector3(0.2, 0.08, 0.2), Vector3(0, 0.43, 0))
@@ -6850,13 +7083,25 @@ func scene_target_tip(n: Node3D, age: float, life: float) -> Vector3:
 				head = from.lerp(base, t / 0.65)
 			else:
 				head = base.lerp(Vector3(-15.05, 1.85, 0.35), (t - 0.65) / 0.35)
-			var segs: Array = n.get_meta("segs")
-			var dir := (head - (n.get_meta("prev", head) as Vector3))
-			n.set_meta("prev", head)
-			for k in segs.size():
-				var back := (from - head).normalized() if t < 0.65 else Vector3(0, -1, 0)
-				var side := back.cross(Vector3.UP).normalized() if t < 0.65 else Vector3(1, 0, 0)
-				(segs[k] as Node3D).global_position = head + back * k * 0.12 + side * sin(anim_t * 10.0 - k * 0.9) * 0.06
+			var ground_back := (from - base) * Vector3(1, 0, 1)
+			ground_back = ground_back.normalized() if ground_back.length() > 0.01 else Vector3(0, 0, 1)
+			var climbed := maxf(head.y - base.y, 0.0)
+			var gside := ground_back.cross(Vector3.UP).normalized()
+			var sd: float = n.get_meta("seed", 0.0)
+			# 등뼈: 주둥이 끝에서 꼬리 끝까지 0.9m. 땅에선 S자로 꿈틀, 기둥을 오를 땐 위는 기둥을 따라 곧게
+			var spine := []
+			for i in SNAKE_RINGS:
+				var d := SNAKE_LEN * float(i) / float(SNAKE_RINGS - 1)
+				var p: Vector3
+				var wig := sin(anim_t * 9.0 + sd - d * 9.0) * 0.09 * clampf(d / 0.2, 0.0, 1.0)
+				if d < climbed:
+					p = Vector3(head.x, head.y - d, head.z) + Vector3(1, 0, 0) * wig * 0.35
+				else:
+					var g := d - climbed
+					var start := head if climbed <= 0.0 else base
+					p = start + ground_back * g + gside * wig
+				spine.append(p - n.global_position + Vector3(0, 0.06, 0))
+			n.get_meta("body").mesh = snake_mesh(spine, sd)
 			return head + Vector3(0, 0.1, 0)
 		"kim":
 			n.position = from + Vector3(0, -t * 0.35, 0)
@@ -7089,9 +7334,15 @@ func is_catch_scene(scene: String) -> bool:
 
 # 떨어지는 물건 모양 (장마다 바꿀 수 있어요)
 func catch_item_node(bad: bool) -> Node3D:
+	var n := Node3D.new()
+	world_node(n)
 	if bad:
-		return blob_node([[Vector3.ZERO, Vector3(0.22, 0.34, 0.06), Color(0.85, 0.66, 0.4)], [Vector3(0, -0.3, 0), Vector3(0.07, 0.36, 0.05), Color(0.7, 0.5, 0.3)]])
-	return blob_node([[Vector3.ZERO, Vector3(0.2, 0.17, 0.2), Color(1, 1, 0.97)], [Vector3(0.06, 0.06, 0.03), Vector3(0.1, 0.08, 0.1), Color(1, 1, 1)]])
+		kit_instance(n, paddle_mesh(), Vector3(0, 0.08, 0)).scale = Vector3.ONE * 1.25
+	else:
+		var mi := kit_instance(n, rice_clump_mesh(rng.randi() % 4))
+		mi.scale = Vector3.ONE * 2.3
+		mi.rotation = Vector3(rng.randf() * TAU, rng.randf() * TAU, 0)
+	return n
 
 func catch_scene_update() -> void:
 	var h := mg_overlay.size.y
