@@ -2143,7 +2143,7 @@ func snake_done(ok: bool, _good: bool) -> void:
 
 # 제비 치료
 func start_heal() -> void:
-	start_game("circle", {"world": true, "scene": "heal", "art": "world", "trail": Color(1, 1, 1), "title": tr("다친 제비 다리에 부목을 대고\n둘레를 천천히 돌며 실을 감아요"), "label": tr("제비"), "turns": 6.0, "max_speed": 11.0, "warn": tr("너무 빨라요! 제비가 아파해요"), "color": Color(0.2, 0.22, 0.35)}, heal_done)
+	start_game("circle", {"world": true, "scene": "heal", "art": "world", "trail": Color(1, 1, 1), "title": tr("다친 제비 다리에 부목을 대고\n둘레를 천천히 돌며 실을 감아요"), "label": tr("제비"), "turns": 4.0, "max_speed": 11.0, "warn": tr("너무 빨라요! 제비가 아파해요"), "color": Color(0.2, 0.22, 0.35), "rounds": [{"turns": 4.0, "max_speed": 9.0, "round_text": tr("부목을 댔어요! 이번엔 더 살살, 실을 단단히 감아요"), "title": tr("실을 단단히 감아요\n더 천천히, 살살 돌려요")}]}, heal_done)
 
 func heal_done(ok: bool, good: bool) -> void:
 	if not ok:

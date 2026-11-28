@@ -1827,7 +1827,7 @@ func after_door() -> void:
 	set_quest(S_TREE)
 
 func start_climb() -> void:
-	start_game("alternate", {"world": true, "scene": "climb", "art": "world", "title": tr("오누이가 나무에 올라요! 가지 있는 쪽을 눌러요\n나무가 흔들리면 꾹 누르고 버텨요"), "goal": 12, "step_time": 1.5, "shake_every": 4.5, "unit": tr("가지")}, climb_done)
+	start_game("alternate", {"world": true, "scene": "climb", "art": "world", "title": tr("오누이가 나무에 올라요! 가지 있는 쪽을 눌러요\n나무가 흔들리면 꾹 누르고 버텨요"), "goal": 9, "step_time": 1.5, "shake_every": 4.5, "unit": tr("가지"), "rounds": [{"goal": 9, "step_time": 1.3, "shake_every": 3.2, "round_text": tr("반쯤 올랐어요! 호랑이가 나무를 흔들기 시작해요"), "title": tr("호랑이가 나무를 흔들어요!\n흔들리면 꾹 누르고 버텨요")}]}, climb_done)
 
 func climb_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -1887,7 +1887,7 @@ func make_sky_rope() -> void:
 	tw.tween_property(sky_rope, "position:y", height_at(tree_pos.x, tree_pos.z), 2.0).set_ease(Tween.EASE_OUT)
 
 func start_rope() -> void:
-	start_game("mash", {"world": true, "scene": "rope", "art": "world", "title": tr("동아줄을 영차영차 당겨요! 빠르게 연타\n줄이 기울면 반대쪽을 눌러 균형을 잡아요"), "goal": 10, "balance": true, "per": 3, "sway": 0.9, "unit": tr("당기기")}, rope_done)
+	start_game("mash", {"world": true, "scene": "rope", "art": "world", "title": tr("동아줄을 영차영차 당겨요! 빠르게 연타\n줄이 기울면 반대쪽을 눌러 균형을 잡아요"), "goal": 8, "balance": true, "per": 3, "sway": 0.9, "unit": tr("당기기"), "rounds": [{"goal": 9, "sway": 1.25, "round_text": tr("구름 가까이 올라왔어요! 바람에 줄이 크게 흔들려요"), "title": tr("바람이 세요! 줄이 크게 흔들려요\n기울면 반대쪽을 눌러 버텨요")}]}, rope_done)
 
 func rope_done(ok: bool, _good: bool) -> void:
 	if not ok:
@@ -2298,8 +2298,8 @@ func scene_update(delta: float) -> void:
 	super(delta)
 	if not w.has("scene"):
 		return
-	var goal := float(mg_cfg.get("goal", 10))
-	var prog := clampf(float(mg_count) / goal, 0.0, 1.0)
+	# 단계가 바뀌어도 오르던 높이에서 이어서 (여러 단계를 통틀은 진행)
+	var prog := overall_progress()
 	match w["scene"]:
 		"climb":
 			# 오누이가 줄기를 껴안고 가지를 잡을 때마다 한 뼘씩 위로 (팔다리를 번갈아 뻗어요)

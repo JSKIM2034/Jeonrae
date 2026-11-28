@@ -38,6 +38,7 @@ func run() -> void:
 	check(m.mg_title.text.contains("T2") and m.mg_title.text.begins_with("[2/3]"), "round 2 title")
 	check(m.mg_lives == 2 and not m.mg_perfect, "lives and perfect carry over")
 	check(m.mg_hold > 1.0, "short pause before round 2")
+	check(is_equal_approx(m.overall_progress(), 1.0 / 3.0), "overall progress continues from round 1 (%f)" % m.overall_progress())
 	var c0: int = m.mg_count
 	var ev := InputEventScreenTouch.new()
 	ev.pressed = true

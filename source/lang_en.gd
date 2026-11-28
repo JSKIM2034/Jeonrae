@@ -1409,4 +1409,12 @@ const EN := {
 	"%d단계 성공!": "Round %d clear!",
 	"다음 단계!": "Next round!",
 	"[%d/%d] %s": "[%d/%d] %s",
+	"반쯤 올랐어요! 호랑이가 나무를 흔들기 시작해요": "Halfway up! The tiger starts shaking the tree",
+	"호랑이가 나무를 흔들어요!\n흔들리면 꾹 누르고 버텨요": "The tiger is shaking the tree!\nHold on tight when it shakes",
+	"구름 가까이 올라왔어요! 바람에 줄이 크게 흔들려요": "Up near the clouds! The wind swings the rope hard",
+	"바람이 세요! 줄이 크게 흔들려요\n기울면 반대쪽을 눌러 버텨요": "Strong wind! The rope swings wide\nPress the other side when it tilts",
+	"부목을 댔어요! 이번엔 더 살살, 실을 단단히 감아요": "The splint is on! Now wind the thread snugly, even gentler",
+	"실을 단단히 감아요\n더 천천히, 살살 돌려요": "Wind the thread snugly\nGo slower and gentler",
+	"해녀: 저 깊은 바위틈에도 큰 게 셋이나 있어! 숨 잘 쉬고 다녀와!": "Diver: There are three big ones in the deep rock cracks too! Mind your breath!",
+	"처음인데 깊은 바위틈까지 아홉 개나? 너 해녀 해도 되겠다! 자, 수고비다.": "Nine on your first try, even from the deep cracks? You could be a diver! Here's your pay.",
 }

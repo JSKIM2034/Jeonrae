@@ -2321,7 +2321,9 @@ func scene_pose() -> bool:
 	return super()
 
 # ---------- 해녀 물질 (숨 참고 전복·소라 줍기) ----------
-const MULJI_PTS := [Vector3(19.5, 0, -10), Vector3(24, 0, -12.5), Vector3(28, 0, -15), Vector3(21, 0, -17.5), Vector3(25.5, 0, -20), Vector3(29, 0, -22.5)]
+const MULJI_PTS := [Vector3(19.5, 0, -10), Vector3(24, 0, -12.5), Vector3(28, 0, -15), Vector3(21, 0, -17.5), Vector3(25.5, 0, -20), Vector3(29, 0, -22.5),
+	Vector3(15.5, 0, -24.4), Vector3(33.5, 0, -23.8), Vector3(24.5, 0, -25.2)]
+const MULJI_FIRST := 6   # 처음 여섯 개를 주우면 깊은 바위틈의 세 개가 나타나요 (2026-11-28 미니게임 늘리기)
 var dive_on := false
 var mulji_done := false
 var breath := 1.0
@@ -2393,8 +2395,9 @@ func start_mulji() -> void:
 	dive_on = true
 	breath = 1.0
 	sea_wall.set_deferred("disabled", true)
-	for it in mulji_items:
-		(it[0] as Node3D).visible = not bool(it[1])
+	for k in mulji_items.size():
+		var it: Array = mulji_items[k]
+		(it[0] as Node3D).visible = not bool(it[1]) and (k < MULJI_FIRST or mulji_got >= MULJI_FIRST)
 	if breath_box == null:
 		make_breath_hud()
 	float_text(tr("바다로 들어가 반짝이는 전복·소라를 주워요!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.4), Color(0.8, 0.95, 1.0), 2.2)
@@ -2434,6 +2437,8 @@ func update_mulji(delta: float) -> void:
 		if bool(it[1]):
 			continue
 		var n: Node3D = it[0]
+		if not n.visible:
+			continue
 		n.rotation.y += delta * 0.6
 		if n.position.distance_to(p + Vector3(0, 0.5, 0)) < 1.5:
 			it[1] = true
@@ -2448,6 +2453,14 @@ func update_mulji(delta: float) -> void:
 			float_text("%s! (%d/%d)" % [tr("전복") if mulji_items.find(it) % 2 == 0 else tr("소라"), mulji_got, mulji_items.size()], cam.unproject_position(n.position), Color(0.85, 1.0, 1.0), 1.0)
 			if mulji_got >= mulji_items.size():
 				end_mulji()
+			elif mulji_got == MULJI_FIRST:
+				# 깊은 바위틈 세 곳이 반짝여요
+				for k in range(MULJI_FIRST, mulji_items.size()):
+					var dn: Node3D = mulji_items[k][0]
+					dn.visible = true
+					dn.scale = Vector3.ONE * 1.25
+					burst3d(dn.position + Vector3(0, 0.4, 0), Color(0.8, 0.95, 1.0), 10)
+				float_text(tr("해녀: 저 깊은 바위틈에도 큰 게 셋이나 있어! 숨 잘 쉬고 다녀와!"), get_viewport().get_visible_rect().size * Vector2(0.5, 0.36), Color(1, 0.95, 0.75), 2.6)
 			return
 
 func end_mulji() -> void:
@@ -2457,7 +2470,7 @@ func end_mulji() -> void:
 	earn(20)
 	say([
 		[tr("해녀"), tr("(물 위로 고개를 내밀며) 호오이~ 숨비소리 한 번 시원하구나!")],
-		[tr("해녀"), tr("처음인데 여섯 개나? 너 해녀 해도 되겠다! 자, 수고비다.")],
+		[tr("해녀"), tr("처음인데 깊은 바위틈까지 아홉 개나? 너 해녀 해도 되겠다! 자, 수고비다.")],
 	], func():
 		player.position = on_ground(HAENYEO_POS.x - 1.5, HAENYEO_POS.z - 1.0, 0.3)
 		player.velocity = Vector3.ZERO
